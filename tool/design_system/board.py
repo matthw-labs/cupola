@@ -6,8 +6,8 @@ revision and the working tree, a row with the scene as the base draws it and
 as the tree draws it, side by side, its caption under them. New and removed
 scenes have their row too, with the empty side saying which.
 
-    python3 tool/design_system/board.py --base 1.0-experimental --auto
-    python3 tool/design_system/board.py --base 1.0-experimental --card TagChip \\
+    python3 tool/design_system/board.py --base dev --auto
+    python3 tool/design_system/board.py --base dev --card TagChip \\
         --scene 'selected' --theme dark --platform phone
 
 The cards come from --card, or with --auto from the diff: a card whose
