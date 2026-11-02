@@ -108,12 +108,12 @@ class _PoolDetailBody extends StatelessWidget {
             children: [
               TrueNasInfoRow(
                 label: 'Status',
-                value: pool.status,
+                value: pool.stateWord,
                 // Amber, not red: a DEGRADED pool is a fault the server is
                 // reporting, and red belongs to a server that reported nothing.
                 valueColor: statusToneColor(
                   theme.colorScheme,
-                  pool.healthy ? StatusTone.success : StatusTone.warning,
+                  pool.sound ? StatusTone.success : StatusTone.warning,
                 ),
               ),
               TrueNasInfoRow(
@@ -250,7 +250,7 @@ class _StatusDot extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          status,
+          zfsStateWord(status),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
         ),
       ],

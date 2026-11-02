@@ -91,6 +91,7 @@ cards live in [`../motion/`](../motion/).
 | Service surfaces | [ServiceRing](ServiceRing/README.md) | `lib/core/widgets/service_ring.dart` |
 | Service surfaces | [TrueNasShares](TrueNasShares/README.md) | `lib/features/truenas/presentation/shares/truenas_shares_screen.dart`, `lib/core/widgets/floating_bottom_nav_bar.dart` |
 | Service surfaces | [TrueNasCredentials](TrueNasCredentials/README.md) | `lib/features/truenas/presentation/system/truenas_credentials_screen.dart`, `lib/core/widgets/floating_bottom_nav_bar.dart` |
+| Service surfaces | [TrueNasStorage](TrueNasStorage/README.md) | `lib/features/truenas/presentation/storage/truenas_storage_screen.dart`, `lib/core/widgets/floating_bottom_nav_bar.dart` |
 | Onboarding | [SetupDoors](SetupDoors/README.md) | `lib/core/widgets/setup_doors.dart` |
 | Onboarding | [DemoMark](DemoMark/README.md) | `lib/demo/presentation/demo_mark.dart` |
 | Onboarding | [PairReceive](PairReceive/README.md) | `lib/features/pairing/presentation/pair_receive_screen.dart`, `lib/features/pairing/presentation/pair_words.dart` |

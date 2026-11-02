@@ -429,6 +429,19 @@ void main() {
     await _unmount(tester);
   });
 
+  testWidgets('a pool reads the lexicon\'s word, never ZFS\'s uppercase one', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const TrueNasStorageScreen(),
+      grant: const CapabilityGrant.readOnly(),
+    );
+    expect(find.text('Healthy'), findsOneWidget);
+    expect(find.text('ONLINE'), findsNothing);
+    await _unmount(tester);
+  });
+
   testWidgets('a key that may write SMB but not NFS still owes Shares a band', (
     tester,
   ) async {

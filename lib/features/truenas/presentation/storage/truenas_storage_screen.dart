@@ -73,7 +73,7 @@ class _PoolCard extends StatelessWidget {
     // answer at all. `colorScheme.error` here said "unreachable" about a server
     // that was talking to us.
     final warning = statusToneColor(colorScheme, StatusTone.warning);
-    final barColor = !pool.healthy || (used != null && used >= 0.9)
+    final barColor = !pool.sound || (used != null && used >= 0.9)
         ? warning
         // A healthy pool's usage is a reading, not a state: the brand book's usage bar, in
         // the secondary ink.
@@ -88,11 +88,9 @@ class _PoolCard extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  pool.healthy
-                      ? Icons.check_circle_rounded
-                      : Icons.error_rounded,
+                  pool.sound ? Icons.check_circle_rounded : Icons.error_rounded,
                   size: 16,
-                  color: pool.healthy
+                  color: pool.sound
                       ? statusToneColor(colorScheme, StatusTone.success)
                       : warning,
                 ),
@@ -104,7 +102,7 @@ class _PoolCard extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  pool.status,
+                  pool.stateWord,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colorScheme.onSurfaceVariant,
                   ),

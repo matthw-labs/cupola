@@ -326,6 +326,7 @@ class _MediaPageState extends ConsumerState<MediaPage> {
       namesSeerr: roleGate.namesService(ServiceKey.seerr),
       namesArr: roleGate.namesService(arr),
       arrName: arr.title,
+      arrTracks: _arrTracks(arr, rows),
     );
     // On the server by Seerr's word, with Seerr's link to it: watched there,
     // in the player Seerr is set up with.
@@ -351,6 +352,29 @@ class _MediaPageState extends ConsumerState<MediaPage> {
           ? null
           : (label: SeerrMediaServer.watchLabel(player), url: watchAt),
     );
+  }
+
+  /// Whether [arr] tracks the title, read from its own rows: true when any
+  /// copy holds it, false when every copy answered without it, null while one
+  /// has not answered.
+  bool? _arrTracks(ServiceKey arr, List<MediaRow> rows) {
+    var answered = false;
+    for (final row in rows) {
+      if (row is! MediaConnectionRow || row.service != arr) continue;
+      if (row.reading case MediaReadingAnswered(:final answer)) {
+        switch (answer.value) {
+          case MediaRadarrCopy(movie: _?) || MediaSonarrCopy(series: _?):
+            return true;
+          case MediaRadarrCopy() || MediaSonarrCopy():
+            answered = true;
+          default:
+            return null;
+        }
+      } else {
+        return null;
+      }
+    }
+    return answered ? false : null;
   }
 
   /// Opens Seerr's link to the title in its player.
@@ -393,8 +417,15 @@ class _MediaPageState extends ConsumerState<MediaPage> {
         onRequestComplete: () {
           if (!mounted) return;
           SnackBarHelper.success(context, 'Request submitted');
+          // Seerr passes an approved request on to the arr: its rows are
+          // read again too, so the line under Requested and the arr's row say
+          // the same thing.
           for (final row in rows) {
-            if (row.service == ServiceKey.seerr) {
+            if (row.service == ServiceKey.seerr ||
+                row.service ==
+                    (mediaKey.isMovie
+                        ? ServiceKey.radarr
+                        : ServiceKey.sonarr)) {
               retryMediaRow(ref, mediaKey, row);
             }
           }

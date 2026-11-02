@@ -16,14 +16,33 @@ import '../test_helpers/settings_scope.dart';
 /// The capability grant is keyed by it.
 const trueNasConnectionId = 'truenas';
 
-/// The small server the two TrueNAS section cards draw: the three share
-/// services, two SMB shares, an NFS export, a user and a group.
+/// The small server the TrueNAS section cards draw: two pools, one sound and
+/// one degraded, the three share services, two SMB shares, an NFS export, a
+/// user and a group.
 ///
 /// It is the capability screens' world reduced to what the sheets read: every
 /// method a section asks for while it draws, and nothing a write would reach.
 const trueNasWorld = <String, Object?>{
   'system.version': 'TrueNAS-SCALE-25.04.1',
   'system.info': {'hostname': 'nas', 'version': '25.04.1'},
+  'pool.query': [
+    {
+      'id': 1,
+      'name': 'tank',
+      'status': 'ONLINE',
+      'healthy': true,
+      'size': 47960000000000,
+      'allocated': 34300000000000,
+    },
+    {
+      'id': 2,
+      'name': 'backup',
+      'status': 'DEGRADED',
+      'healthy': false,
+      'size': 15990000000000,
+      'allocated': 6400000000000,
+    },
+  ],
   'sharing.smb.query': [
     {'id': 1, 'name': 'media', 'path': '/mnt/tank/media', 'enabled': true},
     {'id': 2, 'name': 'backups', 'path': '/mnt/tank/backups', 'enabled': false},

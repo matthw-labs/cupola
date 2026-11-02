@@ -211,4 +211,47 @@ void main() {
     expect(svc.enabled, isTrue);
     expect(svc.name, 'cifs');
   });
+
+  group('a pool\'s state, as the app says it', () {
+    TrueNasPool pool(String status, {bool healthy = true}) =>
+        TrueNasPool.fromJson({
+          'name': 'tank',
+          'status': status,
+          'healthy': healthy,
+        });
+
+    test('ONLINE with nothing counted is Healthy, never Online', () {
+      final tank = pool('ONLINE');
+      expect(tank.sound, isTrue);
+      expect(tank.stateWord, 'Healthy');
+    });
+
+    test('ONLINE with errors counted has errors, and is not sound', () {
+      final tank = pool('ONLINE', healthy: false);
+      expect(tank.sound, isFalse);
+      expect(tank.stateWord, 'Has errors');
+    });
+
+    test('every other ZFS state is a sentence-case word, and a fault', () {
+      for (final (status, word) in [
+        ('DEGRADED', 'Degraded'),
+        ('FAULTED', 'Faulted'),
+        ('OFFLINE', 'Not in service'),
+        ('UNAVAIL', 'Unavailable'),
+        ('REMOVED', 'Removed'),
+        ('SUSPENDED', 'Suspended'),
+        ('UNKNOWN', 'State unknown'),
+        ('RESILVERING', 'Resilvering'),
+      ]) {
+        final tank = pool(status, healthy: false);
+        expect(tank.stateWord, word, reason: status);
+        expect(tank.sound, isFalse, reason: status);
+      }
+    });
+
+    test('a disk or a vdev ONLINE reads Healthy too', () {
+      expect(zfsStateWord('ONLINE'), 'Healthy');
+      expect(zfsStateWord('online'), 'Healthy');
+    });
+  });
 }

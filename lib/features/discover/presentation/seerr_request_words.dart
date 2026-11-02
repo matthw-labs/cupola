@@ -34,11 +34,16 @@ class SeerrRequestWords {
 /// title already on disk, and a disabled button with no explanation is a
 /// dead end. [namesSeerr] and [namesArr] are whether the reader may read
 /// those names (the requester reads neither); [arrName] names the arr.
+/// [arrTracks] is the arr's own word on the title: whether it tracks it, or
+/// null until it has answered. Seerr's `Processing` says only that Seerr
+/// passed the request on, so what the arr holds is said from the arr, the
+/// same reading as its row under On your server.
 SeerrRequestWords seerrRequestWords(
   SeerrRequestGate gate, {
   required bool namesSeerr,
   required bool namesArr,
   required String arrName,
+  bool? arrTracks,
 }) {
   final missing = gate.missingSeasons;
   // Open for the 4K copy alone: the standard one is on disk or asked for
@@ -69,9 +74,11 @@ SeerrRequestWords seerrRequestWords(
     SeerrRequestState.onItsWay => SeerrRequestWords(
       label: 'Requested',
       icon: Icons.check_circle_outline_rounded,
-      reason: namesArr
-          ? '$arrName is already tracking this.'
-          : Lexicon.onItsWay,
+      reason: switch (arrTracks) {
+        true when namesArr => '$arrName is already tracking this.',
+        false when namesArr => '$arrName has not added it yet.',
+        _ => Lexicon.onItsWay,
+      },
     ),
     // Seerr takes no second request while this one stands.
     SeerrRequestState.failed => SeerrRequestWords(

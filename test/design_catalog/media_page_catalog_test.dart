@@ -12,6 +12,9 @@ import 'package:cupola/core/capability/role_gate_provider.dart';
 import 'package:cupola/features/discover/domain/seerr_grant.dart';
 import 'package:cupola/features/discover/domain/seerr_permission.dart';
 import 'package:cupola/core/capability/role_gate.dart';
+import 'package:cupola/features/discover/presentation/catalog_title_actions.dart';
+import 'package:cupola/features/media/domain/operator_adds_via.dart';
+import 'package:cupola/features/settings/data/operator_adds_via_provider.dart';
 import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/core/status/arr_queue_snapshot.dart';
 import 'package:cupola/core/title_light.dart';
@@ -479,6 +482,12 @@ List<MediaRow> _notHeld() => [
     ),
   const MediaNotSetUpRow(ServiceKey.seerr),
 ];
+
+/// The operator who asks Seerr first, as the app does by default.
+class _AddsViaSeerr extends OperatorAddsViaNotifier {
+  @override
+  OperatorAddsVia build() => OperatorAddsVia.seerr;
+}
 
 /// The add form as a Radarr answers it: two profiles, one folder, fourteen
 /// indexers.
@@ -1029,6 +1038,36 @@ void main() {
           const MediaReadingWaiting(),
         ),
       ], height: 760),
+      CatalogScene(
+        'Just requested · Seerr passed it on and no Radarr has it yet: the '
+        'line under Requested says what the Radarr rows say',
+        (_) => const MediaPage(mediaKey: _key),
+        width: 390,
+        height: 1500,
+        overrides: [
+          mediaRowsProvider.overrideWith(
+            (ref, key) => [
+              ..._notHeld().where((row) => row is! MediaNotSetUpRow),
+              ..._withSeerr(
+                mediaInfo: const {'id': 41, 'status': 3, 'requests': []},
+              ).whereType<MediaConnectionRow<MediaSeerrRecord>>(),
+            ],
+          ),
+          audienceProvider.overrideWithValue(Audience.operator),
+          operatorAddsViaProvider.overrideWith(_AddsViaSeerr.new),
+          seerrSendsToProvider.overrideWith((ref, arr) async => true),
+          roleGateProvider.overrideWith(
+            (ref, id) => const RoleGate(
+              audience: Audience.operator,
+              grant: SeerrGrant.apiKey(),
+            ),
+          ),
+          titleLightProvider.overrideWith((ref, url) async => _lights[url]),
+          mediaSeerrNumberingProvider.overrideWith((ref, id) async => null),
+          mediaCollectionHeldProvider.overrideWith((ref, c) async => null),
+          mediaRecommendationsProvider.overrideWith((ref, source) async => []),
+        ],
+      ),
       _scene(
         'With Seerr · TMDB names the title, and the collection it belongs '
         'to: 5 of 8 on your server',

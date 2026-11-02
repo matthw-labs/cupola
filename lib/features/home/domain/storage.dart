@@ -88,14 +88,13 @@ StoragePool storagePoolOfTrueNas(
   required String instanceId,
   required DateTime now,
 }) {
-  final status = pool.status.toUpperCase();
-  final healthy = pool.healthy && status == 'ONLINE';
+  final healthy = pool.sound;
   return StoragePool(
     service: ServiceKey.truenas,
     instanceId: instanceId,
     name: pool.name,
     healthy: healthy,
-    state: healthy ? 'Healthy' : _zfsState(status),
+    state: pool.stateWord,
     usedFraction: pool.usedFraction,
     usedBytes: pool.allocatedBytes,
     totalBytes: pool.sizeBytes,
@@ -134,20 +133,6 @@ StoragePool storagePoolOfUnraid(
     disks: [for (final disk in troubled) _unraidDisk(disk)],
   );
 }
-
-/// `Degraded`, `Faulted`: ZFS's state, as a word.
-String _zfsState(String status) => switch (status) {
-  'DEGRADED' => 'Degraded',
-  'FAULTED' => 'Faulted',
-  // Taken out of use on purpose: the pool is not in service.
-  'OFFLINE' => 'Not in service',
-  'UNAVAIL' => 'Unavailable',
-  'REMOVED' => 'Removed',
-  'SUSPENDED' => 'Suspended',
-  // Online, and ZFS still counts errors on it.
-  'ONLINE' => 'Has errors',
-  _ => _sentenceCase(status),
-};
 
 String _zfsDisk(TrueNasVdevMember disk) {
   final name = 'Disk ${disk.name}';

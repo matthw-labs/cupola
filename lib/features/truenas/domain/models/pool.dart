@@ -117,6 +117,13 @@ class TrueNasPool {
     this.scanSecondsLeft,
   });
 
+  /// Whether ZFS calls it sound: TrueNAS's health flag, and `ONLINE`.
+  bool get sound => healthy && status.toUpperCase() == 'ONLINE';
+
+  /// Its state as the app says it: `Healthy`, `Degraded`, `Has errors`.
+  /// Never ZFS's own `ONLINE`, which the lexicon bans as a state.
+  String get stateWord => zfsStateWord(status, errors: !healthy);
+
   /// Every disk of every vdev, in topology order.
   List<TrueNasVdevMember> get members => [
     for (final vdevs in topology.values)
@@ -204,3 +211,20 @@ class TrueNasPool {
     );
   }
 }
+
+/// ZFS's [status] of a pool, a vdev or a disk, as a word: `Healthy`,
+/// `Degraded`, `Faulted`. [errors] is whether ZFS still counts errors on
+/// something `ONLINE`, which then reads `Has errors`.
+String zfsStateWord(String status, {bool errors = false}) =>
+    switch (status.trim().toUpperCase()) {
+      'ONLINE' => errors ? 'Has errors' : 'Healthy',
+      'DEGRADED' => 'Degraded',
+      'FAULTED' => 'Faulted',
+      // Taken out of use on purpose.
+      'OFFLINE' => 'Not in service',
+      'UNAVAIL' => 'Unavailable',
+      'REMOVED' => 'Removed',
+      'SUSPENDED' => 'Suspended',
+      '' || 'UNKNOWN' => 'State unknown',
+      final other => other[0] + other.substring(1).toLowerCase(),
+    };

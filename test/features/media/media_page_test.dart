@@ -560,6 +560,41 @@ void main() {
     await harness.unmount(tester);
   });
 
+  testWidgets('just requested and passed on by Seerr, the line under Requested '
+      'says what Radarr says, as its row does', (tester) async {
+    // Seerr reads Processing the moment it sends an approved request on,
+    // whether or not Radarr took it: Radarr here holds no Metropolis.
+    final harness = await _pump(
+      tester,
+      Profiles.p1,
+      WorldTitles.metropolis,
+      overrides: [
+        mediaSeerrRecordProvider.overrideWith(
+          (ref, source) async => MediaAnswer(
+            MediaSeerrRecord(
+              details: {
+                'id': WorldTitles.metropolis.tmdbId,
+                'title': WorldTitles.metropolis.title,
+                'releaseDate': '${WorldTitles.metropolis.year}-01-10',
+                'overview': 'A movie just requested.',
+                'mediaInfo': {'status': 3},
+              },
+            ),
+            DateTime(2026, 10, 4),
+          ),
+        ),
+      ],
+    );
+
+    expect(find.widgetWithText(FilledButton, 'Requested'), findsOneWidget);
+    // Each Radarr, the 4K one too, answered without it.
+    expect(find.text('Not added yet'), findsWidgets);
+    expect(find.text('Radarr is already tracking this.'), findsNothing);
+    expect(find.text('Radarr has not added it yet.'), findsOneWidget);
+
+    await harness.unmount(tester);
+  });
+
   testWidgets('straight to the arr, Add leads and its sheet offers Request '
       'through Seerr instead', (tester) async {
     final harness = await _pump(
