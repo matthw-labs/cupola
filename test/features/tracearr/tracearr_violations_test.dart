@@ -514,6 +514,18 @@ void main() {
       await _answer(tester);
       expect(router.state.uri.queryParameters['user'], _personId);
       expect(find.byType(TracearrViolationsScreen), findsOneWidget);
+
+      // A notification of several names the Tracearr they came off.
+      router.go(ServiceRoutes.tracearrViolationsOn('tracearr'));
+      await _answer(tester);
+      expect(
+        tester
+            .widget<TracearrViolationsScreen>(
+              find.byType(TracearrViolationsScreen),
+            )
+            .instanceId,
+        'tracearr',
+      );
       await _close(tester, harness, container);
     });
 

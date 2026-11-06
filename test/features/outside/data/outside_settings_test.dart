@@ -6,7 +6,7 @@ import 'package:cupola/features/outside/data/outside_settings.dart';
 import 'package:cupola/features/outside/domain/outside_notices.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 
-/// The two switches, kept where the run with the app away reads them.
+/// The switches, kept where the run with the app away reads them.
 void main() {
   Future<(ProviderContainer, SharedPreferences)> world(
     Map<String, Object> stored,
@@ -51,4 +51,26 @@ void main() {
         .set(OutsideNoticeKind.needsYou, on: false);
     expect(prefs.getStringList(OutsideNoticeKinds.key), ['readyToWatch']);
   });
+
+  test(
+    'Flagged is kept by its name, and leaves the others as they were',
+    () async {
+      final (container, prefs) = await world({
+        OutsideNoticeKinds.key: ['needsYou'],
+      });
+      await container
+          .read(outsideNoticeKindsProvider.notifier)
+          .set(OutsideNoticeKind.flagged, on: true);
+      expect(prefs.getStringList(OutsideNoticeKinds.key), [
+        'needsYou',
+        'flagged',
+      ]);
+      final (again, _) = await world({
+        OutsideNoticeKinds.key: ['flagged'],
+      });
+      expect(again.read(outsideNoticeKindsProvider), {
+        OutsideNoticeKind.flagged,
+      });
+    },
+  );
 }

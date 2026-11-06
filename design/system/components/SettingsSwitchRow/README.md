@@ -33,7 +33,8 @@ it. The glyph is silenced. A row is one stop for a screen reader, not three.
 
 Each sheet is drawn in the dark and the light room.
 
-- On and off, in a group.
+- On and off, in a group: Notifications' three rows (*Needs you*, *Ready to watch*, *Flagged by Tracearr*, the last only
+  for an owner with a Tracearr set up).
 - With a note: a permission blocked, in amber, and granted, quiet.
 - Held by another setting, and busy while the OS asks.
 - At 200%.

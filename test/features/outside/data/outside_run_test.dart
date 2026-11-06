@@ -130,7 +130,7 @@ void main() {
         sourceReads++;
         return (decisions: faults, coverage: SourceCoverage.none);
       }),
-      dashboardDecisionsProvider.overrideWithValue((
+      dashboardFaultDecisionsProvider.overrideWithValue((
         decisions: faults,
         coverage: SourceCoverage.answeredBy(ServiceKey.qbittorrent),
       )),

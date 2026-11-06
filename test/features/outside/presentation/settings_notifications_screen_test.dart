@@ -86,6 +86,99 @@ void main() {
     expect(find.text('Needs you'), findsOneWidget);
   });
 
+  group('Flagged by Tracearr', () {
+    const withTracearr = [
+      ServiceKey.seerr,
+      ServiceKey.radarr,
+      ServiceKey.tracearr,
+    ];
+
+    testWidgets('is a third switch, off, once Tracearr is set up', (
+      tester,
+    ) async {
+      final container = await pumpScreen(tester, configured: withTracearr);
+      expect(find.text('Flagged by Tracearr'), findsOneWidget);
+      expect(
+        find.text('When someone breaks a rule Tracearr watches.'),
+        findsOneWidget,
+      );
+      expect(
+        tester.widgetList<Switch>(find.byType(Switch)).map((s) => s.value),
+        [false, false, false],
+      );
+      expect(container.read(outsideNoticeKindsProvider), isEmpty);
+    });
+
+    testWidgets('says why a violation can wait, beside the honest line', (
+      tester,
+    ) async {
+      await pumpScreen(tester, configured: withTracearr);
+      expect(
+        find.text(
+          'Cupola checks in the background when iOS allows it, which can be '
+          'hours apart. A service that is only out of reach never sends one. '
+          'Tracearr watches around the clock, but Cupola reads what it '
+          'flagged only when the phone wakes it.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('is not there without Tracearr, nor the sentence', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+      expect(find.text('Flagged by Tracearr'), findsNothing);
+      expect(find.textContaining('Tracearr'), findsNothing);
+    });
+
+    testWidgets('a requester never sees it', (tester) async {
+      await pumpScreen(
+        tester,
+        audience: Audience.requester,
+        configured: withTracearr,
+      );
+      expect(find.text('Flagged by Tracearr'), findsNothing);
+      expect(find.textContaining('Tracearr'), findsNothing);
+    });
+
+    testWidgets('turned on, it asks the OS and is kept', (tester) async {
+      final container = await pumpScreen(tester, configured: withTracearr);
+      await tester.tap(find.byType(Switch).last);
+      await tester.pumpAndSettle();
+      expect(container.read(outsideNoticeKindsProvider), {
+        OutsideNoticeKind.flagged,
+      });
+    });
+
+    testWidgets('refused, it stays off', (tester) async {
+      final container = await pumpScreen(
+        tester,
+        configured: withTracearr,
+        granted: false,
+      );
+      await tester.tap(find.byType(Switch).last);
+      await tester.pumpAndSettle();
+      expect(container.read(outsideNoticeKindsProvider), isEmpty);
+    });
+
+    testWidgets(
+      'stays while it is on, so a Tracearr taken away cannot trap it',
+      (tester) async {
+        final container = await pumpScreen(tester);
+        await container
+            .read(outsideNoticeKindsProvider.notifier)
+            .set(OutsideNoticeKind.flagged, on: true);
+        await tester.pumpAndSettle();
+        expect(find.text('Flagged by Tracearr'), findsOneWidget);
+        await tester.tap(find.byType(Switch).last);
+        await tester.pumpAndSettle();
+        expect(container.read(outsideNoticeKindsProvider), isEmpty);
+        expect(find.text('Flagged by Tracearr'), findsNothing);
+      },
+    );
+  });
+
   testWidgets('the requester has her arrivals and none of the operator', (
     tester,
   ) async {

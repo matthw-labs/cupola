@@ -113,6 +113,44 @@ final tracearrFlaggedProvider =
       retry: noProviderRetry,
     );
 
+/// How many violations a background read takes in one page. A longer burst
+/// than this is told as a floor (`50+`), which is honest: nobody needs the
+/// ninth hundred in a notification.
+const int kTracearrFlaggedPage = 50;
+
+/// Which connection, and from when: the key of one background read of what is
+/// new. [since] is Tracearr's own clock (a violation's `created_at`).
+typedef TracearrSinceKey = ({String instanceId, DateTime since});
+
+/// The violations of connection [TracearrSinceKey.instanceId] recorded after
+/// [TracearrSinceKey.since], newest first: what the Flagged notification
+/// reads when the system wakes Cupola.
+///
+/// `autoDispose` because the key moves with every read and nothing screen-side
+/// watches it; the client under it is the connection's own (its route, access
+/// and pin, like every read of Tracearr).
+final tracearrViolationsSinceProvider = FutureProvider.autoDispose
+    .family<TracearrPage<TracearrViolation>, TracearrSinceKey>(
+      (ref, key) => ref
+          .watch(tracearrClientForProvider(key.instanceId))
+          .getViolations(
+            pageSize: kTracearrFlaggedPage,
+            filter: TracearrViolationFilter(since: key.since),
+          ),
+      retry: noProviderRetry,
+    );
+
+/// The one newest violation of connection [instanceId], or none: where a
+/// connection's first Flagged read starts, so that switching it on says
+/// nothing of what the server already holds.
+final tracearrNewestViolationProvider = FutureProvider.autoDispose
+    .family<TracearrPage<TracearrViolation>, String>(
+      (ref, instanceId) => ref
+          .watch(tracearrClientForProvider(instanceId))
+          .getViolations(pageSize: 1),
+      retry: noProviderRetry,
+    );
+
 /// The page of the series an episode belongs to, or null when Tracearr does
 /// not know the series or holds no external id for it.
 ///

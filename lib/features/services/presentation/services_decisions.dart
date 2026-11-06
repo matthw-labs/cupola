@@ -238,10 +238,26 @@ Future<DashboardDecisions> _decisionsOnEveryConnection(
 /// and a source still out is [SourceCoverage.pending] rather than a wait. A
 /// source being read again keeps its last answer while it is: `value`, not
 /// `asData`, so a Dockge push does not blank the region between two lists.
-final dashboardDecisionsProvider = Provider<DashboardDecisions>((ref) {
+final dashboardDecisionsProvider = Provider<DashboardDecisions>(
+  (ref) => _mergedDecisions(ref, DecisionSource.values),
+);
+
+/// The decisions of [DecisionSource.faultSources] alone, for the notification
+/// of Needs you in the background.
+///
+/// Not [dashboardDecisionsProvider] with the violations dropped afterwards:
+/// that one watches every source, which starts the read of Tracearr's
+/// violations even when nothing will say them. Here the violations source is
+/// never watched, so a run with Flagged off asks Tracearr nothing, and one
+/// with it on asks once (`tracearrViolationsSinceProvider`).
+final dashboardFaultDecisionsProvider = Provider<DashboardDecisions>(
+  (ref) => _mergedDecisions(ref, DecisionSource.faultSources),
+);
+
+DashboardDecisions _mergedDecisions(Ref ref, Iterable<DecisionSource> sources) {
   final decisions = <DashboardDecision>[];
   final parts = <SourceCoverage>[];
-  for (final source in DecisionSource.values) {
+  for (final source in sources) {
     final read = ref.watch(dashboardDecisionSourceProvider(source));
     final value = read.value;
     if (value != null) {
@@ -266,7 +282,7 @@ final dashboardDecisionsProvider = Provider<DashboardDecisions>((ref) {
     decisions: rankDecisions(groupDecisions(decisions)),
     coverage: SourceCoverage.merge(parts),
   );
-});
+}
 
 /// The requests waiting on a person, from every configured Seerr.
 ///

@@ -105,6 +105,15 @@ enum DecisionSource {
 
   /// The services this source reads.
   final List<ServiceKey> services;
+
+  /// The sources a notification of Needs you reads: every one but
+  /// [violations], whose decisions are blue and never a fault, so no notice of
+  /// Needs you could say them. A violation is read in the background only by
+  /// the Flagged notification, which asks Tracearr for what came since.
+  static final List<DecisionSource> faultSources = [
+    for (final source in values)
+      if (source != violations) source,
+  ];
 }
 
 /// How many violations Needs you draws. The source reads one more, so that a
