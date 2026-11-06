@@ -30,6 +30,10 @@ from typing import Any
 
 ROOT = "http://127.0.0.1"
 
+# Emby listens on 8096 inside its container, like Jellyfin, so the lab
+# publishes it on 8097.
+EMBY_PORT = 8097
+
 # qBittorrent checks the Host it is sent against its own WebUI port (8080),
 # so a direct reading goes to the port the lab publishes for it (18080) with
 # the Host the WebUI expects. The app reaches it on 8080, through the fault
@@ -1084,6 +1088,51 @@ def jellyfin_headers(env: dict[str, str]) -> dict[str, str]:
     }
 
 
+def emby_headers(env: dict[str, str]) -> dict[str, str]:
+    """Emby takes the API key in `X-Emby-Token`, under `/emby`."""
+    return {
+        "X-Emby-Token": env.get("CUPOLA_TESTLAB_EMBY_TOKEN", ""),
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+
+
+def seed_emby_films(env: dict[str, str]) -> None:
+    """Emby's `Films` library over `/media/movies`, the way Jellyfin's is made.
+
+    Idempotent by name. The rest of Emby (Series, Music, the household member,
+    the watch states) is `emby_media.py`'s, which also creates this one when it
+    is absent: this leg only keeps the lab's first library from depending on the
+    forge's spike being there.
+    """
+    try:
+        headers = emby_headers(env)
+        emby = f"{ROOT}:{EMBY_PORT}/emby"
+        folders = json_request(f"{emby}/Library/VirtualFolders", headers=headers)
+        if not any(
+            isinstance(folder, dict) and folder.get("Name") == "Films"
+            for folder in (folders or [])
+        ):
+            query = urllib.parse.urlencode(
+                {
+                    "name": "Films",
+                    "collectionType": "movies",
+                    "paths": "/media/movies",
+                    "refreshLibrary": "true",
+                }
+            )
+            request(
+                f"{emby}/Library/VirtualFolders?{query}",
+                method="POST",
+                payload=b"{}",
+                headers=headers,
+            )
+            print("[testlab-seed] Emby: Films library")
+        request(f"{emby}/Library/Refresh", method="POST", headers=headers)
+    except Exception as error:
+        warn("Emby library", error)
+
+
 def seed_media_servers(state_dir: Path, env: dict[str, str]) -> None:
     media_dir = state_dir / "media" / "movies" / "Cupola Test Feature (1999)"
     media_dir.mkdir(parents=True, exist_ok=True)
@@ -1160,6 +1209,8 @@ def seed_media_servers(state_dir: Path, env: dict[str, str]) -> None:
     except Exception as error:
         warn("Jellyfin library", error)
 
+    seed_emby_films(env)
+
     try:
         headers = {
             "X-Plex-Token": env.get("CUPOLA_TESTLAB_PLEX_TOKEN", "test-token"),
@@ -1210,15 +1261,18 @@ def seed_media_servers(state_dir: Path, env: dict[str, str]) -> None:
 
 
 def seed_media_libraries(state_dir: Path) -> None:
-    """Jellyfin and Plex get Series and Music beside the seeded Films (L8).
+    """Jellyfin, Emby and Plex get Series and Music beside the seeded Films (L8).
 
-    Both scripts are idempotent and read the same disposable state. The
-    Jellyfin one takes its state from the environment, the Plex one takes the
-    path explicitly; a custom ``--state-dir`` reaches both.
+    The scripts are idempotent and read the same disposable state. The
+    Jellyfin and Emby ones take their state from the environment, the Plex one
+    takes the path explicitly; a custom ``--state-dir`` reaches all three.
+    Emby also gets its household member here, because it needs the password
+    the bootstrap generated and no other seed owns it.
     """
 
     scripts = (
         ("jellyfin_media.py", []),
+        ("emby_media.py", []),
         ("plex_media.py", ["--state-dir", str(state_dir)]),
     )
     environment = {**os.environ, "CUPOLA_TESTLAB_STATE_DIR": str(state_dir)}

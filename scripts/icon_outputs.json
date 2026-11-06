@@ -22,7 +22,7 @@
       "path": "android/app/src/main/AndroidManifest.xml",
       "role": "Android icon entry points",
       "source_family": "cupola_mark.svg + cupola_launcher.svg",
-      "sha256": "4ea759d99897cfe0566bc7defe8247dbb2af7bfde6620880d0be79ff82faedf5"
+      "sha256": "f3faeab8aa76c0a392cc4b4db1cef12f1961fab7bfc6b28a3b1d67474ef45728"
     },
     {
       "path": "android/app/src/main/res/drawable-night/cupola_icon_bg_gradient.xml",

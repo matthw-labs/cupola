@@ -229,7 +229,7 @@ Two columns say how far each integration goes:
 | **Tracearr** | Watches the media servers for you: every stream playing now across Plex, Jellyfin and Emby with how it reaches the viewer, who watched what and when, the people it knows, and the rules that were broken, by severity | API key | Read | ○ ³ |
 
 ² Emby is new: its client is written against answers recorded from a real Emby 4.10
-server, and we have not yet run the app against one.
+server and has run against one in our test lab, but the app's screens have not yet.
 
 ³ Tracearr is new: its client is written against answers recorded from a real Tracearr
 3.1.4, and we have not yet run Cupola against one. It needs Tracearr 2.7.0 or newer.
