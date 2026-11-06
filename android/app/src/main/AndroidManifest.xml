@@ -157,5 +157,10 @@
             <action android:name="android.intent.action.VIEW"/>
             <data android:scheme="fladder"/>
         </intent>
+        <!-- Emby's own app, for an Emby item. -->
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="emby"/>
+        </intent>
     </queries>
 </manifest>

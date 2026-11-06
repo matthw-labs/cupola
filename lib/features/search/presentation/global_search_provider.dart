@@ -16,6 +16,7 @@ import 'package:cupola/features/discover/data/seerr_service.dart';
 import 'package:cupola/features/discover/domain/seerr_search.dart';
 import 'package:cupola/features/movies/data/radarr_service.dart';
 import 'package:cupola/features/movies/domain/models/radarr_movie.dart';
+import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/search/domain/arr_add_request.dart';
@@ -392,7 +393,7 @@ Future<GlobalSearchServiceResults> _runLeg(
       toResult: (item, index) =>
           _sonarrResult(item, instance, reachedAt, index),
     ),
-    // The two media servers share one arm because they share one interface:
+    // The media servers share one shape because they share one interface:
     // `StreamServerClient.search` is the whole difference between them, and it
     // is the client that knows whether the bands came from typed hints or from
     // the server's own hubs.
@@ -405,6 +406,12 @@ Future<GlobalSearchServiceResults> _runLeg(
     ServiceKey.plex => _loadStreamLeg(
       leg: leg,
       client: ref.read(plexServerProvider),
+      query: query,
+      cancelToken: cancelToken,
+    ),
+    ServiceKey.emby => _loadStreamLeg(
+      leg: leg,
+      client: ref.read(embyServerProvider),
       query: query,
       cancelToken: cancelToken,
     ),

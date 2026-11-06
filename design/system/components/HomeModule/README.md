@@ -134,11 +134,11 @@ answering` already answers) or before anything answered (no space is held for it
 
 ## Continue watching, Coming up, Arrived
 
-- **Continue watching**: up to three titles started and not finished, on every Jellyfin and Plex. A row is a 112×63
+- **Continue watching**: up to three titles started and not finished, on every Jellyfin, Plex and Emby. A row is a 112×63
   picture (the episode's still, a movie's art), the series in `row` 600 (a movie's title), `S2 E3 · The Second Cycle`
   (a movie's year), `5 min left` in ink, and an ink bar: how far somebody got is not a status. At a large reading size
-  the words go under the picture. The line under the name is the server. A Jellyfin set up with a server key and
-  nobody chosen asks once, in an outlined row: `Which Jellyfin user are you?` · `A server key sees every user; pick yours
+  the words go under the picture. The line under the name is the server. A Jellyfin or Emby set up with a server key and
+  nobody chosen asks once, in an outlined row: `Which Jellyfin user are you?` (`Which Emby user are you?` on an Emby) · `A server key sees every user; pick yours
   once`, to that connection's form where the picker is. Absent when nothing is in progress and every server answered,
   and when its only title is already Featured's first slide (while Featured is on the Home).
 - **Coming up**: what comes out or airs from today to three days on, three rows (`CalendarRow.home`: the day leading,
@@ -221,7 +221,7 @@ Everything comes from her own Seerr session; no fault, no service named but her 
 - **Ready to watch** (`HomeReadyToWatchModule`): her Featured, drawn by [FeaturedPager](../FeaturedPager/README.md)
   with one slide. The newest thing she asked for that arrived in the last seven days: `● Ready to watch · since
   18:40` above the title, `You asked for it on Sunday · TMDB 7.1` under it, `Watch on Jellyfin` (Seerr's link to it in
-  the player its server is set up with, `Watch on Plex`, `Watch` when Seerr does not say) and `Details`. The room takes
+  the player its server is set up with, `Watch on Plex`, `Watch on Emby`, `Watch` when Seerr does not say) and `Details`. The room takes
   the title's light. A second arrival is one line under it, `Also ready · Sintel` · `On the server since Wednesday`.
   Nothing arrived: the module is absent and Your requests leads. At a cold start it draws what it last drew (see
   *Last known*): the same title, so the room keeps its light, and Watch where it was; an arrival the week has left
@@ -249,7 +249,7 @@ Everything comes from her own Seerr session; no fault, no service named but her 
   `Seerr knows it · key found` (`Prowlarr knows it · paste its key`), opening the service's form filled in from the
   source (`ServiceRoutes.addFound`). Then the services the stack lacks, each with what it adds (`Set up Jellyfin · Play,
   Continue watching and Now playing`), ordered by how much; a service a known server stands for is not suggested again.
-  A Plex stands for Jellyfin, any download client for the four. Each row carries its service's mark in a 36pt tile.
+  A Plex or an Emby stands for Jellyfin, any download client for the four. Each row carries its service's mark in a 36pt tile.
   Absent when nothing is missing. Each row opens its form in Settings, whose way back leads to the Home.
 - **EditHomeRow**: the last thing on the operator's Home, a dashed `edge` around `Edit Home · Reorder and hide
   modules`, opening `/home/edit`.

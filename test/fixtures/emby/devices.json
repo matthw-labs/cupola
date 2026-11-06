@@ -1,0 +1,38 @@
+{
+  "Items": [
+    {
+      "Name": "Living room",
+      "Id": "4",
+      "ReportedDeviceId": "living-room-tv",
+      "LastUserName": "anna",
+      "AppName": "Infuse",
+      "AppVersion": "8",
+      "LastUserId": "ce18a8c31c4f49f291677ac853d0fb12",
+      "DateLastActivity": "2026-11-06T12:32:27.0000000Z",
+      "IpAddress": "192.0.2.1"
+    },
+    {
+      "Name": "Anna's phone",
+      "Id": "3",
+      "ReportedDeviceId": "anna-phone",
+      "LastUserName": "anna",
+      "AppName": "Emby Mobile",
+      "AppVersion": "1",
+      "LastUserId": "ce18a8c31c4f49f291677ac853d0fb12",
+      "DateLastActivity": "2026-11-06T11:33:36.0000000Z",
+      "IpAddress": "192.0.2.1"
+    },
+    {
+      "Name": "Office laptop",
+      "Id": "1",
+      "ReportedDeviceId": "office-laptop",
+      "LastUserName": "admin",
+      "AppName": "Emby Web",
+      "AppVersion": "1",
+      "LastUserId": "be67dc243fb0464eba6565434ac08870",
+      "DateLastActivity": "2026-11-06T11:26:31.0000000Z",
+      "IpAddress": "192.0.2.1"
+    }
+  ],
+  "TotalRecordCount": 0
+}

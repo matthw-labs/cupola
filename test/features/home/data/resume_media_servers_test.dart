@@ -2,6 +2,8 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cupola/features/emby/data/emby_client.dart';
+import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/home/data/resume.dart';
 import 'package:cupola/features/jellyfin/data/jellyfin_client.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
@@ -39,6 +41,21 @@ class _Jellyfin implements JellyfinClient {
     CancelToken? cancelToken,
   }) async {
     _asked[ServiceKey.jellyfin] = count;
+    return const [_half];
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _Emby implements EmbyClient {
+  @override
+  Future<List<StreamItem>> getContinueWatching({
+    String? viewerId,
+    int count = 12,
+    CancelToken? cancelToken,
+  }) async {
+    _asked[ServiceKey.emby] = count;
     return const [_half];
   }
 
@@ -84,6 +101,7 @@ void main() {
           (ref) => SettingsModel(instances: instances),
         ),
         jellyfinClientProvider.overrideWithValue(_Jellyfin()),
+        embyClientProvider.overrideWithValue(_Emby()),
         plexClientProvider.overrideWithValue(_Plex()),
       ],
     );

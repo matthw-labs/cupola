@@ -45,4 +45,6 @@ abstract final class ServiceGlyphs {
   static const IconData jellyfin = IconData(0xE010, fontFamily: fontFamily);
 
   static const IconData plex = IconData(0xE011, fontFamily: fontFamily);
+
+  static const IconData emby = IconData(0xE012, fontFamily: fontFamily);
 }

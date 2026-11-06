@@ -54,7 +54,7 @@ import 'package:cupola/features/settings/domain/service_only_at_home.dart';
 /// The furniture every service Overview is built out of: the identity line, the
 /// section frame, the row, the empty note and the skeleton.
 ///
-/// **It lives here because seventeen services get one of these pages and four
+/// **It lives here because eighteen services get one of these pages and four
 /// of them were already written.** Radarr, Seerr, Bazarr and Prowlarr each
 /// carried a private `_OverviewSection` / `_OverviewRow` / `_SectionEmpty` /
 /// `_RowsSkeleton` / `_IdentityBlock` that differed only in which `ServiceKey`

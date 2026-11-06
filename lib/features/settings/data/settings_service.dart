@@ -273,6 +273,14 @@ class SettingsService {
       secureApiKey: 'secure_plex_token',
       clientId: 'plex_client_id',
     ),
+    // The viewer id is Jellyfin's pattern: an Emby API key has no user, so the
+    // household member the lenses read as is chosen once and kept beside it.
+    ServiceKey.emby: _ServiceStorageKeys(
+      url: 'emby_url',
+      legacyApiKey: '',
+      secureApiKey: 'secure_emby_api_key',
+      userId: 'emby_user_id',
+    ),
   };
 
   final SharedPreferences _prefs;
@@ -507,13 +515,18 @@ class SettingsService {
     // easy to forget and that nothing would fail without.
     final usernames = _loadUsernames();
     final trustedCertificates = await _loadTrustedCertificates(serviceSettings);
-    final jellyfinKeys = _serviceStorageKeys[ServiceKey.jellyfin]!;
-    final jellyfinUserId = _prefs.getString(jellyfinKeys.userId!) ?? '';
+    // Every service that reads as a household member keeps one beside its
+    // address (Jellyfin and Emby: an API key has no user behind it).
+    final viewers = {
+      for (final service in ServiceKey.values)
+        if (_serviceStorageKeys[service]!.userId case final key?)
+          service: _prefs.getString(key) ?? '',
+    };
     final plexClientId = await _loadOrCreatePlexClientId();
 
     // Only the values with no `ServiceKey` to hang them on are named here;
     // everything per-service is folded in below, through the same registry that
-    // produced it. Naming all 17 services a third time in a constructor literal
+    // produced it. Naming all 18 services a third time in a constructor literal
     // is the hazard `copyWithCredentials` was written to kill; see its doc.
     var model = SettingsModel(
       plexClientId: plexClientId,
@@ -538,13 +551,13 @@ class SettingsService {
     }
 
     // Applied after the loop rather than in the constructor, because the viewer
-    // now belongs to a Jellyfin *instance* and the loop above is what creates
-    // one. Setting it first would have nowhere to land, and doing it here
-    // cannot conjure an instance out of nothing either: an unconfigured
-    // Jellyfin has no address, so `_upsertPrimary` declines to mint one and the
+    // now belongs to a media server *instance* and the loop above is what
+    // creates one. Setting it first would have nowhere to land, and doing it
+    // here cannot conjure an instance out of nothing either: an unconfigured
+    // server has no address, so `_upsertPrimary` declines to mint one and the
     // orphaned id is dropped rather than resurrected.
-    if (jellyfinUserId.isNotEmpty) {
-      model = model.copyWithViewer(ServiceKey.jellyfin, jellyfinUserId);
+    for (final MapEntry(key: service, value: viewerId) in viewers.entries) {
+      if (viewerId.isNotEmpty) model = model.copyWithViewer(service, viewerId);
     }
 
     final roster = _readRoster();

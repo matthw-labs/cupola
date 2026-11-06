@@ -1475,7 +1475,8 @@ class JellyfinFake extends ServiceFake {
     'LastActivityDate': '2026-09-29T18:40:00.0000000Z',
   };
 
-  JsonMap _session(ServerContext c) => {
+  /// Anna's Sintel on the living-room TV, as the session list holds it.
+  static JsonMap _sessionOf(ServerContext c) => {
     'Id': 'session-anna-livingroom',
     'UserId': annaId,
     'UserName': WorldPeople.anna,
@@ -1594,7 +1595,7 @@ class JellyfinFake extends ServiceFake {
               : _user(operatorId, 'Operator', admin: true),
         );
       case '/Sessions':
-        return NetworkReply.json([_session(c)]);
+        return NetworkReply.json([_sessionOf(c)]);
       case '/Library/VirtualFolders':
         return NetworkReply.json([
           for (final (name, type) in const [
@@ -1773,6 +1774,329 @@ class JellyfinFake extends ServiceFake {
     return ids.contains('${t.tmdbId}') ||
         (t.imdbId != null && ids.contains(t.imdbId!)) ||
         (t.tvdbId != null && ids.contains('${t.tvdbId}'));
+  }
+}
+
+// === Emby ==================================================================
+
+/// Emby, the same household as [JellyfinFake] on another server: the same
+/// titles and the same people, and Emby's own routes, ids and shapes.
+///
+/// Built on the Jellyfin fake's data (`_item`, `_user`, `_session`) and not on
+/// its routes, because the two servers part exactly there: everything sits
+/// under `/emby`, the user list is `/Users/Query`, the libraries
+/// `/Library/VirtualFolders/Query`, a user's resume row
+/// `/Users/{id}/Items/Resume`, one item `/Users/{id}/Items/{id}` (or
+/// `/Items?Ids=`), item ids are short numbers, and there is no `/Users/Me`.
+/// The public answer carries no `ProductName` and a `LocalAddresses` list, as
+/// a real 4.10 does (`test/fixtures/emby/`).
+///
+/// [ConnectionBehaviour.readOnly] models a household member's token: it is
+/// refused the user list, the devices, the tasks and the activity log, and
+/// still reads the libraries, the server's info and the sessions, as
+/// measured.
+class EmbyFake extends ServiceFake {
+  const EmbyFake();
+
+  static const operatorId = 'e0a1b2c3d4e5f60718293a4b5c6d7e8f';
+  static const annaId = 'e1a1b2c3d4e5f60718293a4b5c6d7e8f';
+  static const lucaId = 'e2a1b2c3d4e5f60718293a4b5c6d7e8f';
+  static const serverId = 'b7e4c1a9d2f84e60a5b3c8d1e2f3a4b5';
+
+  static const _prefix = '/emby';
+
+  /// [path] without the `/emby` the API sits under. The root answers the same
+  /// routes (measured on 4.10.2), which is what lets a Jellyfin's address be
+  /// found to be an Emby's: a client that does not know the prefix still
+  /// reaches it.
+  static String _bare(String path) =>
+      path.startsWith('$_prefix/') ? path.substring(_prefix.length) : path;
+
+  @override
+  bool isPublic(NetworkRequest request) =>
+      request.method == 'GET' &&
+      (_bare(request.path) == '/System/Info/Public' ||
+          _bare(request.path) == '/System/Ping');
+
+  @override
+  NetworkReply refuseKey(NetworkRequest request) => const NetworkReply(401);
+
+  @override
+  bool isAdminRead(NetworkRequest request) {
+    final path = _bare(request.path);
+    return request.method == 'GET' &&
+        (path == '/Users/Query' ||
+            path == '/Users' ||
+            path == '/Devices' ||
+            path == '/ScheduledTasks' ||
+            path == '/System/ActivityLog/Entries');
+  }
+
+  @override
+  bool isWrite(NetworkRequest request) {
+    final path = _bare(request.path);
+    return request.method != 'GET' &&
+        (path.startsWith('/Library/') ||
+            path.startsWith('/ScheduledTasks/') ||
+            path.startsWith('/Items/') && path.endsWith('/Refresh'));
+  }
+
+  /// The id Emby gives [t]: a number, as every Emby item has.
+  static String _id(WorldTitle t) => '${100 + WorldTitles.all.indexOf(t)}';
+
+  static JsonMap _item(ServerContext c, WorldTitle t, {String? type}) => {
+    ...JellyfinFake._item(c, t, type: type),
+    'Id': _id(t),
+    'ServerId': serverId,
+  };
+
+  static JsonMap _user(String id, String name, {required bool admin}) => {
+    ...JellyfinFake._user(id, name, admin: admin),
+    'ServerId': serverId,
+  };
+
+  /// Anna's Sintel on the living-room TV, and the API key's own row, which
+  /// Emby lists as a session with no user and nothing playing.
+  static List<JsonMap> _sessions(ServerContext c) => [
+    {
+      ...JellyfinFake._sessionOf(c),
+      'Id': 'emby-session-anna-livingroom',
+      'UserId': annaId,
+      'Client': 'Emby for Android TV',
+      'NowPlayingItem': {
+        ..._item(c, WorldTitles.sintel),
+        'RunTimeTicks': 40800000000,
+      },
+    },
+    {
+      'Id': 'emby-session-api-key',
+      'Client': 'Cupola',
+      'DeviceName': 'nas',
+      'DeviceId': serverId,
+      'LastActivityDate': c.ago(const Duration(seconds: 20)),
+      'PlayState': {'IsPaused': false},
+    },
+  ];
+
+  static List<JsonMap> _devices(ServerContext c) {
+    JsonMap device(
+      String id,
+      String name,
+      String app,
+      String version,
+      String userId,
+      String user,
+      Duration lastSeen,
+    ) => {
+      'Id': id,
+      'Name': name,
+      'AppName': app,
+      'AppVersion': version,
+      'LastUserId': userId,
+      'LastUserName': user,
+      'DateLastActivity': c.ago(lastSeen),
+    };
+    return [
+      device(
+        '3',
+        'Living room TV',
+        'Emby for Android TV',
+        '3.4.12',
+        annaId,
+        WorldPeople.anna,
+        const Duration(minutes: 1),
+      ),
+      device(
+        '2',
+        "Luca's iPad",
+        'Emby for iOS',
+        '2.2.8',
+        lucaId,
+        WorldPeople.luca,
+        const Duration(days: 2),
+      ),
+      device(
+        '1',
+        'Firefox',
+        'Emby Web',
+        '4.10.2.0',
+        operatorId,
+        'Operator',
+        const Duration(days: 6),
+      ),
+    ];
+  }
+
+  /// The library as `GET /Library/VirtualFolders/Query` lists it.
+  static List<JsonMap> _folders() => [
+    for (final (index, (name, type)) in const [
+      ('Movies', 'movies'),
+      ('Series', 'tvshows'),
+      ('Music', 'music'),
+    ].indexed)
+      {
+        'Name': name,
+        'CollectionType': type,
+        'ItemId': '${3 + index}',
+        'Id': '${3 + index}',
+        'Locations': ['/mnt/tank/media/${name.toLowerCase()}'],
+      },
+  ];
+
+  static JsonMap _page(List<JsonMap> items) => {
+    'Items': items,
+    'TotalRecordCount': items.length,
+  };
+
+  @override
+  NetworkReply? answer(NetworkRequest r, ServerContext c) {
+    final path = _bare(r.path);
+    if (r.method != 'GET') return const NetworkReply(204);
+    switch (path) {
+      case '/System/Info/Public':
+        return NetworkReply.json({
+          ...jsonFixtureMap('emby/system_info_public.json'),
+          'ServerName': 'tower',
+          'Id': serverId,
+        });
+      case '/System/Info':
+        return NetworkReply.json({
+          ...jsonFixtureMap('emby/system_info.json'),
+          'ServerName': 'tower',
+          'Id': serverId,
+          'HasPendingRestart': false,
+          'HasUpdateAvailable': false,
+        });
+      case '/System/Ping':
+        return NetworkReply.text('Emby Server');
+      case '/Users/Query':
+        return NetworkReply.json(
+          _page([
+            _user(operatorId, 'Operator', admin: true),
+            _user(annaId, WorldPeople.anna, admin: false),
+            _user(lucaId, WorldPeople.luca, admin: false),
+          ]),
+        );
+      case '/Sessions':
+        return NetworkReply.json(_sessions(c));
+      case '/Library/VirtualFolders/Query':
+        return NetworkReply.json(_page(_folders()));
+      case '/Devices':
+        return NetworkReply.json(_page(_devices(c)));
+      case '/ScheduledTasks':
+      case '/System/ActivityLog/Entries':
+      case '/Items/Counts':
+        // Nothing Emby-specific in them: the Jellyfin fake's own answer.
+        return const JellyfinFake().answer(
+          NetworkRequest(
+            method: r.method,
+            uri: r.uri.replace(path: path),
+            headers: r.headers,
+            body: r.body,
+            server: r.server,
+          ),
+          c,
+        );
+      case '/Items':
+        final ids =
+            r.query['AnyProviderIdEquals'] ?? r.query['anyProviderIdEquals'];
+        final term = (r.query['searchTerm'] ?? r.query['SearchTerm'] ?? '')
+            .toLowerCase();
+        final asked = (r.query['ids'] ?? r.query['Ids'] ?? '').split(',');
+        return NetworkReply.json(
+          _page([
+            for (final t in JellyfinFake._library())
+              if (asked.first.isNotEmpty
+                  ? asked.contains(_id(t))
+                  : JellyfinFake._wanted(t, ids, term))
+                _item(c, t),
+          ]),
+        );
+      case '/Shows/NextUp':
+        return NetworkReply.json(_page(const []));
+    }
+    // A series' episodes, with the viewer's watch state: Cosmos Laundromat's
+    // first season and the three of the second on the server, two of them
+    // watched and the third part-way, as the Jellyfin fake has them.
+    final episodes = RegExp(r'^/Shows/(\d+)/Episodes$').firstMatch(path);
+    if (episodes != null) {
+      final cosmos = episodes.group(1) == _id(WorldTitles.cosmosLaundromat);
+      JsonMap episode(int season, int number, {double played = 1}) => {
+        ..._item(c, WorldTitles.cosmosLaundromat, type: 'Episode'),
+        'Id': '${200 + season * 20 + number}',
+        'Name': season == 2 && number == 3
+            ? 'The Second Cycle'
+            : 'Episode $number',
+        'SeriesName': WorldTitles.cosmosLaundromat.title,
+        'SeriesId': _id(WorldTitles.cosmosLaundromat),
+        'ParentIndexNumber': season,
+        'IndexNumber': number,
+        'RunTimeTicks': 12000000000,
+        'UserData': {
+          'Played': played >= 1,
+          'PlaybackPositionTicks': played > 0 && played < 1
+              ? (12000000000 * played).round()
+              : 0,
+          if (played > 0 && played < 1) 'PlayedPercentage': played * 100,
+        },
+      };
+      return NetworkReply.json(
+        _page(
+          cosmos
+              ? [
+                  for (var e = 1; e <= 10; e++) episode(1, e),
+                  episode(2, 1),
+                  episode(2, 2),
+                  episode(2, 3, played: 0.75),
+                ]
+              : const <JsonMap>[],
+        ),
+      );
+    }
+    if (RegExp(r'^/Users/[^/]+/Items/Resume$').hasMatch(path)) {
+      return NetworkReply.json(
+        _page([
+          {
+            ..._item(c, WorldTitles.cosmosLaundromat, type: 'Episode'),
+            'Id': '${200 + 2 * 20 + 3}',
+            'Name': 'The Second Cycle',
+            'SeriesName': WorldTitles.cosmosLaundromat.title,
+            'SeriesId': _id(WorldTitles.cosmosLaundromat),
+            'ParentIndexNumber': 2,
+            'IndexNumber': 3,
+            'RunTimeTicks': 12000000000,
+            'UserData': {
+              'Played': false,
+              'PlaybackPositionTicks': 9000000000,
+              'PlayedPercentage': 75.0,
+            },
+          },
+        ]),
+      );
+    }
+    final one = RegExp(r'^/Users/[^/]+/Items/(\d+)$').firstMatch(path);
+    if (one != null) {
+      final title = WorldTitles.all
+          .where((t) => _id(t) == one.group(1))
+          .firstOrNull;
+      if (title != null) return NetworkReply.json(_item(c, title));
+    }
+    final user = RegExp(r'^/Users/([^/]+)$').firstMatch(path);
+    if (user != null) {
+      return switch (user.group(1)) {
+        operatorId => NetworkReply.json(
+          _user(operatorId, 'Operator', admin: true),
+        ),
+        annaId => NetworkReply.json(
+          _user(annaId, WorldPeople.anna, admin: false),
+        ),
+        lucaId => NetworkReply.json(
+          _user(lucaId, WorldPeople.luca, admin: false),
+        ),
+        _ => null,
+      };
+    }
+    return null;
   }
 }
 

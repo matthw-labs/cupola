@@ -89,6 +89,32 @@ void main() {
       );
     });
 
+    test(
+      'Emby and Jellyfin answer one route and are told apart by its body',
+      () {
+        // Recorded from real servers: Emby 4.10 sends no `ProductName` and a
+        // `LocalAddresses` list; Jellyfin sends `ProductName` and a single
+        // `LocalAddress`. The Jellyfin plan knocks at the root, the Emby plan
+        // under `/emby`, and neither takes the other's answer.
+        final emby = File(
+          'test/fixtures/emby/system_info_public.json',
+        ).readAsStringSync();
+        final jellyfin = File(
+          'test/fixtures/jellyfin/system_info_public.json',
+        ).readAsStringSync();
+
+        expect(
+          knockPlanOf(ServiceKey.emby, 'http://nas.lan:8096')!.path,
+          '/emby/System/Info/Public',
+        );
+        expect(_answers(ServiceKey.emby, _answer(200, emby)), isTrue);
+        expect(_answers(ServiceKey.emby, _answer(200, jellyfin)), isFalse);
+        expect(_answers(ServiceKey.jellyfin, _answer(200, jellyfin)), isTrue);
+        expect(_answers(ServiceKey.jellyfin, _answer(200, emby)), isFalse);
+        expect(_answers(ServiceKey.emby, _answer(401, emby)), isFalse);
+      },
+    );
+
     test('qBittorrent: its version, or Forbidden to a caller signed out', () {
       expect(_answers(ServiceKey.qbittorrent, _answer(200, 'v5.0.4')), isTrue);
       expect(

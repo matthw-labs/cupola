@@ -18,7 +18,7 @@ winding.
 
 | Source | Services |
 |---|---|
-| [Simple Icons](https://simpleicons.org) (CC0 1.0) | Radarr, Sonarr, qBittorrent, Transmission, Nginx Proxy Manager, Jellyfin |
+| [Simple Icons](https://simpleicons.org) (CC0 1.0) | Radarr, Sonarr, qBittorrent, Transmission, Nginx Proxy Manager, Jellyfin, Emby |
 | Drawn from the project's own logo | Seerr, Lidarr, Readarr, Prowlarr, Bazarr, SABnzbd, NZBGet, Dockge |
 | Drawn for Cupola, deliberately not the logo | TrueNAS, Unraid, Plex |
 

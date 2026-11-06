@@ -8,6 +8,7 @@ import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/core/network/host_reach.dart';
 import 'package:cupola/core/status/silence_clock.dart';
 import 'package:cupola/features/dockge/data/dockge_client.dart';
+import 'package:cupola/features/emby/data/emby_client.dart';
 import 'package:cupola/features/jellyfin/data/jellyfin_client.dart';
 import 'package:cupola/features/plex/data/plex_client.dart';
 import 'package:cupola/features/dockge/data/dockge_service.dart';
@@ -560,16 +561,23 @@ Future<String?> _loadVersion(
     );
   }
 
-  // The two media servers, through their own clients: each authenticates with
+  // The media servers, through their own clients: each authenticates with
   // a header the shared `ApiClient` does not send, and each one's status route
   // is anonymous, so the generic branch below read any token as answering.
-  if (service == ServiceKey.jellyfin) {
-    final client = JellyfinClient(
-      baseUrl: reach.url,
-      apiKey: instance.credential,
-      pinnedCertFingerprint: reach.pin,
-      accessHeaders: reach.access.headers(),
-    );
+  if (service == ServiceKey.jellyfin || service == ServiceKey.emby) {
+    final MediaBrowserClient client = service == ServiceKey.emby
+        ? EmbyClient(
+            baseUrl: reach.url,
+            apiKey: instance.credential,
+            pinnedCertFingerprint: reach.pin,
+            accessHeaders: reach.access.headers(),
+          )
+        : JellyfinClient(
+            baseUrl: reach.url,
+            apiKey: instance.credential,
+            pinnedCertFingerprint: reach.pin,
+            accessHeaders: reach.access.headers(),
+          );
     return _versionOrNull(
       () async => await client.checkCredentialAndVersion() ?? '',
       timeout: const Duration(seconds: 6),

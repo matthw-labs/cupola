@@ -87,7 +87,7 @@ final class MediaLeadWatch extends MediaLead {
 
   final MediaServerThroughSeerrRow claim;
 
-  /// Jellyfin or Plex: a claim leads only once Seerr has named its server.
+  /// Jellyfin, Plex or Emby: a claim leads only once Seerr has named its server.
   ServiceKey get server => claim.server!;
   Uri get url => claim.url;
 }

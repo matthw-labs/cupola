@@ -125,6 +125,22 @@ void main() {
     });
   });
 
+  group('what the server did not do for us', () {
+    test('Jellyfin applies the window itself, so the list is as it came', () {
+      final raw = [
+        {'Id': 'a', 'LastActivityDate': '2001-01-01T00:00:00Z'},
+      ];
+      expect(identical(_dialect.liveSessions(raw), raw), isTrue);
+    });
+
+    test('Jellyfin always sends the year, so none is asked for', () {
+      expect(
+        _dialect.browseFields,
+        'PrimaryImageAspectRatio,Overview,ProviderIds',
+      );
+    });
+  });
+
   group('users', () {
     test('lists GET /Users as a bare array', () async {
       final adapter = CapturingHttpAdapter(
@@ -187,7 +203,7 @@ void main() {
       final adapter = CapturingHttpAdapter(
         response: jsonFixtureList('jellyfin/users.json')[1],
       );
-      final viewers = await _dialect.tokenUserAsViewer(_api(adapter));
+      final viewers = await _dialect.tokenUserAsViewer(_api(adapter), '');
 
       expect(adapter.lastUri!.path, '/Users/Me');
       expect(viewers.map((viewer) => viewer.name), ['flatmate']);
@@ -197,7 +213,7 @@ void main() {
       final adapter = CapturingHttpAdapter(
         response: jsonFixtureList('jellyfin/users.json')[2],
       );
-      expect(await _dialect.tokenUserAsViewer(_api(adapter)), isEmpty);
+      expect(await _dialect.tokenUserAsViewer(_api(adapter), ''), isEmpty);
     });
   });
 

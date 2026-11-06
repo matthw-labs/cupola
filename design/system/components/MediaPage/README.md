@@ -52,7 +52,7 @@ Each sheet is drawn in the dark and the light room.
 - Episodes graph, S2 E3 tapped: the cell ringed, the door says it (drawn with `act`).
 - With Seerr: TMDB names the title, where to watch it, its release dates, and the collection band.
 - Decision: Anna asked for a film nobody holds; the answer takes the lead's place.
-- Through Seerr: no media server in Cupola; Seerr's link leads with `Watch on Jellyfin`, and Jellyfin's row is Seerr's word with the way to add it.
+- Through Seerr: no media server in Cupola; Seerr's link leads with `Watch on Jellyfin` (or Plex, or Emby: the server Seerr is set up with), and that server's row is Seerr's word with the way to add it (`Emby · through Seerr` · `Add Emby to Cupola`).
 - A copy to add, Seerr signed out: `+ Add to Radarr · 4K` under the 4K Radarr's row, Seerr's account in blue with `Sign in again`.
 - Signed out: the requester's Seerr holds no session and nobody else names the title; the page is the way to sign in.
 - Tablet: beside the list (660, `Close`, the light rising from the list's side), and the full 1180 screen in two tracks (the desktop, an upright tablet).

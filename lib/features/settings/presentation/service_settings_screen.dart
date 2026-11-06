@@ -32,6 +32,7 @@ import 'package:cupola/features/release_search/presentation/widgets/search_headr
 import 'package:cupola/features/media/domain/operator_adds_via.dart';
 import 'package:cupola/features/settings/data/operator_adds_via_provider.dart';
 import 'package:cupola/features/settings/data/stream_player_provider.dart';
+import 'package:cupola/features/stream/domain/stream_players.dart';
 import 'package:cupola/features/stream/presentation/play_with.dart';
 import 'package:cupola/features/settings/data/connection_reach_provider.dart';
 import 'package:cupola/features/settings/data/service_connection_provider.dart';
@@ -57,6 +58,7 @@ import 'package:cupola/features/settings/presentation/widgets/invite_sheet.dart'
 import 'package:cupola/features/settings/presentation/widgets/seerr_account_fields.dart';
 import 'package:cupola/features/settings/presentation/widgets/settings_section_label.dart';
 import 'package:cupola/core/status/lexicon.dart';
+import 'package:cupola/core/utils/service_routes.dart';
 import 'package:cupola/core/widgets/selection_pills.dart';
 import 'package:cupola/core/widgets/page_title.dart';
 import 'package:cupola/core/widgets/service_mark_tile.dart';
@@ -105,6 +107,16 @@ class ServiceSettingsScreen extends ConsumerStatefulWidget {
   final String? foundFrom;
   final String? foundName;
 
+  /// An address to start the form on, for a connection added because another
+  /// form's test found this service there (`Set up Emby`). Only the address:
+  /// the key is this service's own and is never carried over.
+  final String? prefillUrl;
+
+  /// The gateway access the address was reached with, so a service behind the
+  /// same proxy is not asked for it again. Held in memory beside the
+  /// navigation rather than in the location, because it is secret.
+  final ConnectionAccess? prefillAccess;
+
   const ServiceSettingsScreen({
     super.key,
     required this.service,
@@ -116,6 +128,8 @@ class ServiceSettingsScreen extends ConsumerStatefulWidget {
     this.focusAway = false,
     this.foundFrom,
     this.foundName,
+    this.prefillUrl,
+    this.prefillAccess,
   });
 
   @override
@@ -253,7 +267,7 @@ class _ServiceSettingsScreenState extends ConsumerState<ServiceSettingsScreen> {
         ref.read(connectionRouteProvider(_target.id)) == ConnectionRoute.away;
     _access = ConnectionAccessController(
       service,
-      initial: _target.access,
+      initial: widget.prefillAccess ?? _target.access,
       preselect: remedyAway ? null : widget.initialAccess,
     )..addListener(_onFieldChanged);
     _awayAccess = ConnectionAccessController(
@@ -280,6 +294,11 @@ class _ServiceSettingsScreenState extends ConsumerState<ServiceSettingsScreen> {
     _initialValues = {
       for (final entry in _controllers.entries) entry.key: entry.value.text,
     };
+    // After the loaded values are taken, so a form opened on a proposed
+    // address is unsaved, as one filled in by hand is.
+    if (widget.prefillUrl case final url? when url.isNotEmpty) {
+      _urlController.text = url;
+    }
     for (final controller in _controllers.values) {
       controller.addListener(_onFieldChanged);
     }
@@ -1178,10 +1197,11 @@ class _ServiceSettingsScreenState extends ConsumerState<ServiceSettingsScreen> {
               // exists to prevent.
               if (service.needsViewerSelection && isConfigured) ...[
                 const SizedBox(height: AppSpacing.xxl),
-                JellyfinViewerPicker(instanceId: _target.id),
+                JellyfinViewerPicker(service: service, instanceId: _target.id),
               ],
-              // Phones only: the app a Jellyfin title plays in, or asked each time.
-              if (service == ServiceKey.jellyfin && playsOnPhone()) ...[
+              // Phones only: the app a Jellyfin or an Emby title plays in, or
+              // asked each time.
+              if (StreamPlayer.of(service).isNotEmpty && playsOnPhone()) ...[
                 const SizedBox(height: AppSpacing.xxl),
                 _buildPlayWithRow(),
               ],
@@ -1576,12 +1596,19 @@ class _ServiceSettingsScreenState extends ConsumerState<ServiceSettingsScreen> {
     // server on an unsupported release is a qualified pass, not a plain one.
     final versionNote = describeServerVersion(service, result.serverVersion);
 
+    // Another service of the stack answered here: the headline says which
+    // one, and the remedy below opens its form on this address.
+    final other = result.isConnected ? null : result.answered;
     final banner = _ResultPanel(
       tone: tone,
       icon: result.isConnected
           ? Icons.check_circle_outline_rounded
           : presentation.icon,
-      title: result.isConnected ? 'Answering' : presentation.label,
+      title: result.isConnected
+          ? 'Answering'
+          : other != null
+          ? 'This is ${other.title}'
+          : presentation.label,
       outcome: outcome,
       lines: [said],
       note: versionNote?.message,
@@ -1603,6 +1630,35 @@ class _ServiceSettingsScreenState extends ConsumerState<ServiceSettingsScreen> {
               onPressed: _testing ? null : () => _reviewCertificate(route),
               style: remedyFillStyle(context),
               child: Text(failureRemedy(ServiceFailureReason.tls)!),
+            ),
+          ),
+        ],
+      );
+    }
+    if (other != null) {
+      // Outside the banner for the same reason as the controls around it:
+      // the banner is one live region and hides its subtree from a screen
+      // reader. Amber, the fill a fault's remedy wears, at the 44pt target
+      // [remedyFillStyle] pins.
+      final address =
+          (route == ConnectionRoute.away
+                  ? _awayController.text
+                  : _urlController.text)
+              .trim();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          banner,
+          const SizedBox(height: AppSpacing.sm),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: FilledButton(
+              onPressed: () => context.push(
+                ServiceRoutes.addAt(other, address: address),
+                extra: tested is NoAccess ? null : tested,
+              ),
+              style: remedyFillStyle(context),
+              child: Text(Lexicon.setUp(other.title)),
             ),
           ),
         ],
@@ -2204,13 +2260,13 @@ class _ServiceSettingsScreenState extends ConsumerState<ServiceSettingsScreen> {
   /// Where a Jellyfin title plays on a phone: the app the viewer chose, or
   /// `Ask every time`. Chosen in a sheet, saved on this device.
   Widget _buildPlayWithRow() {
-    final chosen = ref.watch(streamPlayerChoiceProvider);
+    final chosen = ref.watch(streamPlayerChoiceOf(service));
     return SettingsCard.grouped(
       leading: const Icon(Icons.play_circle_outline_rounded),
       title: 'Play with',
       subtitle: chosen?.label ?? 'Ask every time',
-      semanticHint: 'chooses the app a Jellyfin title plays in',
-      onTap: () => chooseStreamPlayer(context, ref),
+      semanticHint: 'chooses the app a ${service.title} title plays in',
+      onTap: () => chooseStreamPlayer(context, ref, service: service),
     );
   }
 

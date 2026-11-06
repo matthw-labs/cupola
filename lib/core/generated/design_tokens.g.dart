@@ -73,6 +73,10 @@ abstract final class DesignTokens {
   /// sabnzbd.
   static const Color colorServicePlex = Color(0xFFC97A16);
 
+  /// Emby Green, the brand value unchanged. Registry data only: the interface
+  /// paints every service with the lamp.
+  static const Color colorServiceEmby = Color(0xFF52B54B);
+
   // color.status
   /// GREEN, the dark room's green: available, complete, healthy. Quiet: in a
   /// status line the dot carries it and the words stay secondary ink.

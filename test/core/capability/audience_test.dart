@@ -73,7 +73,12 @@ void main() {
   });
 
   test('any other service makes the operator', () {
-    const players = {ServiceKey.seerr, ServiceKey.jellyfin, ServiceKey.plex};
+    const players = {
+      ServiceKey.seerr,
+      ServiceKey.jellyfin,
+      ServiceKey.plex,
+      ServiceKey.emby,
+    };
     for (final service in ServiceKey.values) {
       if (players.contains(service)) continue;
       expect(

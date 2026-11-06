@@ -3,7 +3,7 @@
 // questions of /faq/, the facts of the comparisons, the README's table of
 // services). Shared pieces such as the
 // layout or the page titles are left out on purpose, or every edit to them
-// would mark all seventeen pages changed and search engines would learn to
+// would mark all eighteen pages changed and search engines would learn to
 // ignore the date.
 //
 // A shallow clone knows one commit, which would date every page the same: in

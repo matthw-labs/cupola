@@ -93,6 +93,16 @@ void main() {
       if (told < transports) {
         untold.add('${file.path}: $transports transport(s), $told told');
       }
+      // A MediaBrowser server is built off a transport by the one set of
+      // providers they share, which reads it for each service's `create`: the
+      // transport is counted there, and the service that hands its client
+      // over is the one to tell it.
+      final sets = RegExp(
+        r'\bMediaBrowserProviders<\w+>\(',
+      ).allMatches(code).length;
+      if (told < sets) {
+        untold.add('${file.path}: $sets provider set(s), $told told');
+      }
     }
     expect(
       untold,
@@ -107,6 +117,10 @@ void main() {
 /// The files that read a transport without building a client from it, and
 /// why.
 const _transportReaders = <String, String>{
+  'lib/features/jellyfin/presentation/media_browser_providers.dart':
+      'Builds no client: every server of the family hands its own `create` to '
+      'the set, which this guard reads where the set is built (a file that '
+      'builds one is held to telling its client).',
   'lib/features/settings/data/connection_providers.dart':
       'Builds no client: it hands the transport to the `create` of each '
       '`ConnectionProviders.transport`, which this guard reads where the '

@@ -50,6 +50,7 @@ enum HomeModule {
     services: [
       ServiceKey.jellyfin,
       ServiceKey.plex,
+      ServiceKey.emby,
       ServiceKey.radarr,
       ServiceKey.sonarr,
     ],
@@ -64,7 +65,7 @@ enum HomeModule {
     audience: Audience.operator,
     label: 'Continue watching',
     line: 'What you started and did not finish',
-    services: [ServiceKey.jellyfin, ServiceKey.plex],
+    services: [ServiceKey.jellyfin, ServiceKey.plex, ServiceKey.emby],
   ),
 
   /// What comes out or airs from today to three days on.
@@ -123,7 +124,7 @@ enum HomeModule {
     audience: Audience.operator,
     label: 'Now playing',
     line: 'Who is watching, and on which screen',
-    services: [ServiceKey.jellyfin, ServiceKey.plex],
+    services: [ServiceKey.jellyfin, ServiceKey.plex, ServiceKey.emby],
   ),
 
   /// Every service's light on one slab: the Stack tab, folded. Off until the

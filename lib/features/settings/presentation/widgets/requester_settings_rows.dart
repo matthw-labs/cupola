@@ -19,7 +19,7 @@ import 'package:cupola/features/settings/presentation/widgets/settings_section_l
 /// asks, and the players she watches with when she set one up herself.
 ///
 /// It takes the place of the operator's connections card. She runs nothing,
-/// so a count of services set up out of seventeen is not a fact about her;
+/// so a count of services set up out of eighteen is not a fact about her;
 /// the one thing that can be wrong for her is the session, and it reads here
 /// as it does on the Home: `You were signed out`, blue.
 class RequesterAccountCard extends ConsumerWidget {

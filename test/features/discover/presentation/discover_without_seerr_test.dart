@@ -70,7 +70,7 @@ void main() {
     expect(find.text('No searchable service is set up'), findsOneWidget);
     expect(
       find.text(
-        'Set up Seerr, Radarr, Sonarr, Jellyfin or Plex to search your '
+        'Set up Seerr, Radarr, Sonarr, Jellyfin, Plex or Emby to search your '
         'libraries from here.',
       ),
       findsOneWidget,

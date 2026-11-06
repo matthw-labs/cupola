@@ -4,6 +4,7 @@ import 'package:cupola/core/api/api_client.dart';
 import 'package:cupola/features/jellyfin/data/media_browser_isolate.dart';
 import 'package:cupola/features/jellyfin/domain/models/jellyfin_item_mapper.dart';
 import 'package:cupola/features/jellyfin/domain/models/jellyfin_models.dart';
+import 'package:cupola/features/settings/domain/probe_identity.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/stream_server_client.dart';
@@ -82,6 +83,22 @@ abstract interface class MediaBrowserDialect {
   /// that have gone quiet.
   Map<String, dynamic> sessionsQuery();
 
+  /// The raw `/Sessions` list, narrowed to the clients that are still there.
+  ///
+  /// For a server that cannot be told to leave the quiet ones out
+  /// ([sessionsQuery] is the way when it can): it answers every client that
+  /// has ever connected and not been reaped, and the window is ours to apply.
+  /// A server that already did returns [raw] as it came.
+  Object? liveSessions(Object? raw);
+
+  /// The `fields` every browse read asks for, a comma list.
+  ///
+  /// `PrimaryImageAspectRatio` lets a poster reserve its box, `Overview` is
+  /// what an item detail opens with and `ProviderIds` sends a tile to its
+  /// title's page. A server that leaves a field out unless asked (Emby's
+  /// `ProductionYear`, which Jellyfin always sends) adds it here.
+  String get browseFields;
+
   /// Every user of the server, parsed. Throws like the read it stands for: an
   /// empty list is a server that answered with no users.
   Future<List<JellyfinUserDto>> users(ApiClient api);
@@ -94,7 +111,11 @@ abstract interface class MediaBrowserDialect {
   /// token that is refused [users]. Empty for a user the server answers as
   /// disabled or without an id; a failure throws, like the list it stands in
   /// for.
-  Future<List<StreamViewer>> tokenUserAsViewer(ApiClient api);
+  ///
+  /// [userId] is the viewer the connection already holds, for a server whose
+  /// token cannot say who it is (Emby has no `/Users/Me`): that one is read
+  /// by id, and nobody is answered when none is held.
+  Future<List<StreamViewer>> tokenUserAsViewer(ApiClient api, String userId);
 
   /// One item, raw, by id. [viewerId] is the user whose `UserData` rides on it,
   /// or null for the bare item.
@@ -198,15 +219,25 @@ class JellyfinDialect implements MediaBrowserDialect {
 
   /// A reverse proxy landing page happily returns 200 with a body that decodes
   /// to something; without this check the version probe would report success
-  /// on an address that has no Jellyfin behind it at all.
+  /// on an address that has no Jellyfin behind it at all. An Emby on the
+  /// port is no better (it answers the same route), and says so in the
+  /// shape of its answer ([identifyProbeAnswer]).
   @override
   bool isThisServer(Map<String, dynamic> publicInfo) =>
+      identifyProbeAnswer(ServiceKey.jellyfin, publicInfo) is ProbeMatches &&
       JellyfinPublicSystemInfo.fromJson(publicInfo).isJellyfin;
 
   @override
   Map<String, dynamic> sessionsQuery() => {
     'activeWithinSeconds': activeWithinSeconds,
   };
+
+  /// The server applied the window ([sessionsQuery]).
+  @override
+  Object? liveSessions(Object? raw) => raw;
+
+  @override
+  String get browseFields => 'PrimaryImageAspectRatio,Overview,ProviderIds';
 
   @override
   Future<List<JellyfinUserDto>> users(ApiClient api) async {
@@ -242,7 +273,10 @@ class JellyfinDialect implements MediaBrowserDialect {
   }
 
   @override
-  Future<List<StreamViewer>> tokenUserAsViewer(ApiClient api) async {
+  Future<List<StreamViewer>> tokenUserAsViewer(
+    ApiClient api,
+    String userId,
+  ) async {
     final response = await api.get('/Users/Me');
     final data = response.data;
     if (data is! Map) return const [];

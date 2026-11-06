@@ -23,6 +23,7 @@ import 'package:cupola/features/music/data/lidarr_service.dart';
 import 'package:cupola/features/music/domain/models/lidarr_artist.dart';
 import 'package:cupola/features/series/domain/models/sonarr_series.dart';
 import 'package:cupola/features/jellyfin/domain/models/jellyfin_models.dart';
+import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_capability.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
@@ -122,12 +123,13 @@ final serviceKpiProvider = FutureProvider.autoDispose
         // What a refusal means is asked through the container, captured now:
         // the answer is needed after the reads, past an `await`, where this
         // `autoDispose` provider's `ref` must not be used.
-        case ServiceKey.jellyfin:
+        case ServiceKey.jellyfin || ServiceKey.emby:
           final container = ref.container;
-          return _jellyfinKpis(
-            ref.watch(jellyfinSessionsProvider.future),
-            ref.watch(jellyfinStrictLibrariesProvider.future),
-            kind: () => container.read(jellyfinCredentialKindProvider.future),
+          final providers = mediaBrowserProvidersOf(service);
+          return _mediaBrowserKpis(
+            ref.watch(providers.sessions.future),
+            ref.watch(providers.strictLibraries.future),
+            kind: () => container.read(providers.credentialKind.future),
           );
         case ServiceKey.plex:
           final container = ref.container;
@@ -209,6 +211,7 @@ List<ProviderOrFamily> serviceKpiSources(ServiceKey service) =>
         jellyfinSessionsProvider,
         jellyfinStrictLibrariesProvider,
       ],
+      ServiceKey.emby => [embySessionsProvider, embyStrictLibrariesProvider],
       ServiceKey.plex => [plexSessionsProvider, plexStrictLibrariesProvider],
     };
 
@@ -304,7 +307,11 @@ final serviceKpiForProvider = FutureProvider.autoDispose
           key.instanceId,
         ),
         ServiceKey.nginxProxyManager => await _npmKpisFor(ref, key.instanceId),
-        ServiceKey.jellyfin => await _jellyfinKpisFor(ref, key.instanceId),
+        ServiceKey.jellyfin || ServiceKey.emby => await _mediaBrowserKpisFor(
+          ref,
+          key.service,
+          key.instanceId,
+        ),
         ServiceKey.plex => await _plexKpisFor(ref, key.instanceId),
       };
       // `noProviderRetry`, like the provider above it. The lens path awaits
@@ -514,7 +521,7 @@ String _notAnswering(ServiceKey service, Object? error) =>
     '${service.title}\u00A0· '
     '${failureLabel(classifyConnectionFailure(error), credential: refusedCredentialOf(service), gateway: accessGatewayOf(error))}';
 
-/// The shared KPI set for a media server, identical for Jellyfin and Plex.
+/// The shared KPI set for a media server, identical for Jellyfin, Emby and Plex.
 ///
 /// Three metrics, and the order is load-bearing in two ways that
 /// `resolveServiceSignalPair` depends on.
@@ -634,13 +641,13 @@ Future<List<ServiceKpi>> _plexKpis(
   }
 }
 
-/// Jellyfin's figures.
+/// The figures of a MediaBrowser server, Jellyfin or Emby.
 ///
 /// A library list refused to a household member's token, which [kind] says
 /// it is, reads `—`; its own playback still counts, and says it is its own,
 /// as its Now playing does.
 /// Any other failure takes the rail, as before.
-Future<List<ServiceKpi>> _jellyfinKpis(
+Future<List<ServiceKpi>> _mediaBrowserKpis(
   Future<List<StreamSession>> sessions,
   Future<List<StreamLibrary>> libraries, {
   required Future<JellyfinCredentialKind> Function() kind,
@@ -668,19 +675,23 @@ Future<List<ServiceKpi>> _jellyfinKpis(
   }
 }
 
-Future<List<ServiceKpi>> _jellyfinKpisFor(Ref ref, String instanceId) {
-  final client = ref.watch(jellyfinClientForProvider(instanceId));
+Future<List<ServiceKpi>> _mediaBrowserKpisFor(
+  Ref ref,
+  ServiceKey service,
+  String instanceId,
+) {
+  final providers = mediaBrowserProvidersOf(service);
+  final client = ref.watch(providers.client.forConnection(instanceId));
   final container = ref.container;
-  return _jellyfinKpis(
+  return _mediaBrowserKpis(
     ref.watch(
       streamSessionsForProvider((
-        service: ServiceKey.jellyfin,
+        service: service,
         instanceId: instanceId,
       )).future,
     ),
     client.getLibrariesOrThrow(),
-    kind: () =>
-        container.read(jellyfinCredentialKindForProvider(instanceId).future),
+    kind: () => container.read(providers.credentialKindFor(instanceId).future),
   );
 }
 

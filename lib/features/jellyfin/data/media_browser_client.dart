@@ -175,8 +175,7 @@ class MediaBrowserClient implements StreamServerClient {
   /// means a tap on a grid tile can render text immediately instead of waiting
   /// for `/Items/{id}`. `ProviderIds` is what sends a movie's tile to the
   /// movie's own page (`MediaKey.ofStreamItem`).
-  static const String _browseFields =
-      'PrimaryImageAspectRatio,Overview,ProviderIds';
+  String get _browseFields => _dialect.browseFields;
 
   /// Lets a test swap in a stubbed transport, exactly as the per-service clients
   /// do with an injected `Dio`, and lets it assert on the real request this
@@ -318,7 +317,10 @@ class MediaBrowserClient implements StreamServerClient {
       '/Sessions',
       queryParameters: _dialect.sessionsQuery(),
     );
-    return mapInIsolate(response.data, jellyfinStreamSessionsFromJson);
+    return mapInIsolate(
+      _dialect.liveSessions(response.data),
+      jellyfinStreamSessionsFromJson,
+    );
   }
 
   @override
@@ -962,7 +964,7 @@ class MediaBrowserClient implements StreamServerClient {
       // something in front of the server is not the server's answer.
       if (error.response?.statusCode == 403 &&
           error.error is! AccessGatewayAnswer) {
-        return _dialect.tokenUserAsViewer(_api);
+        return _dialect.tokenUserAsViewer(_api, _userId);
       }
       rethrow;
     }

@@ -73,7 +73,8 @@ List<ProviderOrFamily> dashboardSourcesOf(ServiceKey service) =>
       ServiceKey.truenas ||
       ServiceKey.unraid ||
       ServiceKey.jellyfin ||
-      ServiceKey.plex => const [],
+      ServiceKey.plex ||
+      ServiceKey.emby => const [],
     };
 
 /// Asks [services] again, everywhere the Dashboard shows them: the probe of

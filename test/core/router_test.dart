@@ -936,6 +936,7 @@ void main() {
         ServiceRoutes.npmOverview: NpmOverviewScreen,
         ServiceRoutes.jellyfinOverview: StreamOverviewScreen,
         ServiceRoutes.plexOverview: StreamOverviewScreen,
+        ServiceRoutes.embyOverview: StreamOverviewScreen,
       };
 
       for (final entry in overviews.entries) {
@@ -1284,6 +1285,7 @@ void main() {
       for (final entry in {
         ServiceRoutes.jellyfin: ServiceRoutes.jellyfinOverview,
         ServiceRoutes.plex: ServiceRoutes.plexOverview,
+        ServiceRoutes.emby: ServiceRoutes.embyOverview,
       }.entries) {
         router.go(entry.key);
         await tester.pumpAndSettle();
@@ -1310,7 +1312,7 @@ void main() {
       final container = await _pumpRouter(tester);
       final router = container.read(routerProvider);
 
-      for (final service in [ServiceKey.jellyfin, ServiceKey.plex]) {
+      for (final service in mediaServers) {
         for (final tab in tabsFor(service)!) {
           final location =
               '${ServiceRoutes.forService(service)}/${tab.segment}';
@@ -1942,6 +1944,33 @@ void main() {
         ServiceTab.tasks: find.byType(JellyfinTasksScreen),
         ServiceTab.activity: find.byType(JellyfinActivityScreen),
       },
+      ServiceKey.emby: {
+        ServiceTab.overview: find.byWidgetPredicate(
+          (widget) =>
+              widget is StreamOverviewScreen &&
+              widget.service == ServiceKey.emby,
+          description: 'StreamOverviewScreen(emby)',
+        ),
+        ServiceTab.libraries: find.byWidgetPredicate(
+          (widget) =>
+              widget is StreamLibrariesScreen &&
+              widget.service == ServiceKey.emby,
+          description: 'StreamLibrariesScreen(emby)',
+        ),
+        // Jellyfin's four screens, told which server they are on.
+        for (final entry in {
+          ServiceTab.users: JellyfinUsersScreen,
+          ServiceTab.devices: JellyfinDevicesScreen,
+          ServiceTab.tasks: JellyfinTasksScreen,
+          ServiceTab.activity: JellyfinActivityScreen,
+        }.entries)
+          entry.key: find.byWidgetPredicate(
+            (widget) =>
+                widget.runtimeType == entry.value &&
+                _serviceOf(widget) == ServiceKey.emby,
+            description: '${entry.value}(emby)',
+          ),
+      },
       ServiceKey.plex: {
         ServiceTab.overview: find.byWidgetPredicate(
           (widget) =>
@@ -2201,3 +2230,13 @@ Future<ProviderContainer> _pumpRouter(
 
   return container;
 }
+
+/// The server one of Jellyfin's four tab screens is told it is on, or null for
+/// any other widget.
+ServiceKey? _serviceOf(Widget widget) => switch (widget) {
+  JellyfinUsersScreen(:final service) ||
+  JellyfinDevicesScreen(:final service) ||
+  JellyfinTasksScreen(:final service) ||
+  JellyfinActivityScreen(:final service) => service,
+  _ => null,
+};

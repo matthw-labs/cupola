@@ -1359,7 +1359,8 @@ Future<_QueueRead> _loadServiceQueueItems(
     // outbound playback, which is a different record with different actions
     // and does not belong in a queue row.
     ServiceKey.jellyfin ||
-    ServiceKey.plex => const ArrRecordPage(records: [], total: 0),
+    ServiceKey.plex ||
+    ServiceKey.emby => const ArrRecordPage(records: [], total: 0),
   };
   final records = page.records.whereType<Map>().map(stringKeyMap);
   return (
@@ -1685,7 +1686,8 @@ String? _queueTypeLabel(ServiceKey service) {
     ServiceKey.unraid ||
     ServiceKey.nginxProxyManager ||
     ServiceKey.jellyfin ||
-    ServiceKey.plex => null,
+    ServiceKey.plex ||
+    ServiceKey.emby => null,
   };
 }
 

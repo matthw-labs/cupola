@@ -254,7 +254,9 @@ class _OverviewBody extends ConsumerWidget {
                 ),
                 if (service.speaksMediaBrowser &&
                     ref.watch(
-                      jellyfinLacksAdministratorForProvider(instanceId),
+                      mediaBrowserProvidersOf(
+                        service,
+                      ).lacksAdministratorFor(instanceId),
                     ))
                   const JellyfinOwnPlaybackNote(),
                 const SizedBox(height: AppSpacing.lg),
@@ -502,16 +504,18 @@ class _LibrariesSection extends ConsumerWidget {
     // `/Library/VirtualFolders` is elevated on Jellyfin, so a household
     // member's token is refused it: the Libraries tab says so calmly, and so
     // does this region, rather than drawing the refusal as a fault.
-    if (service.speaksMediaBrowser &&
-        ref.watch(jellyfinLacksAdministratorForProvider(instanceId))) {
+    if (service.librariesNeedAdministrator &&
+        ref.watch(
+          mediaBrowserProvidersOf(service).lacksAdministratorFor(instanceId),
+        )) {
       return ServiceOverviewSection(
         service: service,
         title: 'Libraries',
         subtitle: '—',
         destination: ServiceTab.libraries,
-        child: const ServiceOverviewEmpty(
+        child: ServiceOverviewEmpty(
           icon: Icons.admin_panel_settings_outlined,
-          label: jellyfinNeedsAdministratorTitle,
+          label: needsAdministratorTitle(service),
         ),
       );
     }

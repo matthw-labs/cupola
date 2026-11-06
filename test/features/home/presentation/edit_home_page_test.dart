@@ -195,7 +195,7 @@ void main() {
     await pump(tester, configured: const [ServiceKey.radarr]);
     expect(find.text('Needs TrueNAS or Unraid'), findsOneWidget);
     expect(find.text('Needs Seerr'), findsNWidgets(2));
-    expect(find.text('Needs Jellyfin or Plex'), findsNWidgets(2));
+    expect(find.text('Needs Jellyfin, Plex or Emby'), findsNWidgets(2));
     // Radarr feeds Arrived: it says what it shows.
     expect(find.text(HomeModule.arrived.line), findsOneWidget);
     // Stack health reads the whole stack, and needs nothing.

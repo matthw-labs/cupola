@@ -763,7 +763,7 @@ String _secretNoun(String credential) =>
 /// `describeFailure` resolves the service's own word from the registry: `key`,
 /// `token` for Plex, `sign-in` for the services that take a username and a
 /// password. A surface with no service to name (a figures rail, a bare error
-/// state) says `key`, which is what most of the seventeen take.
+/// state) says `key`, which is what most of the eighteen take.
 const String kRefusedCredential = 'key';
 
 /// The word for a refused username and password, which takes a different

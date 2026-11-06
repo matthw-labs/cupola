@@ -457,6 +457,61 @@ void main() {
       );
     });
 
+    test('the Emby tab roots are spelled by the tabs they mount', () {
+      // Emby keeps Jellyfin's bar, and still gets a case of its own: a loop
+      // over both would keep passing if one bar changed.
+      expect(ServiceRoutes.emby, '/stack/emby');
+      expect(ServiceRoutes.emby, ServiceRoutes.forService(ServiceKey.emby));
+      expect(
+        ServiceRoutes.embyOverview,
+        '${ServiceRoutes.emby}/${ServiceTab.overview.segment}',
+      );
+      expect(
+        ServiceRoutes.embyLibraries,
+        '${ServiceRoutes.emby}/${ServiceTab.libraries.segment}',
+      );
+      expect(
+        ServiceRoutes.embyUsers,
+        '${ServiceRoutes.emby}/${ServiceTab.users.segment}',
+      );
+      expect(
+        ServiceRoutes.embyDevices,
+        '${ServiceRoutes.emby}/${ServiceTab.devices.segment}',
+      );
+      expect(
+        ServiceRoutes.embyTasks,
+        '${ServiceRoutes.emby}/${ServiceTab.tasks.segment}',
+      );
+      expect(
+        ServiceRoutes.embyActivity,
+        '${ServiceRoutes.emby}/${ServiceTab.activity.segment}',
+      );
+      // An Emby item id is a short number, a path segment like the others.
+      expect(ServiceRoutes.embyItem('15'), '/stack/emby/libraries/item/15');
+      expect(
+        ServiceRoutes.embyItem('15', instanceId: 'cabin'),
+        '/stack/emby/libraries/item/15?i=cabin',
+      );
+      expect(
+        ServiceRoutes.embyLibrary('3', title: 'Movies'),
+        '/stack/emby/libraries/3?title=Movies',
+      );
+      expect(
+        ServiceRoutes.streamItem(ServiceKey.emby, '15'),
+        ServiceRoutes.embyItem('15'),
+      );
+      expect(
+        ServiceRoutes.streamActivity(ServiceKey.emby),
+        ServiceRoutes.embyActivity,
+      );
+      // Not Jellyfin's, and not Plex's: the silent else of the ternaries.
+      expect(
+        ServiceRoutes.streamItem(ServiceKey.emby, '15'),
+        isNot(ServiceRoutes.jellyfinItem('15')),
+      );
+      expect(ServiceRoutes.mediaMountServices, contains(ServiceKey.emby));
+    });
+
     test('the Plex tab roots are spelled by the tabs they mount', () {
       expect(
         ServiceRoutes.plexOverview,

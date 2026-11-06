@@ -135,6 +135,15 @@ abstract final class WorldConnections {
     WorldHosts.dockge,
   );
   static final plex = _api(WorldIds.plex, ServiceKey.plex, WorldHosts.plex);
+
+  /// Emby on `tower`, World B's media server: the household's titles again,
+  /// watched through the operator.
+  static final emby = _api(
+    WorldIds.emby,
+    ServiceKey.emby,
+    WorldHosts.emby,
+    viewerId: EmbyFake.operatorId,
+  );
   static final transmission = _login(
     WorldIds.transmission,
     ServiceKey.transmission,

@@ -11,7 +11,7 @@ void main() {
         service: service,
         baseUrl: 'https://media.example.com/',
         itemId: 'it-9',
-        plexMachineId: machineId,
+        serverId: machineId,
       );
 
   test('every media server has a web client link of its own', () {
@@ -39,6 +39,27 @@ void main() {
     );
     expect(urlOf(ServiceKey.plex, machineId: null), isNull);
     expect(urlOf(ServiceKey.plex, machineId: ''), isNull);
+  });
+
+  test('Emby opens the item page and names its server', () {
+    expect(
+      urlOf(ServiceKey.emby).toString(),
+      'https://media.example.com/web/index.html#!/item?id=it-9'
+      '&serverId=srv-1',
+    );
+  });
+
+  test('Emby keeps a working link when the server did not say its id', () {
+    for (final id in [null, '']) {
+      expect(
+        urlOf(ServiceKey.emby, machineId: id).toString(),
+        'https://media.example.com/web/index.html#!/item?id=it-9',
+      );
+    }
+  });
+
+  test('Emby\'s link leaves the API base path out', () {
+    expect(urlOf(ServiceKey.emby)!.path, '/web/index.html');
   });
 
   test('a service that is no media server has no web client link', () {

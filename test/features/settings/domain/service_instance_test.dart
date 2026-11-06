@@ -99,6 +99,11 @@ const _onDisk = <ServiceKey, ({String url, String secret, String? username})>{
     secret: 'secure_plex_token',
     username: null,
   ),
+  ServiceKey.emby: (
+    url: 'emby_url',
+    secret: 'secure_emby_api_key',
+    username: null,
+  ),
 };
 
 ServiceInstance _primary(ServiceKey service) => ServiceInstance(
@@ -134,6 +139,10 @@ void main() {
         _primary(ServiceKey.jellyfin).viewerIdStorageKey,
         'jellyfin_user_id',
       );
+    });
+
+    test('Emby files its viewer where the storage table says', () {
+      expect(_primary(ServiceKey.emby).viewerIdStorageKey, 'emby_user_id');
     });
 
     test('a second instance never lands on the first one\'s keys', () {

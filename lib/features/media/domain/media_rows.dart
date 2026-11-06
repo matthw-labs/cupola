@@ -68,8 +68,8 @@ final class MediaServerThroughSeerrRow extends MediaRow {
   /// The Seerr connection that made the claim.
   final ServiceInstance seerr;
 
-  /// Jellyfin or Plex: the server Seerr is set up with. Null while Seerr has
-  /// not said which yet: the row draws nothing, and the lead waits for it.
+  /// Jellyfin, Plex or Emby: the server Seerr is set up with. Null while Seerr
+  /// has not said which yet: the row draws nothing, and the lead waits for it.
   final ServiceKey? server;
 
   /// Seerr's media row, for the status and a series' seasons.

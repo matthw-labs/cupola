@@ -128,8 +128,10 @@ void main() {
     test(
       'a version that cannot be read does not unsettle the verdict',
       () async {
+        // Neither read names a version: the authenticated one says none and
+        // the anonymous one is down.
         final server = _FakeServer({
-          '/System/Info': _Reply(200, body: '{"Version":"10.9.11"}'),
+          '/System/Info': _Reply(200, body: '{"ServerName":"Home"}'),
           '/System/Info/Public': _Reply(503),
         });
 
@@ -180,6 +182,155 @@ void main() {
         (await diagnoseCredentials(
           ServiceKey.jellyfin,
           url: 'https://jelly.local:8096',
+          apiKey: '   ',
+        )).status,
+        ServiceConnectionStatus.notConfigured,
+      );
+    });
+  });
+
+  group('Emby verification', () {
+    // Emby answers every route under `/emby` and reads its key from
+    // `X-Emby-Token`. Its public info is anonymous like Jellyfin's, so the
+    // same trap applies: a wrong key must never read as a connection.
+    const info =
+        '{"LocalAddresses":[],"RemoteAddresses":[],"ServerName":"Emby",'
+        '"Version":"4.10.2.0","Id":"a88212fc366d449c8bbe2a34a9e4a91b"}';
+
+    test('a rejected key is unauthorized, not a green connection', () async {
+      final server = _FakeServer({
+        '/emby/System/Info': _Reply(401),
+        '/emby/System/Info/Public': _Reply(200, body: info),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
+          apiKey: 'not-a-real-key',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      expect(diagnosis.reason, ServiceFailureReason.unauthorized);
+    });
+
+    test('the key travels in X-Emby-Token and nowhere else', () async {
+      final server = _FakeServer({
+        '/emby/System/Info': _Reply(200, body: info),
+      });
+
+      await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
+          apiKey: 'emby-key',
+        ),
+      );
+
+      final request = server.requestFor('/emby/System/Info')!;
+      expect(request.headers['x-emby-token'], 'emby-key');
+      expect(request.headers.containsKey('authorization'), isFalse);
+      expect(request.headers.containsKey('x-api-key'), isFalse);
+      expect(request.uri.toString(), isNot(contains('emby-key')));
+    });
+
+    test('an accepted key connects and names the version', () async {
+      final server = _FakeServer({
+        '/emby/System/Info': _Reply(200, body: info),
+        '/emby/System/Info/Public': _Reply(200, body: info),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
+          apiKey: 'emby-key',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.connected);
+      expect(diagnosis.serverVersion, '4.10.2.0');
+    });
+
+    test(
+      'a household member\'s token connects, with the public version',
+      () async {
+        final server = _FakeServer({
+          '/emby/System/Info': _Reply(403),
+          '/emby/System/Info/Public': _Reply(200, body: info),
+        });
+
+        final diagnosis = await server.run(
+          () => diagnoseCredentials(
+            ServiceKey.emby,
+            url: 'http://emby.local:8096',
+            apiKey: 'member-token',
+          ),
+        );
+
+        expect(diagnosis.status, ServiceConnectionStatus.connected);
+        expect(diagnosis.serverVersion, '4.10.2.0');
+      },
+    );
+
+    test(
+      'a Jellyfin answering the legacy /emby routes is not an Emby',
+      () async {
+        const jellyfin =
+            '{"LocalAddress":"http://192.168.1.24:8096","ServerName":"basement",'
+            '"Version":"10.11.11","ProductName":"Jellyfin Server",'
+            '"Id":"9f2c1b7e4a3d4f0e8b6c5a1d2e3f4a5b"}';
+        final server = _FakeServer({
+          '/emby/System/Info': _Reply(200, body: jellyfin),
+          '/emby/System/Info/Public': _Reply(200, body: jellyfin),
+        });
+
+        final diagnosis = await server.run(
+          () => diagnoseCredentials(
+            ServiceKey.emby,
+            url: 'http://emby.local:8096',
+            apiKey: 'emby-key',
+          ),
+        );
+
+        expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+        expect(diagnosis.reason, ServiceFailureReason.notFound);
+        expect(diagnosis.answered, ServiceKey.jellyfin);
+      },
+    );
+
+    test('a server that is not answering is not blamed on the key', () async {
+      final server = _FakeServer({
+        '/emby/System/Info': _Reply(503),
+        '/emby/System/Info/Public': _Reply(503),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
+          apiKey: 'emby-key',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      expect(diagnosis.reason, ServiceFailureReason.serverError);
+    });
+
+    test('an empty address or key is not configured, not a failure', () async {
+      expect(
+        (await diagnoseCredentials(
+          ServiceKey.emby,
+          url: '',
+          apiKey: 'emby-key',
+        )).status,
+        ServiceConnectionStatus.notConfigured,
+      );
+      expect(
+        (await diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
           apiKey: '   ',
         )).status,
         ServiceConnectionStatus.notConfigured,

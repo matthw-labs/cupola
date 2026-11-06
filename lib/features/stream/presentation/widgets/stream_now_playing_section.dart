@@ -173,7 +173,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
   }) {
     final tab = switch (service) {
       ServiceKey.plex => ServiceTab.activities,
-      ServiceKey.jellyfin => ServiceTab.activity,
+      ServiceKey.jellyfin || ServiceKey.emby => ServiceTab.activity,
       _ => throw ArgumentError.value(
         service.name,
         'service',
@@ -378,15 +378,19 @@ class StreamNowPlayingSection extends ConsumerWidget {
     return () => _sendMessage(context, ref, session);
   }
 
-  /// The client that takes Pause and Message for this connection: the concrete
-  /// one, because those commands are not on `StreamServerClient` (Plex has no
+  /// The client that takes Pause and Message for this connection: the
+  /// MediaBrowser one (Jellyfin's or Emby's), because those commands are not on `StreamServerClient` (Plex has no
   /// counterpart). Only reached behind [_pauseHandler] and [_messageHandler],
   /// so a service that cannot is a bug and says so rather than being handed
   /// another server's client.
-  JellyfinClient _remoteOf(WidgetRef ref) => switch (service) {
-    ServiceKey.jellyfin => ref.read(jellyfinClientForProvider(instanceId)),
-    _ => throw UnsupportedError('${service.name} takes no remote control'),
-  };
+  MediaBrowserClient _remoteOf(WidgetRef ref) {
+    if (!service.speaksMediaBrowser) {
+      throw UnsupportedError('${service.name} takes no remote control');
+    }
+    return ref.read(
+      mediaBrowserProvidersOf(service).client.forConnection(instanceId),
+    );
+  }
 
   /// Pausing asks nobody: it is the one control here that is instantly
   /// reversible by the person it happens to, and a confirm on it would be

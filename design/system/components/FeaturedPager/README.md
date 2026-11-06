@@ -12,10 +12,10 @@ Rendered from `lib/features/home/presentation/widgets/featured_pager.dart` (`Fea
 
 At most three, in this order, each only with wide artwork and never a title twice:
 
-- **What somebody was watching**: the first title in progress on a Jellyfin or Plex, `Continue watching · S2 E3 · 5
+- **What somebody was watching**: the first title in progress on a Jellyfin, Plex or Emby, `Continue watching · S2 E3 · 5
   min left`; `Resume` opens it in its server's own client, `Details` its page.
 - **The newest arrival**: the newest movie or series imported in the last seven days (an album stays in Arrived),
-  `New on your server · 2 h ago · Radarr 4K`; `Play` where a media server says it holds it, else `Details` alone. On a phone a Jellyfin title's Play asks which app plays it, unless one was remembered (`playWith`).
+  `New on your server · 2 h ago · Radarr 4K`; `Play` where a media server says it holds it, else `Details` alone. On a phone a Jellyfin or Emby title's Play asks which app plays it (each server's own: Emby's app and its browser, never a Jellyfin player), unless one was remembered (`playWith`).
 - **Out today**: a movie out today or an episode that airs today, `Out on digital today · downloading 62%`, `S3 E1 ·
   premiere · airs today at 21:00`; `Details` leads, `Queue` beside it while it downloads.
 

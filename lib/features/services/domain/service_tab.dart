@@ -85,7 +85,7 @@ enum ServiceTab {
 
 /// The bar, per service, in the order it is drawn.
 ///
-/// Read off the seventeen service home boards. Three rules hold over the whole
+/// Read off the eighteen service home boards. Three rules hold over the whole
 /// table and are asserted by its tests rather than left to review:
 ///
 ///  * every list starts with [ServiceTab.overview]: opening a service always
@@ -156,6 +156,16 @@ const Map<ServiceKey, List<ServiceTab>> serviceTabs = {
     ServiceTab.messages,
   ],
   ServiceKey.jellyfin: [
+    ServiceTab.overview,
+    ServiceTab.libraries,
+    ServiceTab.users,
+    ServiceTab.devices,
+    ServiceTab.tasks,
+    ServiceTab.activity,
+  ],
+  // Emby's bar is Jellyfin's, tab for tab: the two servers answer the same
+  // administration reads (users, devices, scheduled tasks, sessions).
+  ServiceKey.emby: [
     ServiceTab.overview,
     ServiceTab.libraries,
     ServiceTab.users,

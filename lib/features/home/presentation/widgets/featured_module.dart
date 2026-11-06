@@ -25,6 +25,7 @@ import 'package:cupola/features/home/presentation/widgets/continue_watching_modu
     show openResume;
 import 'package:cupola/features/home/presentation/widgets/featured_pager.dart';
 import 'package:cupola/features/media/presentation/open_media.dart';
+import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/services/domain/services_semantics.dart';
 import 'package:cupola/features/settings/data/connection_reach_provider.dart';
@@ -192,14 +193,19 @@ Future<void> _play(
   final server = ref.read(currentSettingsProvider).instanceById(instanceId);
   if (server == null) return;
   String? machineId;
-  if (service == ServiceKey.plex) {
-    try {
-      machineId = (await ref.read(
+  try {
+    machineId = switch (service) {
+      ServiceKey.plex => (await ref.read(
         plexCapabilitiesForProvider(instanceId).future,
-      )).machineIdentifier;
-    } catch (_) {
-      machineId = null;
-    }
+      )).machineIdentifier,
+      // Emby's link names the server too, and works when it does not answer.
+      ServiceKey.emby => await ref.read(
+        embyServerIdProvider(instanceId).future,
+      ),
+      _ => null,
+    };
+  } catch (_) {
+    machineId = null;
   }
   if (!context.mounted) return;
   await playWith(
@@ -213,7 +219,7 @@ Future<void> _play(
       service: service,
       baseUrl: ref.read(connectionReachProvider(instanceId))?.url ?? '',
       itemId: itemId,
-      plexMachineId: machineId,
+      serverId: machineId,
     ),
   );
 }

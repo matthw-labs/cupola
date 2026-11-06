@@ -37,7 +37,7 @@ import '../../../test_helpers/settings_scope.dart';
 
 void main() {
   test(
-    'global search asks exactly Seerr, Radarr, Sonarr, Jellyfin and Plex',
+    'global search asks exactly Seerr, Radarr, Sonarr, Jellyfin, Plex and Emby',
     () {
       expect(
         globalSearchServices,
@@ -47,6 +47,7 @@ void main() {
           ServiceKey.sonarr,
           ServiceKey.jellyfin,
           ServiceKey.plex,
+          ServiceKey.emby,
         ]),
       );
     },

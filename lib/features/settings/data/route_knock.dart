@@ -83,6 +83,12 @@ KnockPlan? knockPlanOf(ServiceKey service, String url) => switch (service) {
     '/System/Info/Public',
     (answer) => _identifies(ServiceKey.jellyfin, answer),
   ),
+  // Emby's public info under its own `/emby` prefix. The root answers the same,
+  // but a Jellyfin answers its own there too, and the body tells them apart.
+  ServiceKey.emby => KnockPlan(
+    '/emby/System/Info/Public',
+    (answer) => _identifies(ServiceKey.emby, answer),
+  ),
   ServiceKey.plex => KnockPlan(
     '/identity',
     (answer) =>

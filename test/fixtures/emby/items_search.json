@@ -1,0 +1,16 @@
+{
+  "Items": [
+    {
+      "Name": "The Matrix",
+      "ServerId": "a88212fc366d449c8bbe2a34a9e4a91b",
+      "Id": "13",
+      "RunTimeTicks": 20000000,
+      "IsFolder": false,
+      "Type": "Movie",
+      "ImageTags": {},
+      "BackdropImageTags": [],
+      "MediaType": "Video"
+    }
+  ],
+  "TotalRecordCount": 1
+}

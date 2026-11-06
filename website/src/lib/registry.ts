@@ -56,7 +56,7 @@ function switchOf(getter: string): Map<string, Value> {
     const value = literal(arm[2], getter);
     for (const key of arm[1].matchAll(/ServiceKey\.(\w+)/g)) out.set(key[1], value);
   }
-  if (out.size !== 17) throw new Error(`${SOURCE}: ${getter} covers ${out.size} services, not 17`);
+  if (out.size !== 18) throw new Error(`${SOURCE}: ${getter} covers ${out.size} services, not 18`);
   return out;
 }
 

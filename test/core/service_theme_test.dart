@@ -139,7 +139,7 @@ void main() {
     test('every service paints the lamp', () {
       // Principle 3 of the brand book: colour is information. `ServiceKey.accent` is what the
       // interface paints for a service: its room light, its glow, its walked
-      // labels, and it is the neutral lamp for all seventeen.
+      // labels, and it is the neutral lamp for all eighteen.
       for (final service in ServiceKey.values) {
         expect(service.accent, AppColors.lamp, reason: service.name);
         expect(serviceThemeFor(service).accent, AppColors.lamp);

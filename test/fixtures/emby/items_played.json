@@ -1,0 +1,43 @@
+{
+  "Items": [
+    {
+      "Name": "Fight Club",
+      "ServerId": "a88212fc366d449c8bbe2a34a9e4a91b",
+      "Id": "12",
+      "RunTimeTicks": 20000000,
+      "ProviderIds": {},
+      "IsFolder": false,
+      "Type": "Movie",
+      "UserData": {
+        "PlaybackPositionTicks": 0,
+        "PlayCount": 1,
+        "IsFavorite": false,
+        "Played": true,
+        "LastPlayedDate": "2026-11-01T18:00:00.0000000Z"
+      },
+      "ImageTags": {},
+      "BackdropImageTags": [],
+      "MediaType": "Video"
+    },
+    {
+      "Name": "The Matrix",
+      "ServerId": "a88212fc366d449c8bbe2a34a9e4a91b",
+      "Id": "13",
+      "RunTimeTicks": 20000000,
+      "ProviderIds": {},
+      "IsFolder": false,
+      "Type": "Movie",
+      "UserData": {
+        "PlaybackPositionTicks": 0,
+        "PlayCount": 1,
+        "IsFavorite": false,
+        "Played": true,
+        "LastPlayedDate": "2026-11-05T20:15:00.0000000Z"
+      },
+      "ImageTags": {},
+      "BackdropImageTags": [],
+      "MediaType": "Video"
+    }
+  ],
+  "TotalRecordCount": 2
+}

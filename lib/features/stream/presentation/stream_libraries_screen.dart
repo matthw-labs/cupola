@@ -118,10 +118,13 @@ class _LibrariesBody extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // `/Library/VirtualFolders` is elevated on Jellyfin: a household member's
     // token is refused it, and an empty list would read as a server with no
-    // libraries.
-    if (service.speaksMediaBrowser &&
-        ref.watch(jellyfinLacksAdministratorForProvider(instanceId))) {
+    // libraries. Emby's own route is not (`librariesNeedAdministrator`).
+    if (service.librariesNeedAdministrator &&
+        ref.watch(
+          mediaBrowserProvidersOf(service).lacksAdministratorFor(instanceId),
+        )) {
       return JellyfinAdminPlaceholder(
+        service: service,
         what: 'libraries',
         topPadding: topPadding,
         connectionId: streamConnectionIdOf(ref, service, instanceId),

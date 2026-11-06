@@ -26,7 +26,7 @@ import 'package:cupola/features/settings/data/settings_provider.dart';
 /// Invalidation rather than an imperative re-probe: the providers already know
 /// how to diagnose, only a live watcher needs an answer, and a service nobody
 /// is looking at should not cost a round trip. So this is cheap on a settings
-/// pane showing three rows and cheap on one showing seventeen.
+/// pane showing three rows and cheap on one showing eighteen.
 ///
 /// Returns the number of connections that will be re-tested, so the caller can
 /// say what it just did: a command whose only feedback is a spinner appearing

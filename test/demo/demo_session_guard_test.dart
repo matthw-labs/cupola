@@ -129,7 +129,7 @@ void main() {
     );
     expect(
       session.network.profile.connections.map((c) => c.service).toSet(),
-      hasLength(17),
+      hasLength(18),
     );
   });
 

@@ -70,6 +70,7 @@ class ServiceRoutes {
   static const unraid = '$stack/unraid';
   static const jellyfin = '$stack/jellyfin';
   static const plex = '$stack/plex';
+  static const emby = '$stack/emby';
 
   /// The two the file was missing. Both services shipped with their callers
   /// building `'/services/transmission'` and `'/services/npm'` by hand, which
@@ -133,6 +134,16 @@ class ServiceRoutes {
   static const jellyfinTasks = '$jellyfin/tasks';
   static const jellyfinActivity = '$jellyfin/activity';
 
+  // Emby is Jellyfin's ancestor and keeps its bar, spelled out here for the same
+  // reason as the two above: a literal each, so the constants stay `const`.
+  static const embyOverview = '$emby/overview';
+  static const embyLibraries = '$emby/libraries';
+  static const embyItemBase = '$embyLibraries/item';
+  static const embyUsers = '$emby/users';
+  static const embyDevices = '$emby/devices';
+  static const embyTasks = '$emby/tasks';
+  static const embyActivity = '$emby/activity';
+
   static const plexOverview = '$plex/overview';
 
   /// The same two roles [jellyfinLibraries] carries, and the same move: the
@@ -167,6 +178,8 @@ class ServiceRoutes {
   }) => _streamLibrary(jellyfinLibraries, id, title, instanceId);
   static String plexLibrary(String id, {String? title, String? instanceId}) =>
       _streamLibrary(plexLibraries, id, title, instanceId);
+  static String embyLibrary(String id, {String? title, String? instanceId}) =>
+      _streamLibrary(embyLibraries, id, title, instanceId);
 
   static String _streamLibrary(
     String base,
@@ -183,8 +196,9 @@ class ServiceRoutes {
 
   /// One item at any depth of the tree: film, show, season or episode.
   ///
-  /// Jellyfin ids are GUIDs and a Plex `ratingKey` is documented as an opaque
-  /// string that only *often* looks numeric, so neither can go through
+  /// Jellyfin ids are GUIDs, an Emby id is a short number and a Plex
+  /// `ratingKey` is documented as an opaque string that only *often* looks
+  /// numeric, so none of them can go through
   /// `RouteUtils.safeIntParam`. Both are single path segments containing no `/`,
   /// which is why this stays a path route rather than taking
   /// [truenasDataset]'s query-parameter escape hatch.
@@ -195,8 +209,10 @@ class ServiceRoutes {
       _withQuery('$jellyfinItemBase/$id', {'i': instanceId});
   static String plexItem(String id, {String? instanceId}) =>
       _withQuery('$plexItemBase/$id', {'i': instanceId});
+  static String embyItem(String id, {String? instanceId}) =>
+      _withQuery('$embyItemBase/$id', {'i': instanceId});
 
-  /// [jellyfinLibrary] or [plexLibrary], by [service].
+  /// [jellyfinLibrary], [plexLibrary] or [embyLibrary], by [service].
   static String streamLibrary(
     ServiceKey service,
     String id, {
@@ -209,10 +225,11 @@ class ServiceRoutes {
       instanceId: instanceId,
     ),
     ServiceKey.plex => plexLibrary(id, title: title, instanceId: instanceId),
+    ServiceKey.emby => embyLibrary(id, title: title, instanceId: instanceId),
     _ => throw _notAMediaServer(service),
   };
 
-  /// [jellyfinItem] or [plexItem], by [service].
+  /// [jellyfinItem], [plexItem] or [embyItem], by [service].
   static String streamItem(
     ServiceKey service,
     String id, {
@@ -220,6 +237,7 @@ class ServiceRoutes {
   }) => switch (service) {
     ServiceKey.jellyfin => jellyfinItem(id, instanceId: instanceId),
     ServiceKey.plex => plexItem(id, instanceId: instanceId),
+    ServiceKey.emby => embyItem(id, instanceId: instanceId),
     _ => throw _notAMediaServer(service),
   };
 
@@ -230,6 +248,7 @@ class ServiceRoutes {
         switch (service) {
           ServiceKey.jellyfin => jellyfinActivity,
           ServiceKey.plex => plexActivities,
+          ServiceKey.emby => embyActivity,
           _ => throw _notAMediaServer(service),
         },
         {'i': instanceId},
@@ -695,6 +714,7 @@ class ServiceRoutes {
     ServiceKey.sonarr,
     ServiceKey.jellyfin,
     ServiceKey.plex,
+    ServiceKey.emby,
   };
 
   /// Where a title opened from [path] lands: under the service tab [path] is
@@ -846,6 +866,16 @@ class ServiceRoutes {
     'from': sourceId,
     'known': name,
   });
+
+  /// The form to add a connection of [service] at [address]: the remedy of an
+  /// address that turned out to be another service's (`Set up Emby`).
+  ///
+  /// Always a **new** connection, never an edit: the service may already have
+  /// one, and writing this address over it would be silent corruption. Only
+  /// the address travels in the location; the key never does, and a gateway's
+  /// access, which is secret, rides beside the push as its `extra`.
+  static String addAt(ServiceKey service, {required String address}) =>
+      _withQuery(settingsFor(service), {'new': '1', 'url': address});
 
   /// The settings form of one saved connection of [service], where a
   /// too-narrow credential is replaced.

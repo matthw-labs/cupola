@@ -13,16 +13,17 @@ import 'package:cupola/features/settings/presentation/widgets/settings_choice_ro
 import 'package:cupola/features/stream/data/stream_app_launcher.dart';
 import 'package:cupola/features/stream/domain/stream_players.dart';
 
-/// Whether this device plays a Jellyfin title in an app of the viewer's
-/// choosing: a phone, where those apps exist. Elsewhere the browser, as before.
+/// Whether this device plays a title in an app of the viewer's choosing: a
+/// phone, where those apps exist. Elsewhere the browser, as before.
 bool playsOnPhone() =>
     defaultTargetPlatform == TargetPlatform.iOS ||
     defaultTargetPlatform == TargetPlatform.android;
 
 /// Plays [itemId] on [server], in the app the viewer chooses.
 ///
-/// Only Jellyfin on a phone has a choice. Anything else opens [webUrl] in the
-/// browser with no sheet, as it always did. On Jellyfin the order is:
+/// Only Jellyfin and Emby on a phone have a choice, each among its own
+/// players ([StreamPlayer.of]). Anything else opens [webUrl] in the browser
+/// with no sheet, as it always did. On those two the order is:
 ///
 ///  1. the app the viewer remembered, while it is still installed, straight
 ///     away; one uninstalled since is forgotten, and the sheet shows;
@@ -39,15 +40,16 @@ Future<void> playWith(
   required String title,
   Uri? webUrl,
 }) async {
-  if (server.service != ServiceKey.jellyfin || !playsOnPhone()) {
-    await _open(context, ref, StreamPlayer.web, webUrl);
+  final players = StreamPlayer.of(server.service);
+  if (players.isEmpty || !playsOnPhone()) {
+    await _open(context, ref, _browserOf(server.service), webUrl);
     return;
   }
 
-  final serverId = await _jellyfinServerId(ref, server.id);
+  final serverId = await _serverId(ref, server);
   final userId = server.viewerId.trim();
   final links = <StreamPlayer, Uri>{};
-  for (final player in StreamPlayer.values) {
+  for (final player in players) {
     if (!player.platforms.contains(defaultTargetPlatform)) continue;
     final link = player.link(
       itemId: itemId,
@@ -57,37 +59,44 @@ Future<void> playWith(
     );
     if (link != null) links[player] = link;
   }
-  final installed = await _installed(ref, links);
+  final installed = await _installed(ref, players, links);
   if (!context.mounted || installed.isEmpty) return;
 
-  final remembered = ref.read(streamPlayerChoiceProvider);
+  final choice = streamPlayerChoiceOf(server.service);
+  final remembered = ref.read(choice);
   if (remembered != null) {
     if (installed.contains(remembered)) {
       await _open(context, ref, remembered, links[remembered]);
       return;
     }
     // Uninstalled since it was chosen: forgotten, and the viewer is asked.
-    ref.read(streamPlayerChoiceProvider.notifier).set(null);
+    ref.read(choice.notifier).set(null);
   }
 
-  if (installed.length == 1 && installed.single == StreamPlayer.web) {
-    await _open(context, ref, StreamPlayer.web, links[StreamPlayer.web]);
+  if (installed.length == 1 && installed.single.isBrowser) {
+    final browser = installed.single;
+    await _open(context, ref, browser, links[browser]);
     return;
   }
 
   if (!context.mounted) return;
-  final choice = await AppBottomSheet.show<(StreamPlayer, bool)>(
+  final picked = await AppBottomSheet.show<(StreamPlayer, bool)>(
     context: context,
     title: 'Play with',
     subtitle: title,
     showClose: true,
-    builder: (_) => _PlayWithSheet(players: installed),
+    builder: (_) =>
+        _PlayWithSheet(players: installed, serviceTitle: server.service.title),
   );
-  if (choice == null || !context.mounted) return;
-  final (player, remember) = choice;
-  if (remember) ref.read(streamPlayerChoiceProvider.notifier).set(player);
+  if (picked == null || !context.mounted) return;
+  final (player, remember) = picked;
+  if (remember) ref.read(choice.notifier).set(player);
   await _open(context, ref, player, links[player]);
 }
+
+/// The browser player of [service]: the one a server with no apps opens.
+StreamPlayer _browserOf(ServiceKey service) =>
+    service == ServiceKey.emby ? StreamPlayer.embyWeb : StreamPlayer.web;
 
 /// Opens [link] in [player]'s app. A failure says so once.
 Future<void> _open(
@@ -104,32 +113,35 @@ Future<void> _open(
 }
 
 /// The players among [links] that can be opened: the browser always, an app
-/// when the platform says one claims its scheme. In the order of
-/// [StreamPlayer.values], the browser last.
+/// when the platform says one claims its scheme. In the order of [players],
+/// the browser last.
 Future<List<StreamPlayer>> _installed(
   WidgetRef ref,
+  List<StreamPlayer> players,
   Map<StreamPlayer, Uri> links,
 ) async {
   final launcher = ref.read(streamAppLauncherProvider);
   final installed = <StreamPlayer>[];
-  for (final player in StreamPlayer.values) {
+  for (final player in players) {
     final link = links[player];
     if (link == null) continue;
-    if (player == StreamPlayer.web || await launcher.canOpen(link)) {
+    if (player.isBrowser || await launcher.canOpen(link)) {
       installed.add(player);
     }
   }
   return [
-    ...installed.where((player) => player != StreamPlayer.web),
-    if (installed.contains(StreamPlayer.web)) StreamPlayer.web,
+    ...installed.where((player) => !player.isBrowser),
+    ...installed.where((player) => player.isBrowser),
   ];
 }
 
-/// The server's own id, or null when it is not known: Swiftfin is then not
-/// offered.
-Future<String?> _jellyfinServerId(WidgetRef ref, String instanceId) async {
+/// The server's own id, or null when it is not known: Swiftfin and Emby's app
+/// are then not offered.
+Future<String?> _serverId(WidgetRef ref, ServiceInstance server) async {
   try {
-    return await ref.read(jellyfinServerIdProvider(instanceId).future);
+    return await ref.read(
+      mediaBrowserProvidersOf(server.service).serverId(server.id).future,
+    );
   } catch (_) {
     return null;
   }
@@ -138,9 +150,12 @@ Future<String?> _jellyfinServerId(WidgetRef ref, String instanceId) async {
 /// The choice of the player, one row each, the browser last. Tapping one
 /// chooses it; the box says whether to remember it.
 class _PlayWithSheet extends StatefulWidget {
-  const _PlayWithSheet({required this.players});
+  const _PlayWithSheet({required this.players, required this.serviceTitle});
 
   final List<StreamPlayer> players;
+
+  /// The server the title is on, which the setting is found under.
+  final String serviceTitle;
 
   @override
   State<_PlayWithSheet> createState() => _PlayWithSheetState();
@@ -173,7 +188,7 @@ class _PlayWithSheetState extends State<_PlayWithSheet> {
           title: const Text('Remember my choice'),
           // The secondary ink, as every subtitle.
           subtitle: Text(
-            'Change it in Settings, on your Jellyfin connection.',
+            'Change it in Settings, on your ${widget.serviceTitle} connection.',
             style: theme.textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -184,29 +199,34 @@ class _PlayWithSheetState extends State<_PlayWithSheet> {
   }
 }
 
-/// The Settings choice of the app a Jellyfin title plays in: `Ask every time`,
-/// or one of the players installed here, the browser last. Chosen in a sheet,
-/// saved at once.
-Future<void> chooseStreamPlayer(BuildContext context, WidgetRef ref) async {
+/// The Settings choice of the app a [service] title plays in: `Ask every
+/// time`, or one of the players installed here, the browser last. Chosen in a
+/// sheet, saved at once.
+Future<void> chooseStreamPlayer(
+  BuildContext context,
+  WidgetRef ref, {
+  ServiceKey service = ServiceKey.jellyfin,
+}) async {
   final launcher = ref.read(streamAppLauncherProvider);
   final installed = <StreamPlayer>[];
-  for (final player in StreamPlayer.values) {
+  for (final player in StreamPlayer.of(service)) {
     final probe = player.probe;
     if (probe != null && await launcher.canOpen(probe)) installed.add(player);
   }
   // The browser last, as in the sheet that plays a title.
-  installed.add(StreamPlayer.web);
+  installed.add(_browserOf(service));
+  final choice = streamPlayerChoiceOf(service);
   if (!context.mounted) return;
   await AppBottomSheet.show<void>(
     context: context,
     title: 'Play with',
-    subtitle: 'Jellyfin titles',
+    subtitle: '${service.title} titles',
     showClose: true,
     builder: (sheetContext) => Consumer(
       builder: (context, ref, _) {
-        final current = ref.watch(streamPlayerChoiceProvider);
+        final current = ref.watch(choice);
         void choose(StreamPlayer? player) {
-          ref.read(streamPlayerChoiceProvider.notifier).set(player);
+          ref.read(choice.notifier).set(player);
           Navigator.of(sheetContext).pop();
         }
 

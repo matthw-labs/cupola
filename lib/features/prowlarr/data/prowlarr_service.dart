@@ -31,7 +31,7 @@ class ProwlarrService {
   // `getStatus()` used to live here, reading `/api/v1/system/status` into a
   // `ProwlarrSystemStatus`. Nothing in the app ever called it: the version the
   // Overview prints already comes from `serviceSummaryProvider`, which reads
-  // the same endpoint for all seventeen services through
+  // the same endpoint for all eighteen services through
   // `ServiceKey.statusEndpoint`. Wiring it in would have been a second request
   // for a string the app already has, so it is gone with its model and its
   // test rather than kept as a method with one caller in `test/`.

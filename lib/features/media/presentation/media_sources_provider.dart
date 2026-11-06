@@ -579,8 +579,7 @@ final mediaRowsProvider = Provider.autoDispose.family<List<MediaRow>, MediaKey>(
 /// Seerr [seerr]'s claim that the title is on the media server it is set up
 /// with: where [record] says it is there, in part or whole, with a link to
 /// it. The server comes from Seerr's public settings: a claim with none
-/// while they are out, and no claim when they failed or name a server Cupola
-/// cannot set up (Emby).
+/// while they are out, and no claim when they failed or name no server.
 MediaServerThroughSeerrRow? _playerClaim(
   Ref ref,
   ServiceInstance seerr,
@@ -607,6 +606,8 @@ MediaServerThroughSeerrRow? _playerClaim(
         server = ServiceKey.jellyfin;
       case SeerrMediaServer.plex:
         server = ServiceKey.plex;
+      case SeerrMediaServer.emby:
+        server = ServiceKey.emby;
       default:
         return null;
     }

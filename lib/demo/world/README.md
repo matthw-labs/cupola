@@ -128,8 +128,8 @@ test's description. Seerr's own states are `SeerrBehaviour`s
 | `answersAsOtherService(service)` | The other service's fake answers every request at this address, upgrades included: a wrong port. `answersAsOtherService(ServiceKey.sonarr)` on Radarr's connection answers `/api/v3/system/status` with `appName: Sonarr`. |
 | `didNotAnswer` | `SocketException('Connection refused')` at dial time. The attempt is logged with `dialRefused`. |
 | `timesOut` | `SocketException('Connection timed out')`, which Dio reports as `connectionTimeout`. It is raised at once, and the app reads it as did not answer: the connection never completed. |
-| `refusesKey` | The arrs answer 401. Seerr answers 403 `{status: 403, error: 'You do not have permission to access this endpoint'}`, and a sign-in or a session still works. qBittorrent answers `200 Fails.` on login. SABnzbd answers `status: false`. TrueNAS answers `false` to the key login. Dockge answers `ok: false` to login. Public probes keep answering: Jellyfin `/System/Info/Public`, Plex `/identity`, NPM `/api/`, Seerr `/status` and SABnzbd `mode=version`. |
-| `readOnly` | Capability probes answer read-only: TrueNAS `auth.me`, NPM `users/me` and Unraid `me` all come from fixtures. Jellyfin behaves as a non-admin token and Plex as a non-owner token, so admin reads are refused. For every other service, writes get 403. |
+| `refusesKey` | The arrs answer 401. Seerr answers 403 `{status: 403, error: 'You do not have permission to access this endpoint'}`, and a sign-in or a session still works. qBittorrent answers `200 Fails.` on login. SABnzbd answers `status: false`. TrueNAS answers `false` to the key login. Dockge answers `ok: false` to login. Public probes keep answering: Jellyfin `/System/Info/Public`, Emby `/emby/System/Info/Public`, Plex `/identity`, NPM `/api/`, Seerr `/status` and SABnzbd `mode=version`. |
+| `readOnly` | Capability probes answer read-only: TrueNAS `auth.me`, NPM `users/me` and Unraid `me` all come from fixtures. Jellyfin and Emby behave as a non-admin token and Plex as a non-owner token, so admin reads are refused. For every other service, writes get 403. |
 | `homeOnly` (flag) | The connection answers at home. Away, it refuses the connection. The flag combines with the behaviour: P7's TrueNAS is read-only and home-only. |
 | `latency` | Every answer waits this long in fake time. The app's own timeouts fire as they would live. |
 | `sessionExpired` (Seerr) | The session the account connection starts with is over on the server: every route it reaches answers `403 {status, error}`, `/auth/me` included. The key still works, and a new sign-in starts a session that does. |
@@ -156,8 +156,10 @@ test's description. Seerr's own states are `SeerrBehaviour`s
 | `p9` Operator with a friend's Seerr | P1 plus Sara's Seerr (`seerrFriend`, `https://seerr.example.net`, labelled `Sara`), where the operator has his own account with REQUEST only (user 4) | e, d, a, f | The operator's app with one Seerr he runs and one he only requests from. |
 
 `WorldConnections` also holds connections no profile configures, for a
-test that adds one with `withConnection`: World B's Readarr, NZBGet, Unraid
-and NPM, a second Jellyfin, a second Plex and a second Seerr at the cabin
+test that adds one with `withConnection`: World B's Readarr, NZBGet, Unraid,
+NPM and Emby (`emby` on `tower:8096`, the household's titles again behind
+Emby's own routes: `/emby` prefix, `/Users/Query`, numeric item ids, and the
+public info with no `ProductName`; `EmbyFake`), a second Jellyfin, a second Plex and a second Seerr at the cabin
 (`jellyfinCabin`, `plexCabin`, `seerrCabin`, all labelled `Cabin`) beside the
 unnamed ones at home, a second Lidarr (`lidarrVinyl`, labelled `Vinyl`), a second
 Prowlarr and a second Dockge on `tower` (`prowlarrTower`, `dockgeTower`, both

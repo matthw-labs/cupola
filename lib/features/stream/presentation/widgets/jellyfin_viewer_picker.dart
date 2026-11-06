@@ -14,10 +14,10 @@ import 'package:cupola/features/settings/domain/service_not_configured.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/stream/domain/stream_server_client.dart';
 
-/// Picks whose watch state the Jellyfin library is read through.
+/// Picks whose watch state a Jellyfin or Emby library is read through.
 ///
 /// **This is a required setting, not a preference, and the reason is structural.**
-/// A Jellyfin API key authenticates as an administrator with **no user attached**:
+/// A Jellyfin or Emby API key authenticates as an administrator with **no user attached**:
 /// the `UserId` claim is the empty GUID. It can therefore see every session and
 /// every library, but it cannot answer "have I watched this": resume positions,
 /// next-up and the unplayed filter are all user-scoped, and the endpoints that

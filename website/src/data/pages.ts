@@ -33,7 +33,7 @@ export const pages = {
     slug: 'services',
     name: 'Services',
     title: 'Cupola services: Radarr, Sonarr, Seerr, qBittorrent, TrueNAS',
-    heading: 'Seventeen services, tested honestly.',
+    heading: 'Eighteen services, tested honestly.',
     description: 'Every service Cupola connects to, what it can do with each, how it signs in, and whether it has been verified against a real, running instance.',
     light: 'lamp',
   },
