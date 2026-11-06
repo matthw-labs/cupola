@@ -96,6 +96,7 @@ ServiceInstance _connection(
 );
 
 final _jellyfin = _connection(ServiceKey.jellyfin, 'jellyfin');
+final _emby = _connection(ServiceKey.emby, 'emby');
 final _plex = _connection(ServiceKey.plex, 'plex');
 final _radarr = _connection(ServiceKey.radarr, 'radarr');
 final _radarr4k = _connection(ServiceKey.radarr, 'radarr-4k', label: '4K');
@@ -282,16 +283,34 @@ List<MediaRow> _withSeerr({
   ),
 ];
 
-/// No media server in Cupola: Seerr says Nosferatu is on its Jellyfin, and
+/// No media server in Cupola: Seerr says Nosferatu is on its [server], and
 /// its link opens it there.
-List<MediaRow> _throughSeerr() => [
+List<MediaRow> _throughSeerr({ServiceKey server = ServiceKey.jellyfin}) => [
   MediaServerThroughSeerrRow(
     seerr: _seerr,
-    server: ServiceKey.jellyfin,
+    server: server,
     mediaInfo: const {'status': 5},
-    url: Uri.parse('http://jellyfin.local:8096/web/#/details?id=jf-653'),
+    url: Uri.parse(
+      server == ServiceKey.emby
+          ? 'http://emby.local:8096/web/index.html#!/item?id=653'
+          : 'http://jellyfin.local:8096/web/#/details?id=jf-653',
+    ),
   ),
   ..._withSeerr().where((row) => row is! MediaConnectionRow<MediaStreamCopy>),
+];
+
+/// An Emby in Cupola holding the title, unplayed, beside Radarr's copy: the
+/// lead plays it there, and the server's row is a fact, not Seerr's word.
+List<MediaRow> _onEmby() => [
+  MediaConnectionRow<MediaStreamCopy>(
+    _emby,
+    _answered(
+      MediaStreamCopy.found(
+        _item(video: const StreamVideo(width: 1920, height: 1080)),
+      ),
+    ),
+  ),
+  ..._household().whereType<MediaConnectionRow<MediaRadarrCopy>>().take(1),
 ];
 
 /// The household with the 4K Radarr holding nothing yet, and Seerr on an
@@ -921,6 +940,7 @@ void main() {
     overrides: () => settingsScopeOverrides(
       customize: (settings) => [
         _jellyfin,
+        _emby,
         _plex,
         _radarr,
         _radarr4k,
@@ -1045,6 +1065,18 @@ void main() {
         'and Jellyfin\'s row is Seerr\'s word with the way to add it',
         _throughSeerr(),
         height: 2240,
+      ),
+      _scene(
+        'Through Seerr · Emby · no media server in Cupola: `Watch on Emby` '
+        'leads, and Emby\'s row is Seerr\'s word with `Add Emby to Cupola`',
+        _throughSeerr(server: ServiceKey.emby),
+        height: 2240,
+      ),
+      _scene(
+        'On Emby · the household\'s Emby holds the title: `Play on Emby` '
+        'leads, and its row is a fact beside Radarr\'s',
+        _onEmby(),
+        height: 1100,
       ),
       _scene(
         'A copy to add, Seerr signed out · `+ Add to Radarr · 4K` under the '

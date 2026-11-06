@@ -10,6 +10,8 @@ import 'package:cupola/core/utils/sheet_utils.dart';
 import 'package:cupola/core/widgets/app_bottom_sheet.dart';
 import 'package:cupola/core/widgets/media_value_sheet.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/stream/domain/stream_players.dart';
+import 'package:cupola/features/stream/presentation/play_with.dart';
 
 import 'catalog.dart';
 
@@ -31,6 +33,18 @@ Widget _open(Widget sheet, {double maxWidth = double.infinity}) => Builder(
         ),
       ),
     ],
+  ),
+);
+
+/// The sheet `playWith` opens for a title of [service]: one row per player the
+/// server has, the browser last, as the phone offers them.
+Widget _playWith(ServiceKey service) => AppBottomSheet(
+  title: 'Play with',
+  subtitle: 'Sintel',
+  showClose: true,
+  child: PlayWithSheet(
+    players: StreamPlayer.of(service),
+    serviceTitle: service.title,
   ),
 );
 
@@ -339,6 +353,18 @@ void main() {
         height: 440,
         maxWidth: 640,
         platform: CatalogPlatform.desktop,
+      ),
+      _scene(
+        'Play with · an Emby title · Emby\'s own app, then Emby in the '
+        'browser, and no Jellyfin player among them',
+        () => _playWith(ServiceKey.emby),
+        height: 460,
+      ),
+      _scene(
+        'Play with · a Jellyfin title, for contrast · its own apps and '
+        'Jellyfin in the browser, and nothing from Emby',
+        () => _playWith(ServiceKey.jellyfin),
+        height: 620,
       ),
       _dialog(
         'Where there is room (720 wide and 500 tall: a tablet, a desktop '

@@ -280,7 +280,7 @@ need you. Review`), announced when it appears. Each Set up next row is one butto
 Each sheet is drawn in the dark and the light room: the frame ready, loading, silent and needing a service; Needs
 you led by a group, by one fault and by a silent service; Set up next over Radarr, Sonarr and Seerr, and with what Seerr and Prowlarr know first; Downloads moving
 with one stuck and one queued, with qBittorrent silent, and with nothing moving; Requests with one row answered; Now playing with two
-playbacks; Continue watching with two titles and asking who you are; Coming up over three days, and with Lidarr silent
+playbacks, and with an Emby playback beside a Jellyfin one; Continue watching with two titles and asking who you are; Coming up over three days, and with Lidarr silent
 and nothing by Friday; Arrived over a week, with Radarr 4K silent, and as last drawn at a cold start under the Home's line; Stack health with three faults, with Radarr
 silent, and checking; Storage with a disk in trouble, and with TrueNAS silent; Storage and Discover shelf asking for
 their services; the Edit Home row; text at 200% with Downloads, with Stack health, Storage and Discover shelf asking for

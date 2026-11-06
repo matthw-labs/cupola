@@ -204,8 +204,9 @@ StreamActivityRow _playing(
   double progress, {
   String? subtitle,
   bool paused = false,
+  ServiceKey service = ServiceKey.jellyfin,
 }) => StreamActivityRow(
-  service: ServiceKey.jellyfin,
+  service: service,
   instanceId: '',
   connectionName: null,
   session: StreamSession(
@@ -773,6 +774,36 @@ void main() {
                 'Plex for iOS\u00A0· iPad',
                 7,
                 0.6,
+              ),
+            ],
+          ),
+          streamActivityOfflineProvider.overrideWith(
+            (ref) async => const <StreamOfflineSource>[],
+          ),
+        ],
+      ),
+      CatalogScene(
+        'Now playing · an Emby playback beside a Jellyfin one: each row the '
+        'same shape, and the line under the heading names both servers',
+        (_) => const HomeNowPlayingModule(),
+        width: 390,
+        overrides: [
+          currentSettingsProvider.overrideWith(
+            (ref) => settingsWithServices(const [
+              ServiceKey.jellyfin,
+              ServiceKey.emby,
+            ]),
+          ),
+          streamActivityProvider.overrideWith(
+            (ref) async => [
+              _playing('Anna', 'Sintel', 'Living room TV', 9, 0.4),
+              _playing(
+                'Luca',
+                'Cosmos Laundromat',
+                'iPhone',
+                5,
+                0.8,
+                service: ServiceKey.emby,
               ),
             ],
           ),
