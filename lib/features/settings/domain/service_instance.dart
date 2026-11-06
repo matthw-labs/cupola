@@ -4,6 +4,7 @@ import 'package:cupola/features/discover/domain/seerr_sign_in.dart';
 import 'package:cupola/features/settings/domain/connection_access.dart';
 import 'package:cupola/features/settings/domain/connection_address.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_owner_session.dart';
 
 /// One configured connection to one server.
 ///
@@ -91,6 +92,17 @@ class ServiceInstance {
   /// everything but the session is kept, so signing in again is one step.
   final SeerrAccountSignIn? account;
 
+  /// Tracearr only: the owner's session, beside the public key in
+  /// [credential] (never instead of it: the key always reads, the session
+  /// only writes the two things the public API has no route for).
+  ///
+  /// Optional. Its non-secret half is stored beside the address
+  /// ([ownerStorageKey]) and its token in secure storage
+  /// ([ownerSessionStorageKey]), so removing the connection removes both. An
+  /// owner whose token is empty is signed out: everything else is kept, so
+  /// signing in again is one step.
+  final TracearrOwnerSession? owner;
+
   /// The address that reaches this server away from home, with what its
   /// gateway asks for, or null for a connection reached at [url] only.
   ///
@@ -123,9 +135,14 @@ class ServiceInstance {
     this.viewerId = '',
     this.access = const NoAccess(),
     this.account,
+    this.owner,
     this.away,
     this.unreadSecret,
   }) : assert(
+         owner == null || service == ServiceKey.tracearr,
+         'only a Tracearr connection signs in as an owner',
+       ),
+       assert(
          account == null || service == ServiceKey.seerr,
          'only a Seerr connection signs in with an account',
        ),
@@ -240,6 +257,17 @@ class ServiceInstance {
   /// Where [account]'s session lives in secure storage.
   String get sessionStorageKey => 'secure_${id}_session';
 
+  /// Where the non-secret half of [owner] lives in `SharedPreferences`, as
+  /// JSON. Absent for a connection with no owner session.
+  String get ownerStorageKey => '${id}_owner';
+
+  /// Where [owner]'s token lives in secure storage.
+  String get ownerSessionStorageKey => 'secure_${id}_owner_session';
+
+  /// Whether this is a Tracearr whose owner signed in once and holds no
+  /// session now: ended, or signed out.
+  bool get ownerSignedOut => owner != null && !owner!.isSignedIn;
+
   /// How this Seerr connection signs in: its [account], or its API key.
   SeerrSignIn get seerrSignIn => account ?? SeerrApiKeySignIn(credential);
 
@@ -309,6 +337,8 @@ class ServiceInstance {
     ConnectionAccess? access,
     SeerrAccountSignIn? account,
     bool clearAccount = false,
+    TracearrOwnerSession? owner,
+    bool clearOwner = false,
     ConnectionAddress? away,
     bool clearAway = false,
   }) {
@@ -322,6 +352,7 @@ class ServiceInstance {
       viewerId: viewerId ?? this.viewerId,
       access: access ?? this.access,
       account: clearAccount ? null : account ?? this.account,
+      owner: clearOwner ? null : owner ?? this.owner,
       away: clearAway ? null : away ?? this.away,
       // Only a new value of the secret that could not be read replaces it.
       // An edit that carries the empty one along (the address changed, the
@@ -350,6 +381,7 @@ class ServiceInstance {
     viewerId: viewerId,
     access: access,
     account: account,
+    owner: owner,
     away: away,
     unreadSecret: secret,
   );
@@ -366,6 +398,7 @@ class ServiceInstance {
         other.viewerId == viewerId &&
         other.access == access &&
         other.account == account &&
+        other.owner == owner &&
         other.away == away &&
         other.unreadSecret == unreadSecret;
   }
@@ -381,6 +414,7 @@ class ServiceInstance {
     viewerId,
     access,
     account,
+    owner,
     away,
     unreadSecret,
   );
@@ -392,6 +426,7 @@ class ServiceInstance {
       'ServiceInstance($id, ${service.name}, label: "$label", url: "$url", '
       'access: ${access.kind.name}'
       '${account == null ? '' : ', account: $account'}'
+      '${owner == null ? '' : ', owner: $owner'}'
       '${away == null ? '' : ', away: $away'}'
       '${unreadSecret == null ? '' : ', unread: ${unreadSecret!.name}'})';
 }

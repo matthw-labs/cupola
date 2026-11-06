@@ -13,6 +13,7 @@ import 'package:cupola/features/settings/domain/connection_address.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_owner_session.dart';
 
 /// The Android half of the secure store.
 ///
@@ -471,6 +472,7 @@ class SettingsService {
       await _prefs.remove(primary.awayUrlStorageKey);
       await _prefs.remove(primary.awayAccessStorageKey);
       await _prefs.remove(primary.accountStorageKey);
+      await _prefs.remove(primary.ownerStorageKey);
     }
 
     for (final storageKeys in _serviceStorageKeys.values) {
@@ -576,10 +578,12 @@ class SettingsService {
     // path above knows of them.
     final instances = [
       for (final instance in ordered)
-        await _withAccount(
-          instance.copyWith(
-            access: await _loadAccess(instance),
-            away: await _loadAway(instance),
+        await _withOwner(
+          await _withAccount(
+            instance.copyWith(
+              access: await _loadAccess(instance),
+              away: await _loadAway(instance),
+            ),
           ),
         ),
     ];
@@ -1111,6 +1115,7 @@ class SettingsService {
         );
       }
       await _saveAccount(instance);
+      await _saveOwner(instance);
     }
 
     final live = {for (final instance in settings.instances) instance.id};
@@ -1204,6 +1209,8 @@ class SettingsService {
     // A removed Seerr connection must not leave a live session in the
     // keychain.
     await _saveAccount(instance.copyWith(clearAccount: true));
+    // The same for a Tracearr owner's bearer.
+    await _saveOwner(instance.copyWith(clearOwner: true));
   }
 
   // === Seerr accounts ======================================================
@@ -1276,6 +1283,76 @@ class SettingsService {
         permissions: number(decoded['permissions']),
         checkedAt: checkedAt is String ? DateTime.tryParse(checkedAt) : null,
         session: await _loadApiKey(instance.sessionStorageKey),
+      ),
+    );
+  }
+
+  // === Tracearr owners =====================================================
+  //
+  // A Tracearr connection the owner signed in on keeps the kind, the login,
+  // the name and the session's dates in `SharedPreferences` under
+  // `<id>_owner`, as JSON, and the bearer alone in secure storage under
+  // `secure_<id>_owner_session`. No password and no Plex token, ever. The
+  // public key keeps its own slot: the owner is an addition to it.
+
+  /// Writes [instance]'s owner, or removes it and its token when it has none.
+  Future<void> _saveOwner(ServiceInstance instance) async {
+    // Only a Tracearr has one: a save of any other connection touches nothing.
+    if (instance.service != ServiceKey.tracearr) return;
+    final owner = instance.owner;
+    if (owner == null) {
+      await _prefs.remove(instance.ownerStorageKey);
+      await _secureStore.delete(key: instance.ownerSessionStorageKey);
+      return;
+    }
+    await _prefs.setString(
+      instance.ownerStorageKey,
+      jsonEncode({
+        'kind': owner.kind.name,
+        'login': owner.login,
+        'displayName': owner.displayName,
+        if (owner.expiresAt case final expiresAt?)
+          'expiresAt': expiresAt.toUtc().toIso8601String(),
+        if (owner.checkedAt case final checkedAt?)
+          'checkedAt': checkedAt.toUtc().toIso8601String(),
+      }),
+    );
+    if (owner.token.isEmpty) {
+      await _secureStore.delete(key: instance.ownerSessionStorageKey);
+    } else {
+      await _secureStore.write(
+        key: instance.ownerSessionStorageKey,
+        value: owner.token,
+      );
+    }
+  }
+
+  /// [instance] with its stored Tracearr owner, when it has one. An owner
+  /// that does not parse costs the owner and never the connection.
+  Future<ServiceInstance> _withOwner(ServiceInstance instance) async {
+    if (instance.service != ServiceKey.tracearr) return instance;
+    final raw = _prefs.getString(instance.ownerStorageKey);
+    if (raw == null || raw.isEmpty) return instance;
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      return instance;
+    }
+    if (decoded is! Map) return instance;
+    final kind = TracearrOwnerKind.byName(decoded['kind'] as String?);
+    if (kind == null) return instance;
+    String text(Object? value) => value is String ? value : '';
+    DateTime? date(Object? value) =>
+        value is String ? DateTime.tryParse(value) : null;
+    return instance.copyWith(
+      owner: TracearrOwnerSession(
+        kind: kind,
+        login: text(decoded['login']),
+        displayName: text(decoded['displayName']),
+        expiresAt: date(decoded['expiresAt']),
+        checkedAt: date(decoded['checkedAt']),
+        token: await _loadApiKey(instance.ownerSessionStorageKey),
       ),
     );
   }

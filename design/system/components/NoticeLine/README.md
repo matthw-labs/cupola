@@ -2,7 +2,7 @@
 
 The notice a flow ends a step with: a tone, a headline, a sentence and the verbs that remedy it. What signing in to Seerr says when a step stops, and what copying from another device says when nothing arrived.
 
-Rendered from `lib/core/widgets/notice_line.dart` (`NoticeLine`, `noticeAction`) by `test/design_catalog/notice_line_catalog_test.dart`; the sign-in's own words are `lib/features/discover/presentation/seerr_sign_in_notice.dart`, copying's are `lib/features/pairing/presentation/pair_words.dart`.
+Rendered from `lib/core/widgets/notice_line.dart` (`NoticeLine`, `noticeAction`) by `test/design_catalog/notice_line_catalog_test.dart`; the sign-in's own words are `lib/features/discover/presentation/seerr_sign_in_notice.dart`, copying's are `lib/features/pairing/presentation/pair_words.dart`, and the Tracearr owner's are `lib/features/tracearr/presentation/tracearr_owner_notice.dart` (`TracearrOwnerFields`).
 
 ## Anatomy
 

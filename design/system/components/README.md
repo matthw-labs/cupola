@@ -54,6 +54,7 @@ cards live in [`../motion/`](../motion/).
 | Overlays | [AppBottomSheet](AppBottomSheet/README.md) | `lib/core/widgets/app_bottom_sheet.dart`, `lib/core/utils/sheet_utils.dart` |
 | Overlays | [AppDialog](AppDialog/README.md) | `lib/core/widgets/app_dialog.dart` |
 | Overlays | [InviteSheet](InviteSheet/README.md) | `lib/features/settings/presentation/widgets/invite_sheet.dart`, `lib/features/discover/domain/seerr_invite.dart` |
+| Forms | [TracearrOwnerFields](TracearrOwnerFields/README.md) | `lib/features/tracearr/presentation/tracearr_owner_fields.dart`, `lib/features/tracearr/presentation/tracearr_owner_sign_in_flow.dart`, `lib/features/tracearr/presentation/tracearr_owner_notice.dart` |
 | Forms | [TextField](TextField/README.md) | `lib/core/theme.dart` |
 | Forms | [QrCodeView](QrCodeView/README.md) | `lib/core/widgets/qr_code_view.dart` |
 | Iconography | [ServiceGlyphs](ServiceGlyphs/README.md) | `lib/core/service_glyphs.dart`, `lib/features/settings/domain/service_key.dart` |

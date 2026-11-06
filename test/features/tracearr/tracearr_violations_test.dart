@@ -36,9 +36,12 @@ import 'package:cupola/features/outside/domain/outside_notices.dart';
 import 'package:cupola/features/services/domain/dashboard_decision.dart';
 import 'package:cupola/features/services/presentation/dashboard_retry.dart';
 import 'package:cupola/features/services/presentation/services_provider.dart';
+import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/tracearr/data/tracearr_client.dart';
+import 'package:cupola/features/tracearr/data/tracearr_owner_accounts.dart';
 import 'package:cupola/features/tracearr/data/tracearr_violation_owner.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_owner_session.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_history.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
@@ -51,6 +54,7 @@ import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.
 import 'package:cupola/features/tracearr/presentation/tracearr_violations_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 
+import '../../test_helpers/fake_tracearr_owner.dart';
 import '../../test_helpers/fixtures.dart';
 import '../../test_helpers/profiles/profiles.dart';
 
@@ -1065,6 +1069,210 @@ void main() {
       expect(find.text('Dismiss'), findsNothing);
       expect(find.text('Open in Tracearr'), findsWidgets);
       expect(find.text('Too many streams'), findsWidgets);
+      await _close(tester, harness, container);
+    });
+  });
+
+  group('the owner\'s session is the one the page acts with', () {
+    // The real owner provider, over the fake Tracearr: the bearer held in the
+    // connection's session reaches the two routes, and what Tracearr says
+    // decides what the page draws.
+    Future<(FakeTracearr, ProfileHarness, GoRouter, ProviderContainer)>
+    signedIn(
+      WidgetTester tester, {
+      FakeTracearrRole role = FakeTracearrRole.owner,
+      String? token,
+      void Function(FakeTracearr server)? tune,
+    }) async {
+      final server = FakeTracearr()
+        ..addAccount('anna', password: 'x', role: role, name: 'anna')
+        ..violations.add(_idOf('o1'));
+      tune?.call(server);
+      final shown = _violation('o1', rule: 'Too many streams');
+      final (harness, router, container) = await _app(
+        tester,
+        overrides: [
+          tracearrClientProvider.overrideWithValue(_Client(single: [shown])),
+          tracearrOwnerClientFactoryProvider.overrideWithValue(server.factory),
+        ],
+      );
+      if (token != 'none') {
+        await container.read(settingsProvider.notifier).update((settings) {
+          final instance = settings.instanceById(WorldIds.tracearr)!;
+          return settings.copyWithInstance(
+            instance.copyWith(
+              owner: TracearrOwnerSession(
+                kind: TracearrOwnerKind.email,
+                login: 'anna@example.test',
+                displayName: 'anna',
+                token: token ?? server.mint('anna'),
+              ),
+            ),
+          );
+        });
+      }
+      router.go(ServiceRoutes.tracearrViolation(shown.id));
+      await _answer(tester);
+      return (server, harness, router, container);
+    }
+
+    testWidgets('Acknowledge is a PATCH with the bearer, and says so', (
+      tester,
+    ) async {
+      final (server, harness, _, container) = await signedIn(tester);
+
+      await _tap(tester, find.text('Acknowledge'));
+
+      final sent = server.to('PATCH', '/violations/${_idOf('o1')}').single;
+      expect(sent.headers['authorization'], startsWith('Bearer tok-'));
+      expect(server.acknowledged, {_idOf('o1')});
+      expect(find.text('Acknowledged'), findsOneWidget);
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('Dismiss asks first, then is a DELETE with the bearer', (
+      tester,
+    ) async {
+      final (server, harness, _, container) = await signedIn(tester);
+
+      await _tap(tester, find.text('Dismiss'));
+      expect(server.requests.where((r) => r.method == 'DELETE'), isEmpty);
+      await _tap(
+        tester,
+        find.widgetWithText(FilledButton, 'Dismiss violation'),
+      );
+
+      expect(server.to('DELETE', '/violations/${_idOf('o1')}'), hasLength(1));
+      expect(server.dismissed, {_idOf('o1')});
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('a session Tracearr ended says so in blue words, empties the '
+        'saved one and dims the controls again', (tester) async {
+      final (_, harness, _, container) = await signedIn(
+        tester,
+        token: 'unknown.sig',
+      );
+
+      await _tap(tester, find.text('Acknowledge'));
+
+      expect(find.text('Signed out of Tracearr'), findsOneWidget);
+      expect(find.text('Sign in again'), findsOneWidget);
+      final owner = container
+          .read(currentSettingsProvider)
+          .instanceById(WorldIds.tracearr)!
+          .owner!;
+      expect(owner.isSignedIn, isFalse);
+      expect(container.read(tracearrViolationOwnerProvider('')), isNull);
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('a member is told only the owner can, not that the route is '
+        'gone', (tester) async {
+      final (_, harness, _, container) = await signedIn(
+        tester,
+        role: FakeTracearrRole.member,
+      );
+
+      await _tap(tester, find.text('Acknowledge'));
+
+      expect(find.text('Only the owner can acknowledge'), findsOneWidget);
+      expect(find.text('Acknowledge'), findsOneWidget);
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('a Tracearr with no such route takes the controls off, for '
+        'this page and the next', (tester) async {
+      final (_, harness, router, container) = await signedIn(
+        tester,
+        tune: (server) => server.writesAbsent = true,
+      );
+
+      await _tap(tester, find.text('Dismiss'));
+      await _tap(
+        tester,
+        find.widgetWithText(FilledButton, 'Dismiss violation'),
+      );
+
+      expect(find.text('Acknowledge'), findsNothing);
+      expect(find.text('Dismiss'), findsNothing);
+      expect(find.text('Too many streams'), findsWidgets);
+      router.go(ServiceRoutes.tracearrViolations);
+      await _answer(tester);
+      router.go(ServiceRoutes.tracearrViolation(_idOf('o1')));
+      await _answer(tester);
+      expect(find.text('Acknowledge'), findsNothing);
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('a schema that changed under us is the same as no route', (
+      tester,
+    ) async {
+      final (_, harness, _, container) = await signedIn(
+        tester,
+        tune: (server) => server.writesSay = (status: 200, body: {'ok': true}),
+      );
+
+      await _tap(tester, find.text('Acknowledge'));
+
+      expect(find.text('Acknowledge'), findsNothing);
+      expect(
+        find.text('This Tracearr cannot do that from Cupola.'),
+        findsOneWidget,
+      );
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('a violation already gone is said, never a failure', (
+      tester,
+    ) async {
+      final (_, harness, _, container) = await signedIn(
+        tester,
+        tune: (server) => server.violations.clear(),
+      );
+
+      await _tap(tester, find.text('Acknowledge'));
+
+      expect(
+        find.text('Tracearr no longer has this violation'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Could not'), findsNothing);
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('single sign-on alone, with nobody signed in, offers no '
+        'dimmed control that cannot be kept', (tester) async {
+      final (_, harness, _, container) = await signedIn(
+        tester,
+        token: 'none',
+        tune: (server) => server
+          ..local = false
+          ..oidc = true,
+      );
+
+      expect(find.text('Acknowledge'), findsNothing);
+      expect(find.text('Dismiss'), findsNothing);
+      expect(
+        find.text(
+          "This Tracearr signs in with single sign-on, which Cupola can't use.",
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Acknowledge it in Tracearr.'), findsOneWidget);
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('a Tracearr whose ways cannot be read keeps the dimmed '
+        'controls', (tester) async {
+      final (_, harness, _, container) = await signedIn(
+        tester,
+        token: 'none',
+        tune: (server) => server.down = true,
+      );
+
+      expect(find.text('Acknowledge'), findsOneWidget);
+      expect(find.text('Dismiss'), findsOneWidget);
       await _close(tester, harness, container);
     });
   });

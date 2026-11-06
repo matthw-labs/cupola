@@ -15,6 +15,10 @@ enum TracearrOwnerOutcome {
   /// (`Only the owner can acknowledge`).
   notOwner,
 
+  /// Tracearr has no such violation any more: dismissed elsewhere, or by a
+  /// second tap. Not a failure: there is nothing left to write on.
+  gone,
+
   /// This Tracearr has no such route, or answered in a shape we do not read.
   /// The controls leave the page rather than promise what cannot be kept: the
   /// private API has no public contract, so this is an expected answer.
@@ -30,9 +34,9 @@ enum TracearrOwnerOutcome {
 /// The violation screens depend on this and on nothing else about the owner:
 /// they draw both controls from [tracearrViolationOwnerProvider], dimmed while
 /// it holds no owner, and call these two methods when it does. The owner's
-/// sign-in lot implements it over the owner's client (one constructor, built
-/// from the connection's reach) and answers the provider with it while a
-/// session is held.
+/// client (`TracearrOwnerClient`, one constructor, built from the connection's
+/// reach) implements it, and the provider answers with it while a session is
+/// held.
 ///
 /// An implementation must never put a token, a cookie or a password in a log,
 /// in [Object.toString] or in a failure's text, and must answer with an

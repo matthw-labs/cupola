@@ -251,7 +251,7 @@ class SeerrSignInSteps extends ConsumerWidget {
         autofillHints: [local ? AutofillHints.email : AutofillHints.username],
       ),
       const SizedBox(height: AppSpacing.md),
-      _PasswordField(controller: flow.password, onSubmitted: send),
+      SeerrSignInPasswordField(controller: flow.password, onSubmitted: send),
       const SizedBox(height: AppSpacing.md),
       SeerrSignInPrimary(label: 'Sign in', onPressed: send),
       if (forgot != null && UrlUtils.isLaunchableWebUrl(forgot.toString()))
@@ -319,17 +319,24 @@ String seerrMethodLabel(SeerrSignInMethod method) => switch (method) {
   SeerrSignInMethod.local => 'Sign in with email',
 };
 
-class _PasswordField extends StatefulWidget {
-  const _PasswordField({required this.controller, required this.onSubmitted});
+/// The sign-in's password field: obscured, with a show toggle. Shared with
+/// the Tracearr owner's sign-in, whose form is the same two fields.
+class SeerrSignInPasswordField extends StatefulWidget {
+  const SeerrSignInPasswordField({
+    super.key,
+    required this.controller,
+    required this.onSubmitted,
+  });
 
   final TextEditingController controller;
   final VoidCallback onSubmitted;
 
   @override
-  State<_PasswordField> createState() => _PasswordFieldState();
+  State<SeerrSignInPasswordField> createState() =>
+      _SeerrSignInPasswordFieldState();
 }
 
-class _PasswordFieldState extends State<_PasswordField> {
+class _SeerrSignInPasswordFieldState extends State<SeerrSignInPasswordField> {
   bool _show = false;
 
   @override

@@ -420,10 +420,12 @@ const _exceptions = <String, ({int count, String reason})>{
     reason: 'The certificate trusted for the form\'s address, for its probe.',
   ),
   'lib/features/settings/presentation/service_settings_screen.dart  .url': (
-    count: 7,
+    count: 8,
     reason:
         'The form: its field, the address it tests and asks to trust, the '
-        'labels it derives for siblings and the hosts it lists them by.',
+        'labels it derives for siblings and the hosts it lists them by, and '
+        'the saved address a Tracearr owner\'s session is compared with, so '
+        'a connection moved to another host does not carry the bearer there.',
   ),
   'lib/features/release_search/presentation/release_search_entry.dart  .access': (
     count: 1,

@@ -30,6 +30,8 @@ import 'package:cupola/features/settings/domain/connection_address.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
+import 'package:cupola/features/tracearr/data/tracearr_owner_accounts.dart';
+import 'package:cupola/features/tracearr/data/tracearr_owner_client.dart';
 import 'package:cupola/features/tracearr/data/tracearr_violation_owner.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.dart';
@@ -444,17 +446,25 @@ class _OwnerStub implements TracearrViolationOwner {
       TracearrOwnerOutcome.done;
 }
 
-Widget _violation(TracearrViolation violation, {bool owner = false}) =>
-    _Isolated([
-      sharedPreferencesProvider.overrideWithValue(_prefs),
-      secureSettingsStoreProvider.overrideWithValue(FakeSecureSettingsStore()),
-      initialSettingsProvider.overrideWithValue(_oneTracearr),
-      initialOnboardingCompletedProvider.overrideWithValue(true),
-      initialActiveInstancesProvider.overrideWithValue(const {}),
-      tracearrViolationProvider.overrideWith((ref, key) async => violation),
-      if (owner)
-        tracearrViolationOwnerProvider.overrideWith((ref, id) => _OwnerStub()),
-    ], TracearrViolationScreen(violationId: violation.id));
+Widget _violation(
+  TracearrViolation violation, {
+  bool owner = false,
+  bool singleSignOn = false,
+}) => _Isolated([
+  sharedPreferencesProvider.overrideWithValue(_prefs),
+  secureSettingsStoreProvider.overrideWithValue(FakeSecureSettingsStore()),
+  initialSettingsProvider.overrideWithValue(_oneTracearr),
+  initialOnboardingCompletedProvider.overrideWithValue(true),
+  initialActiveInstancesProvider.overrideWithValue(const {}),
+  tracearrViolationProvider.overrideWith((ref, key) async => violation),
+  if (owner)
+    tracearrViolationOwnerProvider.overrideWith((ref, id) => _OwnerStub()),
+  if (singleSignOn)
+    tracearrOwnerWaysProvider.overrideWith(
+      (ref, id) async =>
+          const TracearrOwnerWays(local: false, plex: false, oidc: true),
+    ),
+], TracearrViolationScreen(violationId: violation.id));
 
 late SharedPreferences _prefs;
 
@@ -806,6 +816,16 @@ void main() {
         width: 390,
         height: 1100,
         id: 'tracearr-violation-unknown-rule',
+      ),
+      CatalogScene(
+        'TracearrViolationScreen · single sign-on is the only way into this '
+        'Tracearr and nobody is signed in: the one blue line with its remedy '
+        'where the controls would be, and no dimmed control that cannot be '
+        'kept',
+        (_) => _violation(_travel(), singleSignOn: true),
+        width: 390,
+        height: 1500,
+        id: 'tracearr-violation-single-sign-on',
       ),
       CatalogScene(
         'Text at 200% · RadarrOverviewScreen, the library timed out: the amber '

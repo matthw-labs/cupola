@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cupola/core/providers/provider_retry.dart';
+import 'package:cupola/features/settings/data/settings_provider.dart';
+import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/data/tracearr_owner_accounts.dart';
 import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/tracearr/data/tracearr_violation_owner.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
@@ -147,9 +150,59 @@ final tracearrViolationProvider =
 /// The owner's two writes for a connection (empty id: the lens), or null while
 /// no owner is signed in on it.
 ///
-/// Null here is what dims Acknowledge and Dismiss and sends their tap to the
-/// connection's settings. The owner's sign-in lot overrides this body with the
-/// owner client it builds from the connection's reach, which is the only
-/// change the violation screens need.
+/// The owner's client, built from the connection's route (`watchTransport`,
+/// so the address, the gateway's access and the pin are the ones that answer
+/// now) with the bearer held in the connection's owner session. Null here is
+/// what dims Acknowledge and Dismiss and sends their tap to the connection's
+/// settings. Rebuilt, and the old client closed, when the session or the
+/// route changes; a session the server ended is emptied in storage and the
+/// provider answers null again (blue `Signed out of Tracearr`, never a fault).
+///
+/// Not configured, or no session: null, with nothing watched below it.
 final tracearrViolationOwnerProvider =
-    Provider.family<TracearrViolationOwner?, String>((ref, instanceId) => null);
+    Provider.family<TracearrViolationOwner?, String>((ref, instanceId) {
+      final transport = watchTransport(
+        ref,
+        ServiceKey.tracearr,
+        instanceId: instanceId,
+      );
+      if (!transport.configured) return null;
+      final token = ref.watch(
+        currentSettingsProvider.select(
+          (settings) =>
+              settings.instanceById(transport.instanceId)?.owner?.token ?? '',
+        ),
+      );
+      if (token.isEmpty) return null;
+      final client = ref.watch(tracearrOwnerClientFactoryProvider)(
+        reach: (
+          url: transport.url,
+          access: transport.access,
+          pin: transport.pin,
+        ),
+        token: token,
+        events: tracearrOwnerEvents(ref, transport.instanceId, token: token),
+        onlyAtHome: transport.onlyAtHomeOf(ServiceKey.tracearr),
+      );
+      ref.onDispose(client.close);
+      return client;
+    });
+
+/// The connections whose Tracearr answered that it has no route for the owner's
+/// writes, by id: the controls leave every violation page for the rest of the
+/// run, since the next page would ask the same server the same question.
+/// Not remembered across launches: an upgraded Tracearr gets another try.
+final tracearrOwnerRoutesAbsentProvider =
+    NotifierProvider<TracearrOwnerRoutesAbsent, Set<String>>(
+      TracearrOwnerRoutesAbsent.new,
+    );
+
+class TracearrOwnerRoutesAbsent extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => const {};
+
+  void mark(String instanceId) {
+    if (state.contains(instanceId)) return;
+    state = {...state, instanceId};
+  }
+}

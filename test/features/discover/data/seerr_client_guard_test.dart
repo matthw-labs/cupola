@@ -393,7 +393,12 @@ const _apiClientSites = <String, String>{
       'Jellyfin, and Emby beside it: the one client of the MediaBrowser '
       'family, under either dialect.',
   'lib/features/plex/data/plex_client.dart': 'Plex.',
-  'lib/features/tracearr/data/tracearr_client.dart': 'Tracearr.',
+  'lib/features/tracearr/data/tracearr_client.dart':
+      'Tracearr, read with the public key.',
+  'lib/features/tracearr/data/tracearr_owner_client.dart':
+      'Tracearr as its owner, the one place: the sign-ins and the two writes '
+      'only the owner\'s session may make '
+      '(test/features/tracearr/tracearr_owner_client_guard_test.dart).',
 };
 
 /// What a `SeerrService` may be built over.

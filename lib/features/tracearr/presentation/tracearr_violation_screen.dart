@@ -15,6 +15,7 @@ import 'package:cupola/core/widgets/app_empty_state.dart';
 import 'package:cupola/core/widgets/app_error_state.dart';
 import 'package:cupola/core/widgets/cross_service_action.dart';
 import 'package:cupola/core/widgets/glass_app_bar.dart';
+import 'package:cupola/core/widgets/notice_line.dart';
 import 'package:cupola/core/widgets/ambient_scaffold.dart';
 import 'package:cupola/core/widgets/not_configured_placeholder.dart';
 import 'package:cupola/core/widgets/page_title.dart';
@@ -26,9 +27,11 @@ import 'package:cupola/features/services/presentation/connection_in_view.dart';
 import 'package:cupola/features/services/presentation/services_provider.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/data/tracearr_owner_accounts.dart';
 import 'package:cupola/features/tracearr/data/tracearr_violation_owner.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_open.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_owner_notice.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
@@ -85,10 +88,6 @@ class TracearrViolationScreen extends ConsumerStatefulWidget {
 class _TracearrViolationScreenState
     extends ConsumerState<TracearrViolationScreen> {
   bool _busy = false;
-
-  /// This Tracearr answered that the write does not exist: the controls are
-  /// gone for the rest of the visit.
-  bool _ownerAbsent = false;
 
   Widget _back(BuildContext context) => IconButton(
     icon: const Icon(Icons.chevron_left_rounded),
@@ -157,7 +156,13 @@ class _TracearrViolationScreenState
             child: _Body(
               violation: data,
               instanceId: instanceId,
-              showOwnerControls: !_ownerAbsent,
+              // Gone for the rest of the run once this Tracearr answered
+              // that the writes do not exist (`unavailable`).
+              showOwnerControls: !ref.watch(
+                tracearrOwnerRoutesAbsentProvider.select(
+                  (absent) => absent.contains(instanceId),
+                ),
+              ),
               onAcknowledge: () => _write(data, instanceId, dismiss: false),
               onDismiss: () => _write(data, instanceId, dismiss: true),
             ),
@@ -230,8 +235,14 @@ class _TracearrViolationScreenState
         );
       case TracearrOwnerOutcome.notOwner:
         SnackBarHelper.info(context, 'Only the owner can $verb');
+      case TracearrOwnerOutcome.gone:
+        _readAgain();
+        SnackBarHelper.info(context, 'Tracearr no longer has this violation');
+        if (dismiss) {
+          RouteUtils.popOrGo(context, ServiceRoutes.tracearrViolations);
+        }
       case TracearrOwnerOutcome.unavailable:
-        setState(() => _ownerAbsent = true);
+        ref.read(tracearrOwnerRoutesAbsentProvider.notifier).mark(instanceId);
         SnackBarHelper.withAction(
           context,
           'This Tracearr cannot do that from Cupola.',
@@ -277,6 +288,22 @@ class _Body extends ConsumerWidget {
   final bool showOwnerControls;
   final VoidCallback onAcknowledge;
   final VoidCallback onDismiss;
+
+  /// Whether single sign-on is the only way into this Tracearr and nobody is
+  /// signed in as its owner: then there is nothing to offer, dimmed or not.
+  /// Unknown (not read yet, or Tracearr did not answer) is false: the dimmed
+  /// controls stay, as they were.
+  bool _singleSignOnOnly(WidgetRef ref) {
+    if (ref.watch(tracearrViolationOwnerProvider(instanceId)) != null) {
+      return false;
+    }
+    return ref
+            .watch(tracearrOwnerWaysProvider(instanceId))
+            .asData
+            ?.value
+            .oidcOnly ??
+        false;
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -392,7 +419,16 @@ class _Body extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (showOwnerControls) ...[
+              if (showOwnerControls && _singleSignOnOnly(ref)) ...[
+                // Said once, here, with its remedy: a sign-in Cupola cannot
+                // finish is not offered as a dimmed control.
+                NoticeLine(
+                  tone: TracearrOwnerNotice.singleSignOn.tone,
+                  title: TracearrOwnerNotice.singleSignOn.title,
+                  sentence: TracearrOwnerNotice.singleSignOn.sentence,
+                ),
+                const SizedBox(height: AppSpacing.md),
+              ] else if (showOwnerControls) ...[
                 if (!violation.isAcknowledged) ...[
                   _OwnerControl(
                     label: 'Acknowledge',

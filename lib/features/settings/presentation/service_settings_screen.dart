@@ -56,6 +56,7 @@ import 'package:cupola/features/settings/presentation/widgets/cert_trust_dialog.
 import 'package:cupola/features/settings/presentation/widgets/connection_access_fields.dart';
 import 'package:cupola/features/settings/presentation/widgets/invite_sheet.dart';
 import 'package:cupola/features/settings/presentation/widgets/seerr_account_fields.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_owner_fields.dart';
 import 'package:cupola/features/settings/presentation/widgets/settings_section_label.dart';
 import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/utils/service_routes.dart';
@@ -910,17 +911,34 @@ class _ServiceSettingsScreenState extends ConsumerState<ServiceSettingsScreen> {
               ),
       );
     }
-    return current.copyWithInstance(
-      live.copyWith(
-        url: url,
-        credential: usesCredentials ? password : apiKey,
-        username: usesCredentials ? username : '',
-        label: label,
-        access: _access.access,
-        away: away,
-        clearAway: away == null,
-      ),
+    final next = live.copyWith(
+      url: url,
+      credential: usesCredentials ? password : apiKey,
+      username: usesCredentials ? username : '',
+      label: label,
+      access: _access.access,
+      away: away,
+      clearAway: away == null,
     );
+    // The owner's session is the server's it signed in to: a primary address
+    // moved to another host must not carry the bearer there. The address away
+    // never counts: it is a second route to the same Tracearr, which the
+    // public key already travels, so adding or changing one is no reason to
+    // sign the owner out unasked. Nor does a name, a gateway's token, or the
+    // same host over `https://`.
+    final moved = !_sameHost(url, live.url);
+    return current.copyWithInstance(
+      moved && next.owner != null ? next.copyWith(clearOwner: true) : next,
+    );
+  }
+
+  /// Whether [a] and [b] are addresses on one host, whatever the scheme, port
+  /// or path. An address that does not parse is the same only as itself.
+  static bool _sameHost(String a, String b) {
+    final left = Uri.tryParse(a);
+    final right = Uri.tryParse(b);
+    if (left == null || right == null || left.host.isEmpty) return a == b;
+    return left.host == right.host;
   }
 
   /// Brings the first field the last validation refused into view, focused,
@@ -1162,6 +1180,12 @@ class _ServiceSettingsScreenState extends ConsumerState<ServiceSettingsScreen> {
               if (usesCredentials) ...[
                 const SizedBox(height: AppSpacing.lg),
                 _buildPasswordField(),
+              ],
+              // The owner's access is an addition to a Tracearr that already
+              // works: its sign-in goes through the saved connection's route.
+              if (service == ServiceKey.tracearr && isConfigured) ...[
+                const SizedBox(height: AppSpacing.xl),
+                TracearrOwnerFields(connectionId: _target.id),
               ],
               const SizedBox(height: AppSpacing.xl),
               // An account not signed in yet has nothing to test: signing in
