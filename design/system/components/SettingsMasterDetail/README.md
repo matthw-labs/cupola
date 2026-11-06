@@ -15,6 +15,7 @@ Drawn on the touch build (`phone` sheets), dark and light.
 
 - A tablet on its side, 1180 × 820: the list beside Appearance, no back button.
 - A tablet upright, 820 × 1180: the drill-down, Appearance alone with its back button.
+- `ServiceSettingsScreen`, the form a section opens: Jellyfin's, tested at an Emby's address (drawn with `act`): `This is Emby`, the cause line and the amber `Set up Emby`. The closest card for the connection form, which has none of its own.
 - Text at 200%: on its side.
 
 ## Do / don't

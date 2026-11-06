@@ -6,6 +6,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cupola/core/widgets/not_configured_placeholder.dart';
 import 'package:cupola/features/discover/domain/seerr_sign_in.dart';
+import 'package:cupola/features/jellyfin/presentation/jellyfin_tab_screens.dart';
+import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
+import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
@@ -68,6 +71,22 @@ void main() {
           ).withUnreadSecret(UnreadSecret.credential),
         ),
         width: 320,
+      ),
+      CatalogScene(
+        'JellyfinUsersScreen(service: emby) · a household member\'s key: '
+        'calm, not a fault. Needs an Emby administrator, what the key can '
+        'still do, and Update the key to the connection\'s form',
+        (_) => const JellyfinUsersScreen(service: ServiceKey.emby),
+        width: 320,
+        height: 420,
+        overrides: [
+          currentSettingsProvider.overrideWith(
+            (ref) => settingsWithServices(const [ServiceKey.emby]),
+          ),
+          mediaBrowserProvidersOf(
+            ServiceKey.emby,
+          ).lacksAdministratorFor.overrideWith((ref, instanceId) => true),
+        ],
       ),
       CatalogScene(
         'Text at 200% · forService(radarr) and the signed-out Seerr form, '

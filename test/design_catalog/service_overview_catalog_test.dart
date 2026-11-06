@@ -34,9 +34,13 @@ import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/onboarding/data/onboarding_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
+
 import '../test_helpers/fake_secure_settings_store.dart';
 import '../test_helpers/fake_services.dart';
+import '../test_helpers/profiles/profiles.dart';
 import 'catalog.dart';
+import 'emby_world.dart';
 
 /// Radarr with an address away: at home on the home network's name, away
 /// on a public one.
@@ -522,7 +526,19 @@ void main() {
   catalogCard(
     'ServiceOverview',
     width: 1328,
+    overrides: () =>
+        startEmbyWorld(Profiles.p1.withConnection(WorldConnections.emby)),
     scenes: [
+      CatalogScene(
+        'StreamOverviewScreen(service: emby) · an Emby room · the identity '
+        'line and readouts, Now playing with the one session, and the '
+        'Libraries the server lists, all read from the fake Emby',
+        (_) => const EmbyWorldScope(
+          child: StreamOverviewScreen(service: ServiceKey.emby, topPadding: 0),
+        ),
+        width: 390,
+        height: 700,
+      ),
       CatalogScene(
         'RadarrOverviewScreen · loaded · identity, readouts, then Coming up, '
         'Needs attention, Recently added and History in one scroll',

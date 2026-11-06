@@ -86,7 +86,7 @@ Future<void> playWith(
     subtitle: title,
     showClose: true,
     builder: (_) =>
-        _PlayWithSheet(players: installed, serviceTitle: server.service.title),
+        PlayWithSheet(players: installed, serviceTitle: server.service.title),
   );
   if (picked == null || !context.mounted) return;
   final (player, remember) = picked;
@@ -149,8 +149,15 @@ Future<String?> _serverId(WidgetRef ref, ServiceInstance server) async {
 
 /// The choice of the player, one row each, the browser last. Tapping one
 /// chooses it; the box says whether to remember it.
-class _PlayWithSheet extends StatefulWidget {
-  const _PlayWithSheet({required this.players, required this.serviceTitle});
+///
+/// Public so the design catalog draws the body of the sheet `playWith` opens
+/// on the root navigator, which a sheet of scenes cannot show.
+class PlayWithSheet extends StatefulWidget {
+  const PlayWithSheet({
+    super.key,
+    required this.players,
+    required this.serviceTitle,
+  });
 
   final List<StreamPlayer> players;
 
@@ -158,10 +165,10 @@ class _PlayWithSheet extends StatefulWidget {
   final String serviceTitle;
 
   @override
-  State<_PlayWithSheet> createState() => _PlayWithSheetState();
+  State<PlayWithSheet> createState() => _PlayWithSheetState();
 }
 
-class _PlayWithSheetState extends State<_PlayWithSheet> {
+class _PlayWithSheetState extends State<PlayWithSheet> {
   bool _remember = false;
 
   @override

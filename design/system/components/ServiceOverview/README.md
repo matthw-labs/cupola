@@ -31,6 +31,7 @@ Nothing takes a colour: callers pass the `ServiceKey`, so a hue can never become
 Each sheet is drawn in the dark and the light room; the desktop window with two connections.
 
 - `RadarrOverviewScreen`: loaded, the library timed out (amber, figures read a dash), did not answer (one red line naming the address), away from home with no address away (one neutral line), neither address answered (one red naming both), loading.
+- `StreamOverviewScreen` for an Emby: the identity line and readouts, Now playing with the one session, and the Libraries, read from the demo world's fake Emby (`test/design_catalog/emby_world.dart`).
 - `ServiceOverviewRow`: the shapes a row takes (only read, a door, a door with a figure, a door with an amber fault's remedy, the same with a long name and a long remedy, a verb with no door).
 - Text at 200%: loaded, the library timed out, and the row shapes.
 

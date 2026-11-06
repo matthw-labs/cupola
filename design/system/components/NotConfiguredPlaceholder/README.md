@@ -24,4 +24,5 @@ A screen checks `isServiceConfigured` **before** reaching its providers and draw
 Each sheet is drawn in the dark and the light room.
 
 - `forService(radarr)`, the generic form with a name, and `forService(seerr)` for a signed-out account (blue).
+- `JellyfinUsersScreen` for an Emby on a household member's key: the administrator placeholder (`JellyfinAdminPlaceholder`, the same calm voice and `AppEmptyState` page): `Needs an Emby administrator`, what the key can still do, `Update the key`.
 - Text at 200%: `forService(radarr)` and the signed-out Seerr form.
