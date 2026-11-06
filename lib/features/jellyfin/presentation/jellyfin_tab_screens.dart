@@ -18,6 +18,8 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart';
 import 'package:cupola/features/stream/presentation/widgets/stream_now_playing_section.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_navigation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_person_provider.dart';
 
 /// Read-only household users from Jellyfin's `/Users` endpoint.
 ///
@@ -84,7 +86,8 @@ class JellyfinUsersScreen extends ConsumerWidget {
         ref.invalidate(providers.users);
       },
       summary: _usersSummary,
-      rowBuilder: (user) => _UserRow(user: user),
+      rowBuilder: (user) =>
+          _UserRow(user: user, service: service, instanceId: connection),
     );
   }
 }
@@ -320,13 +323,19 @@ Widget _needsAdministrator(
   ),
 );
 
-class _UserRow extends StatelessWidget {
-  const _UserRow({required this.user});
+class _UserRow extends ConsumerWidget {
+  const _UserRow({
+    required this.user,
+    required this.service,
+    required this.instanceId,
+  });
 
   final JellyfinUserDto user;
+  final ServiceKey service;
+  final String instanceId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final role = user.isAdministrator ? 'Administrator' : 'User';
     final state = user.isDisabled ? 'Disabled' : role;
     final lastActivity = user.lastActivityAt == null
@@ -335,18 +344,43 @@ class _UserRow extends StatelessWidget {
     // A role is not a state, and colour is information: an administrator's
     // row says so in its words, as every other row does, and carries no tone.
     const tone = StatusTone.neutral;
-    return ServiceRecordRow(
+    final name = user.name.trim().isEmpty ? 'Unnamed user' : user.name.trim();
+    // The way to the person's page in Tracearr, only where Tracearr is set up
+    // and knows this account: the person is theirs across every server, and
+    // their page is where it says so.
+    final person = _tracearrPerson(ref);
+    final row = ServiceRecordRow(
       icon: user.isDisabled
           ? Icons.person_off_outlined
           : Icons.person_outline_rounded,
       tone: tone,
-      title: user.name.trim().isEmpty ? 'Unnamed user' : user.name.trim(),
+      title: name,
       detail: lastActivity,
       trailing: state,
+      footer: person == null ? null : const GenreChip(genre: 'In Tracearr'),
       semanticLabel:
-          '${user.name.trim().isEmpty ? 'Unnamed user' : user.name.trim()}, '
-          '$state, $lastActivity',
+          '$name, $state, $lastActivity${person == null ? '' : ', in Tracearr'}',
     );
+    if (person == null) return row;
+    return PressableScale(
+      onTap: () => openTracearrPerson(context, person),
+      semanticHint: 'opens the person in Tracearr',
+      child: row,
+    );
+  }
+
+  String? _tracearrPerson(WidgetRef ref) {
+    final settings = ref.watch(currentSettingsProvider);
+    if (!settings.isServiceConfigured(ServiceKey.tracearr)) return null;
+    return ref
+        .watch(
+          tracearrPersonByAccountProvider((
+            service: service,
+            serverUserId: user.id,
+            serverName: settings.connectionName(instanceId),
+          )),
+        )
+        .value;
   }
 }
 

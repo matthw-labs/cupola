@@ -121,7 +121,7 @@ final class TracearrStreamSummary {
   String toString() => 'TracearrStreamSummary($total, $transcodes transcodes)';
 }
 
-/// The answer of `GET /api/v2/public/streams?summary=true`.
+/// The answer of `GET /api/v2/public/streams`: the rows and their summary.
 final class TracearrStreams {
   const TracearrStreams({
     required this.streams,

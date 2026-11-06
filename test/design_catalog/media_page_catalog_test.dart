@@ -23,6 +23,11 @@ import 'package:cupola/features/media/domain/media_rows.dart';
 import 'package:cupola/core/widgets/app_bottom_sheet.dart';
 import 'package:cupola/features/media/presentation/media_add_sheet.dart';
 import 'package:cupola/features/media/presentation/media_page.dart';
+import 'package:cupola/features/media/presentation/media_parts.dart';
+import 'package:cupola/features/media/presentation/media_watched_by.dart';
+import 'package:cupola/features/settings/data/settings_provider.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 import 'package:cupola/features/media/presentation/media_split.dart';
 import 'package:cupola/features/search/presentation/arr_add_form_provider.dart';
 import 'package:cupola/features/media/presentation/media_sources_provider.dart';
@@ -1183,6 +1188,57 @@ void main() {
           ),
         ],
       ),
+      CatalogScene(
+        'Watched by · a movie, from Tracearr: each person with their plays, '
+        'how far they got and when they last did, the way to their page at '
+        'the row\'s end',
+        (_) => const MediaRoom(
+          light: null,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: MediaWatchedBy(mediaKey: MediaKey.movie(45745)),
+          ),
+        ),
+        width: 390,
+        height: 330,
+        overrides: [
+          currentSettingsProvider.overrideWith((ref) => _withTracearr),
+          tracearrWatchedByProvider.overrideWith(
+            (ref, key) async => _watchers(const [
+              ('anna-id', 'Anna', 4, 100.0, null, Duration(days: 2)),
+              ('luca-id', 'Luca', 1, 62.0, null, Duration(days: 12)),
+            ]),
+          ),
+        ],
+      ),
+      CatalogScene(
+        'Watched by · a series: its distinct episodes first, then the plays; '
+        'and a title Tracearr holds that nobody has played, in one line',
+        (_) => const MediaRoom(
+          light: null,
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              children: [
+                MediaWatchedBy(mediaKey: MediaKey.tv(358332)),
+                MediaWatchedBy(mediaKey: MediaKey.movie(10378)),
+              ],
+            ),
+          ),
+        ),
+        width: 390,
+        height: 420,
+        overrides: [
+          currentSettingsProvider.overrideWith((ref) => _withTracearr),
+          tracearrWatchedByProvider.overrideWith(
+            (ref, key) async => key.isMovie
+                ? _watchers(const [])
+                : _watchers(const [
+                    ('luca-id', 'Luca', 9, 31.5, 7, Duration(days: 1)),
+                  ]),
+          ),
+        ],
+      ),
       _scene(
         'Twice the reading size',
         _household(),
@@ -1192,3 +1248,27 @@ void main() {
     ],
   );
 }
+
+final _withTracearr = settingsWithServices(const [
+  ServiceKey.radarr,
+  ServiceKey.tracearr,
+]);
+
+/// What Tracearr says of who watched a title: a person, their plays, how
+/// much they got through, the episodes for a series, and how many days ago,
+/// against the clock the scene is drawn on.
+TracearrMediaWatchers _watchers(
+  List<(String, String, int, double, int?, Duration)> people,
+) => TracearrMediaWatchers(
+  watchers: [
+    for (final (id, name, plays, completion, episodes, ago) in people)
+      TracearrWatcher(
+        userId: id,
+        username: name,
+        plays: plays,
+        completionPct: completion,
+        distinctEpisodesWatched: episodes,
+        lastWatchedDay: DateTime.now().subtract(ago),
+      ),
+  ],
+);

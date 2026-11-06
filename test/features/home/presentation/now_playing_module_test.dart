@@ -12,7 +12,7 @@ import 'package:cupola/features/stream/presentation/stream_activity_provider.dar
 
 import '../../../test_helpers/settings_scope.dart';
 
-StreamActivityRow _row(String user, String title) => (
+StreamActivityRow _row(String user, String title) => StreamActivityRow(
   service: ServiceKey.jellyfin,
   instanceId: 'jellyfin',
   connectionName: null,

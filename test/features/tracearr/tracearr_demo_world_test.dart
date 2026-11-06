@@ -18,6 +18,7 @@ import 'package:cupola/features/services/presentation/service_kpi_provider.dart'
 import 'package:cupola/features/settings/data/service_connection_provider.dart';
 import 'package:cupola/features/settings/data/service_verification.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
 import 'package:cupola/features/tracearr/data/tracearr_events.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
@@ -128,6 +129,44 @@ void main() {
     },
   );
 
+  test('Now playing says each of the three playbacks once: the servers\' own '
+      'rows, enriched by Tracearr\'s', () async {
+    final harness = await ProfileHarness.start(_household);
+    final container = harness.container(retry: (_, _) => null);
+
+    final rows = await container.read(streamActivityProvider.future);
+
+    // Six descriptions (three servers' and Tracearr's three) are three rows.
+    expect(rows, hasLength(3));
+    expect(rows.every((row) => !row.isThrough), isTrue);
+    expect(rows.every((row) => row.tracearr != null), isTrue);
+    expect(rows.map((row) => row.service).toSet(), {
+      ServiceKey.jellyfin,
+      ServiceKey.plex,
+      ServiceKey.emby,
+    });
+    expect(await container.read(streamActivityOfflineProvider.future), isEmpty);
+  });
+
+  test('a Tracearr that watches a server Cupola does not hold adds it as a '
+      'row through Tracearr', () async {
+    // Cupola has the Jellyfin and the Plex, and not the Emby Tracearr watches.
+    final harness = await ProfileHarness.start(
+      Profiles.p1
+          .withConnection(WorldConnections.plex)
+          .withConnection(WorldConnections.tracearr),
+    );
+    final container = harness.container(retry: (_, _) => null);
+
+    final rows = await container.read(streamActivityProvider.future);
+
+    expect(rows, hasLength(3));
+    final through = rows.singleWhere((row) => row.isThrough);
+    expect(through.service, ServiceKey.emby);
+    expect(through.serverLabel, 'Emby\u00A0· through Tracearr');
+    expect(through.session.userName, WorldPeople.anna);
+  });
+
   test(
     'the servers, today, people and the history are read as given',
     () async {
@@ -178,6 +217,25 @@ void main() {
       expect(week!.map((t) => t.title), ['Sintel', 'Cosmos Laundromat']);
     },
   );
+
+  test('the rail\'s Streams now counts the rows the session plumbing reads '
+      'from Tracearr', () async {
+    final harness = await ProfileHarness.start(_household);
+    final container = harness.container(retry: (_, _) => null);
+
+    final kpis = await container.read(
+      serviceKpiProvider(ServiceKey.tracearr).future,
+    );
+    final sessions = await container.read(
+      streamSessionsForProvider((
+        service: ServiceKey.tracearr,
+        instanceId: '',
+      )).future,
+    );
+
+    expect(kpis.firstWhere((k) => k.label == 'Streams now').value, '3');
+    expect(sessions, hasLength(3));
+  });
 
   test('the rail reads the four figures Tracearr itself gives', () async {
     final harness = await ProfileHarness.start(_household);

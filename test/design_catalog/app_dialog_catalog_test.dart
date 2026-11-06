@@ -83,6 +83,36 @@ Future<AppConfirmResult> _stop(BuildContext context) => showAppConfirmDialog(
   field: const AppConfirmField(label: 'Message for Anna\u00A0· optional'),
 );
 
+/// Removing a movie from Radarr, with what Tracearr knows of who watched it:
+/// a quiet line under the sentence, and nothing of it when Tracearr is silent.
+Future<AppConfirmResult> _removeWatched(
+  BuildContext context, {
+  String? note = 'Watched by 3\u00A0· last 12 days ago',
+}) => showAppConfirmDialog(
+  context: context,
+  useRootNavigator: false,
+  title: 'Remove Big Buck Bunny from Radarr?',
+  message: 'Radarr stops looking for it.',
+  note: note,
+  icon: Icons.delete_outline_rounded,
+  cancelLabel: 'Keep it',
+  confirmLabel: 'Remove from Radarr',
+  confirmLabelFor: (checked) =>
+      checked('files') ? 'Remove and delete 1.2 GB' : 'Remove from Radarr',
+  options: const [
+    AppConfirmOption(
+      key: 'files',
+      label: 'Also delete 1.2 GB of files',
+      subtitle: 'Its folder on your server. This cannot be undone.',
+    ),
+    AppConfirmOption(
+      key: 'exclude',
+      label: "Don't add it again",
+      subtitle: "Keeps Radarr's import lists from bringing it back",
+    ),
+  ],
+);
+
 Future<AppConfirmResult> _grab(BuildContext context) => showAppConfirmDialog(
   context: context,
   useRootNavigator: false,
@@ -191,6 +221,18 @@ void main() {
         'the other button saying the stream goes on',
         _stop,
         height: 400,
+      ),
+      _scene(
+        'With a note · the removal of a movie · Watched by 3 and when, from '
+        'Tracearr, quiet under the sentence and above the options',
+        _removeWatched,
+        height: 520,
+      ),
+      _scene(
+        'With a note · nobody has watched it: said only when Tracearr '
+        'answered for the title',
+        (context) => _removeWatched(context, note: 'Nobody has watched it'),
+        height: 520,
       ),
       _scene(
         'Standard with an icon · Approve this request? · the icon in onSurface',

@@ -328,9 +328,33 @@ extension ServiceKeyExtension on ServiceKey {
   /// Says who is playing now: its answer becomes rows of Now playing,
   /// Watching now, a room's figure and its light, and the Stack's counts.
   ///
-  /// Every media server does; a service that only watches media servers may
-  /// too, without being one ([isMediaServer] stays false for it).
-  bool get givesSessions => isMediaServer;
+  /// Every media server does, and Tracearr, which only watches media servers
+  /// ([isMediaServer] stays false for it): it is read by its own arm of the
+  /// session plumbing, never through a media server's backend, and its rows
+  /// are merged with the servers' own (`streamActivityProvider`).
+  ///
+  /// An exhaustive switch, so the next service declares whether it does.
+  bool get givesSessions => switch (this) {
+    ServiceKey.jellyfin ||
+    ServiceKey.plex ||
+    ServiceKey.emby ||
+    ServiceKey.tracearr => true,
+    ServiceKey.seerr ||
+    ServiceKey.radarr ||
+    ServiceKey.sonarr ||
+    ServiceKey.lidarr ||
+    ServiceKey.qbittorrent ||
+    ServiceKey.transmission ||
+    ServiceKey.bazarr ||
+    ServiceKey.truenas ||
+    ServiceKey.dockge ||
+    ServiceKey.prowlarr ||
+    ServiceKey.readarr ||
+    ServiceKey.sabnzbd ||
+    ServiceKey.nzbget ||
+    ServiceKey.unraid ||
+    ServiceKey.nginxProxyManager => false,
+  };
 
   /// Speaks the MediaBrowser API (Emby, and Jellyfin, which forked it): an API key with no
   /// user behind it (so [needsViewerSelection]), sessions that take Pause and

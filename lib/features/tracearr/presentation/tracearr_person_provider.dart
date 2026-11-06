@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cupola/core/providers/provider_retry.dart';
+import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/tracearr/data/tracearr_client.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_history.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
@@ -125,3 +127,100 @@ final tracearrPersonHistoryProvider =
           ),
       retry: noProviderRetry,
     );
+
+/// The kind of server in Tracearr's words for a media server of ours, or null
+/// for a service that is not one Tracearr watches.
+TracearrServerType? tracearrServerTypeOf(ServiceKey service) =>
+    switch (service) {
+      ServiceKey.plex => TracearrServerType.plex,
+      ServiceKey.jellyfin => TracearrServerType.jellyfin,
+      ServiceKey.emby => TracearrServerType.emby,
+      _ => null,
+    };
+
+/// A person's account on a media server, as a list of users there names it:
+/// [serverUserId] is the id of the user on the server itself (the `Id` of a
+/// Jellyfin or Emby user, the account id of a Plex one), and [serverName] the
+/// name of the server when it is known, which tells two servers of one kind
+/// apart.
+typedef TracearrAccountKey = ({
+  ServiceKey service,
+  String serverUserId,
+  String? serverName,
+});
+
+/// The Tracearr person who holds the account [key] names, or null when
+/// Tracearr has none, or more than one (an id that does not say who is not a
+/// door).
+///
+/// Matched on `accounts.external_user_id` against the id of the user on the
+/// server, among accounts still on a server and of the same kind of server.
+/// An id shared by accounts on two servers of that kind (a Plex account is
+/// one id everywhere) is narrowed by the server's name, when it is given and
+/// Tracearr has a server of that name; else it is ambiguous and null.
+///
+/// Reads the connection in view, whose person page the door opens.
+final tracearrPersonByAccountProvider = FutureProvider.autoDispose
+    .family<String?, TracearrAccountKey>((ref, key) async {
+      final type = tracearrServerTypeOf(key.service);
+      if (type == null || key.serverUserId.trim().isEmpty) return null;
+      final people = await ref.watch(tracearrPeopleProvider.future);
+      final holders = <(String person, String server)>{
+        for (final user in people)
+          for (final account in user.activeAccounts)
+            if (account.serverType == type &&
+                account.externalUserId == key.serverUserId)
+              (user.id, account.serverId),
+      };
+      final persons = {for (final (person, _) in holders) person};
+      if (persons.length <= 1) return persons.firstOrNull;
+      final name = key.serverName?.trim().toLowerCase() ?? '';
+      if (name.isEmpty) return null;
+      final servers = await ref.watch(tracearrServersProvider.future);
+      final ids = {
+        for (final server in servers.servers)
+          if (server.name.trim().toLowerCase() == name) server.id,
+      };
+      final narrowed = {
+        for (final (person, server) in holders)
+          if (ids.contains(server)) person,
+      };
+      return narrowed.length == 1 ? narrowed.single : null;
+    }, retry: noProviderRetry);
+
+/// Who a session row is about, for the door to their Tracearr page.
+typedef TracearrSessionWho = ({
+  ServiceKey service,
+  String? userId,
+  String name,
+});
+
+/// The Tracearr person a session's viewer is: by their account on that server
+/// when the session carries the id of the user
+/// ([tracearrPersonByAccountProvider]), and only for a session that carries
+/// none, by the one person Tracearr knows by that name
+/// ([tracearrPersonIdProvider]). Null when neither says who, which is when no
+/// door is drawn: only a known person has a page to lead to.
+///
+/// **An id that did not resolve is not a reason to try the name.** It says
+/// either that Tracearr holds no such account or that the account is on two
+/// of its servers and cannot be told apart, and a name is the weaker
+/// evidence: it would open whichever single person happens to go by it on
+/// any server, which can be somebody else.
+final tracearrPersonOfSessionProvider = FutureProvider.autoDispose
+    .family<String?, TracearrSessionWho>((ref, who) async {
+      final id = who.userId;
+      if (id != null && id.trim().isNotEmpty) {
+        return ref.watch(
+          tracearrPersonByAccountProvider((
+            service: who.service,
+            serverUserId: id,
+            serverName: null,
+          )).future,
+        );
+      }
+      if (who.name.trim().isEmpty) return null;
+      return ref.watch(
+        tracearrPersonIdProvider((id: null, name: who.name)).future,
+      );
+    }, retry: noProviderRetry);

@@ -204,7 +204,7 @@ StreamActivityRow _playing(
   double progress, {
   String? subtitle,
   bool paused = false,
-}) => (
+}) => StreamActivityRow(
   service: ServiceKey.jellyfin,
   instanceId: '',
   connectionName: null,
@@ -224,6 +224,41 @@ StreamActivityRow _playing(
     remaining: Duration(minutes: minutesLeft),
   ),
 );
+
+/// A playback only Tracearr sees: Luca's Elephants Dream on a Plex Cupola is
+/// not connected to, marked as coming through Tracearr.
+StreamActivityRow _through(
+  String user,
+  String title,
+  String device,
+  int minutesLeft,
+  double progress,
+) => StreamActivityRow(
+  service: ServiceKey.plex,
+  instanceId: 'tracearr',
+  connectionName: null,
+  through: ServiceKey.tracearr,
+  session: StreamSession(
+    id: '$user-$title',
+    userName: user,
+    title: title,
+    subtitle: null,
+    deviceLabel: device,
+    posterPath: null,
+    playMethod: StreamPlayMethod.directPlay,
+    transcodeReasons: const [],
+    bitrate: null,
+    bitrateIsNominal: true,
+    progress: progress,
+    isPaused: false,
+    remaining: Duration(minutes: minutesLeft),
+  ),
+);
+
+final _tracearrSettings = settingsWithServices(const [
+  ServiceKey.jellyfin,
+  ServiceKey.tracearr,
+]);
 
 /// The calendar of the boards' household, as Coming up reads it.
 LibraryCalendar _calendar(
@@ -718,6 +753,55 @@ void main() {
           ),
           streamActivityOfflineProvider.overrideWith(
             (ref) async => const <StreamOfflineSource>[],
+          ),
+        ],
+      ),
+      CatalogScene(
+        'Now playing · with Tracearr: the Jellyfin playback is one row, the '
+        'Plex playback only Tracearr sees says so first on its line, and '
+        'the header names it once',
+        (_) => const HomeNowPlayingModule(),
+        width: 390,
+        overrides: [
+          currentSettingsProvider.overrideWith((ref) => _tracearrSettings),
+          streamActivityProvider.overrideWith(
+            (ref) async => [
+              _playing('Anna', 'Sintel', 'Living room TV', 9, 0.4),
+              _through(
+                'Luca',
+                'Elephants Dream',
+                'Plex for iOS\u00A0· iPad',
+                7,
+                0.6,
+              ),
+            ],
+          ),
+          streamActivityOfflineProvider.overrideWith(
+            (ref) async => const <StreamOfflineSource>[],
+          ),
+        ],
+      ),
+      CatalogScene(
+        'Now playing · Tracearr did not answer: the Jellyfin rows stay, and '
+        'one line says Tracearr did not answer and what is missing',
+        (_) => const HomeNowPlayingModule(),
+        width: 390,
+        overrides: [
+          currentSettingsProvider.overrideWith((ref) => _tracearrSettings),
+          streamActivityProvider.overrideWith(
+            (ref) async => [
+              _playing('Anna', 'Sintel', 'Living room TV', 9, 0.4),
+            ],
+          ),
+          streamActivityOfflineProvider.overrideWith(
+            (ref) async => const [
+              (
+                service: ServiceKey.tracearr,
+                instanceId: 'tracearr',
+                title: 'Tracearr',
+                error: ClassifiedFailure(ServiceFailureReason.unreachable),
+              ),
+            ],
           ),
         ],
       ),

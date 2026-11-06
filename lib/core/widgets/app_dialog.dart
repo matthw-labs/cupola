@@ -166,6 +166,9 @@ typedef AppConfirmLabelFor = String Function(bool Function(String key) checked);
 /// key that might be held down by habit. A call site turns it on only for an
 /// action it can reverse. With the focus on a button, Enter presses that
 /// button; in a multiline field Enter stays a newline.
+///
+/// [note] is one line of what another service knows about the thing the
+/// action touches, drawn quietly under [message]; null draws nothing.
 Future<AppConfirmResult> showAppConfirmDialog({
   required BuildContext context,
   required String title,
@@ -176,6 +179,7 @@ Future<AppConfirmResult> showAppConfirmDialog({
   String cancelLabel = 'Cancel',
   List<AppConfirmOption> options = const [],
   AppConfirmField? field,
+  String? note,
   bool useRootNavigator = true,
   bool enterConfirms = false,
 }) async {
@@ -227,6 +231,19 @@ Future<AppConfirmResult> showAppConfirmDialog({
             children: [
               if (message != null && message.isNotEmpty)
                 Text(message, style: theme.textTheme.bodyMedium),
+              // A fact another service holds about what the action touches,
+              // in the secondary ink under the sentence: it informs the
+              // choice and is no part of it (`Watched by 3 · last 12 days
+              // ago`).
+              if (note != null && note.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  note,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
               if (field != null) ...[
                 const SizedBox(height: AppSpacing.md),
                 _ConfirmTextField(

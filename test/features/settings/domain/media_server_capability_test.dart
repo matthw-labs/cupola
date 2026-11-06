@@ -15,10 +15,13 @@ void main() {
         ServiceKey.plex,
         ServiceKey.emby,
       ]);
+      // Tracearr gives sessions without being a media server: its own arm of
+      // the session plumbing reads it, and it never reaches a backend.
       expect(sessionServices, [
         ServiceKey.jellyfin,
         ServiceKey.plex,
         ServiceKey.emby,
+        ServiceKey.tracearr,
       ]);
       expect(ServiceKey.values.where((s) => s.speaksMediaBrowser), [
         ServiceKey.jellyfin,
@@ -36,18 +39,17 @@ void main() {
       ]);
     });
 
-    test('Tracearr is in the band and is not a media server, and gives no '
-        'sessions yet', () {
+    test('Tracearr is in the band and is not a media server, and gives '
+        'sessions', () {
       const service = ServiceKey.tracearr;
       expect(service.domain, ServiceDomain.stream);
       expect(service.isMediaServer, isFalse);
       expect(service.speaksMediaBrowser, isFalse);
       expect(service.needsViewerSelection, isFalse);
-      // The merge of its streams into Now playing is a later lot's: flipping
-      // this earlier would send Tracearr through the media servers' session
-      // code, which has no client for it.
-      expect(service.givesSessions, isFalse);
-      expect(sessionServices, isNot(contains(service)));
+      // Its streams are merged into Now playing by their own arm; it must
+      // never be handed a media server's backend (`streamBackendOf` throws).
+      expect(service.givesSessions, isTrue);
+      expect(sessionServices, contains(service));
       expect(mediaServers, isNot(contains(service)));
     });
 
@@ -63,9 +65,12 @@ void main() {
     });
 
     test('the playing services are in registry order and hold every '
-        'media server', () {
+        'media server, and only Tracearr beside them', () {
       expect(sessionServices, ServiceKey.values.where((s) => s.givesSessions));
       expect(sessionServices, containsAll(mediaServers));
+      expect(sessionServices.where((s) => !s.isMediaServer), [
+        ServiceKey.tracearr,
+      ]);
     });
 
     test('what speaks the MediaBrowser API is a media server that picks a '
