@@ -1353,6 +1353,8 @@ RouteBase _tracearrRoutes() => _serviceRoutes(
       topPadding: _serviceTabTopPadding,
       // From a person's page: that person's violations only.
       userId: state.uri.queryParameters['user'],
+      // From a notification of several: the Tracearr they came off.
+      instanceId: state.uri.queryParameters['i'],
     ),
   },
   // A violation resolves from the path alone, so a card in Needs you and a

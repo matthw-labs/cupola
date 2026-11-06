@@ -193,6 +193,12 @@ class ServiceRoutes {
   static String tracearrViolationsOf(String userId) =>
       _withQuery(tracearrViolations, {'user': userId});
 
+  /// The Violations tab of one Tracearr connection (`?i=`), which is where a
+  /// notification of several violations opens: the tab reads the lens, and
+  /// the screen brings the connection the link names under it.
+  static String tracearrViolationsOn(String instanceId) =>
+      _withQuery(tracearrViolations, {'i': instanceId});
+
   static const plexOverview = '$plex/overview';
 
   /// The same two roles [jellyfinLibraries] carries, and the same move: the

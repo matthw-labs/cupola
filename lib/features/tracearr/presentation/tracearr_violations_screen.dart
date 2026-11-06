@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +11,8 @@ import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/widgets/widgets.dart';
 import 'package:cupola/features/services/domain/services_semantics.dart';
+import 'package:cupola/features/services/presentation/dashboard_sections.dart'
+    show bringUnderLens;
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
@@ -36,9 +40,19 @@ const _service = ServiceKey.tracearr;
 /// (`TracearrViolationScreen`). Its state is
 /// [tracearrViolationsListProvider] and the filters it reads.
 class TracearrViolationsScreen extends ConsumerStatefulWidget {
-  const TracearrViolationsScreen({super.key, this.topPadding = 0, this.userId});
+  const TracearrViolationsScreen({
+    super.key,
+    this.topPadding = 0,
+    this.userId,
+    this.instanceId,
+  });
 
   final double topPadding;
+
+  /// The Tracearr connection a link names (`?i=`), which the tab reads through
+  /// the lens: it is brought under it once the screen is up. A notification of
+  /// several violations opens here, on the connection they came off.
+  final String? instanceId;
 
   /// Tracearr's id for the person the tab is narrowed to, as the link gave it.
   final String? userId;
@@ -59,6 +73,7 @@ class _TracearrViolationsScreenState
   void initState() {
     super.initState();
     _user = tracearrUserParam(widget.userId);
+    _bringConnection();
   }
 
   @override
@@ -67,6 +82,23 @@ class _TracearrViolationsScreenState
     if (oldWidget.userId != widget.userId) {
       _user = tracearrUserParam(widget.userId);
     }
+    if (oldWidget.instanceId != widget.instanceId) _bringConnection();
+  }
+
+  /// Puts the connection the link names under the lens, when it is one of
+  /// Tracearr's: an `i` that is another service's says nothing about it.
+  void _bringConnection() {
+    final id = widget.instanceId;
+    if (id == null || id.isEmpty) return;
+    // After the build, since moving the lens rebuilds what is being built.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (ref.read(currentSettingsProvider).instanceById(id)?.service !=
+          _service) {
+        return;
+      }
+      unawaited(bringUnderLens(ref, _service, id));
+    });
   }
 
   @override

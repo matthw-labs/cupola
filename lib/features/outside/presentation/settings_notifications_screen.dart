@@ -26,7 +26,7 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/presentation/widgets/settings_master_detail.dart';
 import 'package:cupola/features/shell/domain/shell_audience.dart';
 
-/// Settings › Notifications: the two things Cupola tells, each
+/// Settings › Notifications: the things Cupola tells, each
 /// off until the person turns it on, the permission asked for at that moment
 /// and never at launch, and the platform's own honesty about when it checks.
 ///
@@ -87,7 +87,16 @@ class _SettingsNotificationsScreenState
         (settings) => settings.isServiceConfigured(ServiceKey.seerr),
       ),
     );
+    final tracearr = ref.watch(
+      currentSettingsProvider.select(
+        (settings) => settings.isServiceConfigured(ServiceKey.tracearr),
+      ),
+    );
     final kinds = ref.watch(outsideNoticeKindsProvider);
+    // The switch stays while it is on even if Tracearr is gone, so it can be
+    // turned off: a run keeps being asked for while any switch is on.
+    final flagged =
+        !requester && (tracearr || kinds.contains(OutsideNoticeKind.flagged));
     // Only when one is on: a permission nobody asked for being off is not a
     // fault, it is the default.
     final blocked =
@@ -154,6 +163,17 @@ class _SettingsNotificationsScreenState
                     onChanged: (on) =>
                         _toggle(OutsideNoticeKind.readyToWatch, on),
                   ),
+                // Violations are Tracearr's to know, and it is the owner's
+                // alone: a requester never sees the word.
+                if (flagged)
+                  SettingsSwitchRow(
+                    icon: Icons.flag_outlined,
+                    title: 'Flagged by Tracearr',
+                    description: 'When someone breaks a rule Tracearr watches.',
+                    value: kinds.contains(OutsideNoticeKind.flagged),
+                    busy: _asking == OutsideNoticeKind.flagged,
+                    onChanged: (on) => _toggle(OutsideNoticeKind.flagged, on),
+                  ),
               ],
             ),
             Padding(
@@ -172,6 +192,11 @@ class _SettingsNotificationsScreenState
                             'wait longer while the phone is idle.',
                   if (!requester)
                     'A service that is only out of reach never sends one.',
+                  // Tracearr never stops watching; Cupola only reads when
+                  // the system wakes it, so a violation can wait for that.
+                  if (flagged)
+                    'Tracearr watches around the clock, but Cupola reads '
+                        'what it flagged only when the phone wakes it.',
                 ].join(' '),
                 style: note,
               ),
