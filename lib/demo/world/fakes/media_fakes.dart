@@ -3147,7 +3147,14 @@ class TracearrFake extends ServiceFake {
           'tracearr_version': version,
         });
       case '/api/v2/public/streams':
-        return NetworkReply.json(_streams(c, r.query['server_id']));
+        final streams = _streams(c, r.query['server_id']);
+        // As Tracearr 3.1.4 answers it: `summary=true` is the summary alone,
+        // with no rows (measured on the lab).
+        return NetworkReply.json(
+          r.query['summary'] == 'true'
+              ? {'summary': streams['summary']}
+              : streams,
+        );
       case '/api/v2/public/events':
         return _events(c);
       case '/api/v1/public/stats/today':
@@ -3195,6 +3202,91 @@ class TracearrFake extends ServiceFake {
         }, status: 404);
       }
       return NetworkReply.json(person.group(2) == null ? user : _stats(id));
+    }
+    // Who watched a title: `media/:ref/watchers`, by the forms Tracearr's own
+    // route parses. A title it does not hold is a `404`, which the app reads
+    // as unknown and never as nobody.
+    final watched = RegExp(
+      r'^/api/v2/public/media/([^/]+)/watchers$',
+    ).firstMatch(r.path);
+    if (watched != null) {
+      final rows = _watchedBy(Uri.decodeComponent(watched.group(1)!), c);
+      if (rows == null) {
+        return NetworkReply.json({
+          'statusCode': 404,
+          'error': 'NotFoundError',
+          'message': 'Not Found',
+        }, status: 404);
+      }
+      return NetworkReply.json(rows);
+    }
+    return null;
+  }
+
+  /// Who watched Sintel (Anna four times, Luca once, twelve days ago), the
+  /// series Cosmos Laundromat (Luca, seven of its episodes), and Big Buck
+  /// Bunny, which Tracearr holds and nobody has played; null for any other
+  /// title.
+  static JsonMap? _watchedBy(String ref, ServerContext c) {
+    JsonMap watcher(
+      String id,
+      String name, {
+      required int plays,
+      required double completion,
+      required int daysAgo,
+      int? episodes,
+    }) => {
+      'user': {
+        'server_user_id': 'account-$name',
+        'user_id': id,
+        'username': name,
+        'identity_name': null,
+      },
+      'plays': plays,
+      'watch_time_ms': plays * 600000,
+      'completion_pct': completion,
+      'last_watched_day': c.ago(Duration(days: daysAgo)).split('T').first,
+      'distinct_episodes_watched': episodes,
+    };
+    JsonMap answer(String type, List<JsonMap> watchers) => {
+      'media_id': 'media-$ref',
+      'media_type': type,
+      'window': 'all_time',
+      'watchers': watchers,
+    };
+    if (ref == 'movie:tmdb:${WorldTitles.sintel.tmdbId}') {
+      return answer('movie', [
+        watcher(
+          annaId,
+          WorldPeople.anna,
+          plays: 4,
+          completion: 100,
+          daysAgo: 2,
+        ),
+        watcher(
+          lucaId,
+          WorldPeople.luca,
+          plays: 1,
+          completion: 62,
+          daysAgo: 12,
+        ),
+      ]);
+    }
+    if (ref == 'show:tmdb:${WorldTitles.cosmosLaundromat.tmdbId}' ||
+        ref == 'show:tvdb:${WorldTitles.cosmosLaundromat.tvdbId}') {
+      return answer('show', [
+        watcher(
+          lucaId,
+          WorldPeople.luca,
+          plays: 9,
+          completion: 31.5,
+          daysAgo: 1,
+          episodes: 7,
+        ),
+      ]);
+    }
+    if (ref == 'movie:tmdb:${WorldTitles.bigBuckBunny.tmdbId}') {
+      return answer('movie', const []);
     }
     return null;
   }

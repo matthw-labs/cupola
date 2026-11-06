@@ -183,6 +183,21 @@ under it, a hairline between rows. A 4pt bar (`HomeRowBar`) says how far somethi
   `Living room TV · 9 min left` (`Paused` while the player holds it), an ink bar: watching is not a status. The line
   under the name is the server (`Jellyfin`). Absent when nobody watches; a server that did not answer keeps it in place.
   Read again every 30 s while the Home is seen.
+  - **With Tracearr** the list is one: a playback the server and Tracearr both describe is one row, the server's (what
+    Tracearr adds: its reasons for a transcode where the server gave none, the person's picture in the disc over the
+    initial). A playback only Tracearr sees (a server Cupola is not connected to) is appended and leads its line with
+    `Plex · through Tracearr`, so a line cut at the end keeps the mark; it has no Stop, Play or Watch, and a tap opens
+    Tracearr's Live. The header names the servers once, the through ones after the others (`Jellyfin · Plex · through
+    Tracearr`). Tracearr alone makes the module exist (`Needs Jellyfin, Plex, Emby or Tracearr` in Edit Home).
+  - **Tracearr silent**: the servers' rows stay, and one line over them says `Tracearr did not answer.` and
+    `What only Tracearr sees is not shown.` (red, as any server that did not answer; amber for a refused key).
+  - **A Plex row's disc** is also the way to the person's page in Tracearr, where Tracearr knows them (Plex has no
+    Users tab to hold that door; a screen reader gets it as `Open Luca in Tracearr`, an action of the row). Every row
+    keeps one 44pt slot for its disc, 36pt of it the disc and 8pt the gap before the text, and the door takes the whole
+    slot as its target, so a row with a door has its text where the rows without one have it. The person is found by
+    the viewer's id on the server; a name is tried only for a session that carries no id.
+  - **See all N** opens the first media server's own page among the rows, the list it counts; Tracearr's Live only when
+    every row is one only Tracearr sees.
 
 ## Stack health, Storage, Discover shelf
 

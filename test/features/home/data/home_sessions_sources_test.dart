@@ -4,6 +4,8 @@ import 'package:cupola/features/home/data/home_live.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_backend.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_sessions_provider.dart';
 
 /// What the Home and Activity read again for Now playing includes the cache of
 /// every media server: a server left out keeps its stale rows, because the
@@ -17,6 +19,12 @@ void main() {
         reason: service.name,
       );
     }
+  });
+
+  test('so is Tracearr\'s list: its live feed runs only on its own pages, '
+      'and the Home would otherwise draw what it saw last', () {
+    expect(homeSessionsSources, contains(tracearrLiveProvider));
+    expect(homeSessionsSources, contains(tracearrStreamsForProvider));
   });
 
   test('so are the family over its connections and the merge', () {

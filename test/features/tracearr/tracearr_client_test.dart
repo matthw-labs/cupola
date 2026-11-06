@@ -189,24 +189,25 @@ void main() {
       expect(servers.servers, hasLength(3));
     });
 
-    test('streams ask for the summary, and for a server when told', () async {
-      final adapter = CapturingHttpAdapter(
-        response: jsonFixture('tracearr/streams.json'),
-      );
-      final client = _client(adapter);
+    test(
+      'streams ask for the rows with their summary (no summary parameter, '
+      'which would answer the summary alone), and for a server when told',
+      () async {
+        final adapter = CapturingHttpAdapter(
+          response: jsonFixture('tracearr/streams.json'),
+        );
+        final client = _client(adapter);
 
-      final streams = await client.getStreams();
-      expect(adapter.lastUri!.path, '/api/v2/public/streams');
-      expect(adapter.lastUri!.queryParameters, {'summary': 'true'});
-      expect(streams.streams, hasLength(2));
-      expect(streams.summary.total, 2);
+        final streams = await client.getStreams();
+        expect(adapter.lastUri!.path, '/api/v2/public/streams');
+        expect(adapter.lastUri!.queryParameters, isEmpty);
+        expect(streams.streams, hasLength(2));
+        expect(streams.summary.total, 2);
 
-      await client.getStreams(serverId: 'srv-1');
-      expect(adapter.lastUri!.queryParameters, {
-        'summary': 'true',
-        'server_id': 'srv-1',
-      });
-    });
+        await client.getStreams(serverId: 'srv-1');
+        expect(adapter.lastUri!.queryParameters, {'server_id': 'srv-1'});
+      },
+    );
 
     test('today is v1 with camel-case parameters', () async {
       final adapter = CapturingHttpAdapter(

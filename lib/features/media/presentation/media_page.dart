@@ -73,6 +73,7 @@ import 'package:cupola/features/movies/data/radarr_service.dart';
 import 'package:cupola/features/movies/domain/models/radarr_movie.dart';
 import 'package:cupola/features/media/domain/media_removal.dart';
 import 'package:cupola/features/media/presentation/media_parts.dart';
+import 'package:cupola/features/media/presentation/media_watched_by.dart';
 import 'package:cupola/features/media/presentation/media_series_manage.dart';
 import 'package:cupola/features/media/presentation/media_series_sections.dart';
 import 'package:cupola/features/media/presentation/media_add_sheet.dart';
@@ -995,6 +996,8 @@ class _MediaPageState extends ConsumerState<MediaPage> {
             ),
           ],
           ...manage,
+          // The operator's, and only where Tracearr answered.
+          if (audience == Audience.operator) MediaWatchedBy(mediaKey: mediaKey),
           if (mediaWatchProvidersOf(rows, region) case final providers?) ...[
             MediaHeading('Where to watch', trailing: regionName(region)),
             MediaWatchProviders(providers: providers),
@@ -1474,6 +1477,7 @@ class _MediaPageState extends ConsumerState<MediaPage> {
         MediaSeriesManage(
           copies: held,
           title: MediaIdentity.of(rows)?.title ?? '',
+          mediaKey: mediaKey,
           subtitles: _bazarrEpisodesOf(rows),
           onChanged: () => _readArrsAgain(rows),
           more: seerr,
@@ -1776,6 +1780,7 @@ class _MediaPageState extends ConsumerState<MediaPage> {
       context: context,
       title: removal.title,
       message: removal.message,
+      note: mediaWatchedByNote(ref, mediaKey),
       icon: Icons.delete_outline_rounded,
       cancelLabel: 'Keep it',
       confirmLabel: removal.confirm(deleteFiles: false, exclude: false),

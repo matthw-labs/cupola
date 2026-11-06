@@ -132,6 +132,28 @@ final _people = [
   ),
 ];
 
+/// The Users tab of Jellyfin and Emby, a row with its way to Tracearr: the
+/// chip says where it leads, and a person Tracearr does not know has none.
+final _usersWithDoor = [
+  ServiceRecordRow(
+    icon: Icons.person_outline_rounded,
+    tone: StatusTone.neutral,
+    title: 'Anna',
+    detail: 'Last active 5 min ago',
+    trailing: 'User',
+    footer: const GenreChip(genre: 'In Tracearr'),
+    semanticLabel: 'Anna, User, Last active 5 min ago, in Tracearr',
+  ),
+  const ServiceRecordRow(
+    icon: Icons.person_outline_rounded,
+    tone: StatusTone.neutral,
+    title: 'Operator',
+    detail: 'Last active yesterday',
+    trailing: 'Administrator',
+    semanticLabel: 'Operator, Administrator, Last active yesterday',
+  ),
+];
+
 void main() {
   catalogCard(
     'ServiceRecordRow',
@@ -251,6 +273,13 @@ void main() {
         'Rows with a footer · Tracearr Users: a chip for each kind of server '
         'under the name, and no empty line where there is no detail',
         (_) => _list(_people),
+        width: 390,
+      ),
+      CatalogScene(
+        'Users with a door to Tracearr · Jellyfin and Emby: the chip under a '
+        'person Tracearr holds an account of, and the plain row for one it '
+        'does not',
+        (_) => _list(_usersWithDoor),
         width: 390,
       ),
       CatalogScene(

@@ -27,6 +27,8 @@ import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_backend.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_sessions_provider.dart';
 import 'package:cupola/features/transmission/presentation/transmission_provider.dart';
 
 /// How often the Home reads its live modules again while it is seen.
@@ -72,9 +74,14 @@ void readDownloadsAfterWrite(
   }
 }
 
-/// What Now playing draws from, on every connection of every media server.
+/// What Now playing draws from, on every connection of every media server and
+/// of Tracearr: its list is read again here, since its live feed runs only
+/// while its own pages are on screen and the Home would otherwise draw what
+/// it saw last.
 final List<ProviderOrFamily> homeSessionsSources = [
   for (final service in mediaServers) streamBackendOf(service).sessions,
+  tracearrLiveProvider,
+  tracearrStreamsForProvider,
   streamSessionsForProvider,
   streamActivityProvider,
 ];

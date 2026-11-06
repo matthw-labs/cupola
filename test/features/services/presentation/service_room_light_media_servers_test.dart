@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cupola/features/media/domain/media_key.dart';
+import 'package:cupola/features/media/presentation/arr_public_poster.dart';
 import 'package:cupola/features/services/presentation/service_room_light.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
@@ -54,9 +56,49 @@ void main() {
       expect(sub.read(), _poster);
     });
   }
+
+  test('Tracearr\'s room is lit by the first stream it sees, by the ids it '
+      'already holds', () async {
+    final container = ProviderContainer(
+      overrides: [
+        currentSettingsProvider.overrideWith(
+          (ref) => SettingsModel(
+            instances: [
+              ServiceInstance(
+                id: 'room',
+                service: ServiceKey.tracearr,
+                label: '',
+                url: 'http://tracearr.lan:3000',
+                credential: 'k',
+              ),
+            ],
+          ),
+        ),
+        streamSessionsForProvider.overrideWith(
+          (ref, key) async => key.service == ServiceKey.tracearr
+              ? [_playing('title-1', key: const MediaKey.movie(45745))]
+              : const [],
+        ),
+        arrPublicPosterProvider.overrideWith(
+          (ref, key) async =>
+              key == const MediaKey.movie(45745) ? _poster : null,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final sub = container.listen(
+      serviceRoomSourceProvider(ServiceKey.tracearr),
+      (_, _) {},
+    );
+    addTearDown(sub.close);
+    for (var i = 0; i < 5; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    expect(sub.read(), _poster);
+  });
 }
 
-StreamSession _playing(String titleId) => StreamSession(
+StreamSession _playing(String titleId, {MediaKey? key}) => StreamSession(
   id: 's1',
   userName: 'Anna',
   title: 'Sintel',
@@ -70,4 +112,5 @@ StreamSession _playing(String titleId) => StreamSession(
   progress: 0.4,
   isPaused: false,
   titleId: titleId,
+  titleKey: key,
 );

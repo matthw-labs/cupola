@@ -273,7 +273,7 @@ void main() {
     testWidgets('Now playing: a row from the cabin opens that connection\'s '
         'playbacks and leaves the lens where it was', (tester) async {
       final harness = await ProfileHarness.start(_twoJellyfin);
-      final row = (
+      final row = StreamActivityRow(
         service: ServiceKey.jellyfin,
         instanceId: WorldIds.jellyfinCabin,
         connectionName: 'Jellyfin Cabin',

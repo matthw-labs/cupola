@@ -759,12 +759,9 @@ class _WatchingNowSection extends ConsumerWidget {
     }
     final sessions = ref.watch(streamActivityProvider).value;
     if (sessions == null || sessions.isEmpty) return const SizedBox.shrink();
-    final servers = {
-      for (final row in sessions) row.service.title,
-    }.join(dotSeparator);
     return ActivitySection(
       title: _title,
-      meta: servers,
+      meta: streamServersLabel(sessions),
       semanticLabel: [
         _title,
         sessions.length == 1 ? '1 playing' : '${sessions.length} playing',

@@ -497,6 +497,30 @@ void main() {
       await harness.unmount(tester);
     });
 
+    testWidgets('P1 with Tracearr: Watching now says what only Tracearr sees, '
+        'marked, and the Jellyfin playback once', (tester) async {
+      final harness = await _pump(
+        tester,
+        Profiles.p1.withConnection(WorldConnections.tracearr),
+        ActivityTab.all,
+      );
+
+      // Tracearr watches the Jellyfin P1 holds (said by both: one row), and a
+      // Plex and an Emby it does not.
+      expect(
+        _sections(tester),
+        contains(
+          'Watching now\u00A0· Jellyfin\u00A0· Plex\u00A0· through Tracearr'
+          '\u00A0· Emby\u00A0· through Tracearr',
+        ),
+      );
+      // Anna's Sintel on the Jellyfin, and on the Emby only Tracearr sees.
+      expect(find.text('Anna\u00A0· Sintel'), findsNWidgets(2));
+      expect(find.text('Luca\u00A0· Elephants Dream'), findsOneWidget);
+
+      await harness.unmount(tester);
+    });
+
     testWidgets('P1: Finished today is the day\'s imports, newest first, each '
         'with the file it became', (tester) async {
       final harness = await _pump(tester, Profiles.p1, ActivityTab.all);

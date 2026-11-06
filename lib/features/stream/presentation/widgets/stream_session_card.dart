@@ -53,6 +53,7 @@ class StreamSessionCard extends StatelessWidget {
     this.onStop,
     this.onTogglePause,
     this.onMessage,
+    this.onOpenPerson,
     this.posterUrl,
     this.posterHeaders,
     this.light,
@@ -94,6 +95,11 @@ class StreamSessionCard extends StatelessWidget {
   /// Send a line of text to the player. Jellyfin only, for the same reason as
   /// [onTogglePause].
   final VoidCallback? onMessage;
+
+  /// The way to the viewer's page in Tracearr, where Tracearr knows who they
+  /// are. A Plex card carries it, since Plex has no Users tab for the door to
+  /// sit in; null draws nothing.
+  final VoidCallback? onOpenPerson;
 
   @override
   Widget build(BuildContext context) {
@@ -190,12 +196,16 @@ class StreamSessionCard extends StatelessWidget {
             ],
           ),
         ),
-        if (onTogglePause != null || onMessage != null || onStop != null)
+        if (onTogglePause != null ||
+            onMessage != null ||
+            onStop != null ||
+            onOpenPerson != null)
           StreamSessionActions(
             isPaused: session.isPaused,
             onTogglePause: onTogglePause,
             onMessage: onMessage,
             onStop: onStop,
+            onOpenPerson: onOpenPerson,
           ),
       ],
     );
@@ -247,6 +257,7 @@ class StreamSessionActions extends StatelessWidget {
     required this.onTogglePause,
     required this.onMessage,
     required this.onStop,
+    this.onOpenPerson,
   });
 
   final bool isPaused;
@@ -254,9 +265,15 @@ class StreamSessionActions extends StatelessWidget {
   final VoidCallback? onMessage;
   final VoidCallback? onStop;
 
+  /// The viewer's page in Tracearr; see [StreamSessionCard.onOpenPerson].
+  final VoidCallback? onOpenPerson;
+
   @override
   Widget build(BuildContext context) {
-    if (onTogglePause == null && onMessage == null && onStop == null) {
+    if (onTogglePause == null &&
+        onMessage == null &&
+        onStop == null &&
+        onOpenPerson == null) {
       return const SizedBox.shrink();
     }
     final color = Theme.of(context).colorScheme.onSurfaceVariant;
@@ -264,6 +281,13 @@ class StreamSessionActions extends StatelessWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
+        if (onOpenPerson != null)
+          IconButton(
+            onPressed: onOpenPerson,
+            icon: const Icon(Icons.person_outline_rounded, size: 20),
+            color: color,
+            tooltip: 'Open this person in Tracearr',
+          ),
         if (onTogglePause != null)
           IconButton(
             onPressed: onTogglePause,

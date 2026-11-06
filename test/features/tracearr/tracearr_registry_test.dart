@@ -52,7 +52,7 @@ void main() {
       expect(service.domain, ServiceDomain.stream);
       expect(service.isMediaServer, isFalse);
       expect(service.speaksMediaBrowser, isFalse);
-      expect(service.givesSessions, isFalse);
+      expect(service.givesSessions, isTrue);
       expect(service.title, 'Tracearr');
       expect(service.role, 'Monitoring');
       expect(service.routeParam, 'tracearr');

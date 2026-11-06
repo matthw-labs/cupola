@@ -14,6 +14,7 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_watched.dart';
 
 /// The size of the page a count that cannot be summed is read at. A page that
 /// came back with another following has counted rows, not the set, so its
@@ -127,3 +128,18 @@ final tracearrSeriesKeyProvider = FutureProvider.autoDispose
           .getMediaIdentity(TracearrMediaRef.id(showMediaId));
       return series == null ? null : tracearrSeriesKeyOf(series);
     }, retry: noProviderRetry);
+
+/// Who watched a title, by its key, or null when Tracearr does not know the
+/// title: an answer only for "unknown to Tracearr", which says nothing about
+/// whether anyone watched, so the page draws no section for it and never
+/// "nobody". A Tracearr that did not answer is an error, which a page reads
+/// the same way.
+///
+/// Dropped when no page or sheet is watching it: a title's viewing changes
+/// as it is watched.
+final tracearrWatchedByProvider = FutureProvider.autoDispose
+    .family<TracearrMediaWatchers?, MediaKey>(
+      (ref, key) =>
+          ref.watch(tracearrClientProvider).getWatchers(tracearrRefOf(key)),
+      retry: noProviderRetry,
+    );

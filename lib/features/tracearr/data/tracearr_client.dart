@@ -287,10 +287,15 @@ class TracearrClient {
   }
 
   /// The live streams with their summary, for every server or one.
+  ///
+  /// Asked with no `summary` parameter: the plain answer carries `data` and
+  /// `summary` both, and `summary=true` answers the summary **alone**
+  /// (measured on Tracearr 3.1.4, which gave the rows nobody had asked for
+  /// as an empty list).
   Future<TracearrStreams> getStreams({String? serverId}) {
     return _readMapped(
       '$_v2/streams',
-      query: {'summary': true, 'server_id': ?serverId},
+      query: {'server_id': ?serverId},
       parse: _parseStreams,
     );
   }

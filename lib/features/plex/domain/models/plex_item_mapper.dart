@@ -360,6 +360,8 @@ StreamSession? plexSessionFromJson(Map<String, dynamic> json) {
       StreamItemKind.movie => plexString(json['ratingKey']),
       _ => null,
     },
+    itemId: plexString(json['ratingKey']),
+    userId: plexString(user?['id']),
   );
 }
 
