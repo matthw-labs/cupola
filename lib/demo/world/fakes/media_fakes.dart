@@ -1855,6 +1855,30 @@ class EmbyFake extends ServiceFake {
     'ServerId': serverId,
   };
 
+  /// How many episodes each of Cosmos Laundromat's two seasons holds on this
+  /// server: the whole first season, and three of the second.
+  static const _episodesOfSeason = {1: 10, 2: 3};
+
+  /// The id of one season, a number like every Emby id.
+  static String _seasonId(int season) => '${300 + season}';
+
+  /// One season of Cosmos Laundromat, as `/Shows/{id}/Seasons` lists it.
+  static JsonMap _season(ServerContext c, int season) => {
+    ..._item(c, WorldTitles.cosmosLaundromat, type: 'Season'),
+    'Id': _seasonId(season),
+    'Name': 'Season $season',
+    'SeriesName': WorldTitles.cosmosLaundromat.title,
+    'SeriesId': _id(WorldTitles.cosmosLaundromat),
+    'IndexNumber': season,
+    'ChildCount': _episodesOfSeason[season],
+    'RunTimeTicks': null,
+    'UserData': {
+      'Played': false,
+      'PlaybackPositionTicks': 0,
+      'UnplayedItemCount': season == 2 ? 1 : 0,
+    },
+  };
+
   /// Anna's Sintel on the living-room TV, and the API key's own row, which
   /// Emby lists as a session with no user and nothing playing.
   static List<JsonMap> _sessions(ServerContext c) => [
@@ -2018,6 +2042,17 @@ class EmbyFake extends ServiceFake {
     // A series' episodes, with the viewer's watch state: Cosmos Laundromat's
     // first season and the three of the second on the server, two of them
     // watched and the third part-way, as the Jellyfin fake has them.
+    final seasons = RegExp(r'^/Shows/(\d+)/Seasons$').firstMatch(path);
+    if (seasons != null) {
+      final cosmos = seasons.group(1) == _id(WorldTitles.cosmosLaundromat);
+      return NetworkReply.json(
+        _page(
+          cosmos
+              ? [for (final n in _episodesOfSeason.keys) _season(c, n)]
+              : const [],
+        ),
+      );
+    }
     final episodes = RegExp(r'^/Shows/(\d+)/Episodes$').firstMatch(path);
     if (episodes != null) {
       final cosmos = episodes.group(1) == _id(WorldTitles.cosmosLaundromat);
@@ -2040,6 +2075,8 @@ class EmbyFake extends ServiceFake {
           if (played > 0 && played < 1) 'PlayedPercentage': played * 100,
         },
       };
+      // A season's own page asks for its episodes by `seasonId`.
+      final wanted = r.query['seasonId'] ?? r.query['SeasonId'];
       return NetworkReply.json(
         _page(
           cosmos
@@ -2048,7 +2085,10 @@ class EmbyFake extends ServiceFake {
                   episode(2, 1),
                   episode(2, 2),
                   episode(2, 3, played: 0.75),
-                ]
+                ].where((row) {
+                  if (wanted == null || wanted.isEmpty) return true;
+                  return _seasonId(row['ParentIndexNumber']! as int) == wanted;
+                }).toList()
               : const <JsonMap>[],
         ),
       );
@@ -2080,6 +2120,11 @@ class EmbyFake extends ServiceFake {
           .where((t) => _id(t) == one.group(1))
           .firstOrNull;
       if (title != null) return NetworkReply.json(_item(c, title));
+      for (final n in _episodesOfSeason.keys) {
+        if (_seasonId(n) == one.group(1)) {
+          return NetworkReply.json(_season(c, n));
+        }
+      }
     }
     final user = RegExp(r'^/Users/([^/]+)$').firstMatch(path);
     if (user != null) {

@@ -47,6 +47,7 @@ PROBES: dict[str, tuple[str, str]] = {
     "bazarr": ("/api/system/status", "key"),
     "sabnzbd": ("/api?mode=version&apikey={key}", "query"),
     "jellyfin": ("/System/Info/Public", "none"),
+    "emby": ("/emby/System/Info/Public", "none"),
     "plex": ("/identity", "none"),
 }
 

@@ -27,6 +27,7 @@ void main() {
     ServiceKey.sabnzbd: 'http://127.0.0.1:8082',
     ServiceKey.nzbget: 'http://127.0.0.1:6789',
     ServiceKey.jellyfin: 'http://127.0.0.1:8096',
+    ServiceKey.emby: 'http://127.0.0.1:8097',
     ServiceKey.plex: 'http://127.0.0.1:32400',
     ServiceKey.nginxProxyManager: 'http://127.0.0.1:8181',
     ServiceKey.dockge: 'http://127.0.0.1:5001',

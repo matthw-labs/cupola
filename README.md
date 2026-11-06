@@ -227,7 +227,7 @@ Two columns say how far each integration goes:
 | **Emby** | The same session-first board as Jellyfin, from Emby's own API: who is watching right now, resume points, libraries, users, devices and tasks; pause, stop or message a session | API key + viewer | Read + sessions | ○ ² |
 
 ² Emby is new: its client is written against answers recorded from a real Emby 4.10
-server, and we have not yet run the app against one.
+server and has run against one in our test lab, but the app's screens have not yet.
 
 ### Infrastructure
 

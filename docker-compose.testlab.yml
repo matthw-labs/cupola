@@ -286,6 +286,32 @@ services:
       retries: 30
       start_period: 30s
 
+  emby:
+    # Emby Server 4.10.2.0, the free edition: nothing the app calls asks for
+    # Premiere. The tag and the index digest are what `emby/embyserver:latest`
+    # was on 2026-11-06, linux/arm64 included. Emby's own image reads UID, GID
+    # and GIDLIST (the linuxserver PUID/PGID of the others means nothing to it).
+    # It listens on 8096 like Jellyfin, so the host publishes it on 8097.
+    image: emby/embyserver:4.10.2.0@sha256:7082c63b10a2fcb3805a7eaebba407d5723bc57c085c9f0b29b7d0a702765cc1
+    profiles: [core, media]
+    environment:
+      UID: 1000
+      GID: 1000
+      GIDLIST: 1000
+    ports:
+      - "127.0.0.1:8097:8096"
+    volumes:
+      - "${CUPOLA_TESTLAB_STATE_DIR:-.ai/scratch/zz_testlab/state}/emby:/config"
+      - "${CUPOLA_TESTLAB_STATE_DIR:-.ai/scratch/zz_testlab/state}/media:/media:ro"
+    healthcheck:
+      # Unauthenticated, and the one route that answers before the first-run
+      # wizard has been walked. The image ships wget and no curl.
+      test: [CMD-SHELL, "wget -q -O /dev/null http://127.0.0.1:8096/emby/System/Info/Public || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
   plex:
     # Plex 1.43.4.10903-e5521bd8c-ls324.
     image: lscr.io/linuxserver/plex@sha256:1f6f97d76e7bdb013789e94c838f2d9133b01ee4b2d4194148e492c4e4f12d90
@@ -471,11 +497,13 @@ services:
       - "127.0.0.1:27879:27879"  # Radarr
       - "127.0.0.1:28081:28081"  # qBittorrent
       - "127.0.0.1:28097:28097"  # Jellyfin
+      - "127.0.0.1:28099:28099"  # Emby
       - "127.0.0.1:26768:26768"  # Bazarr
       - "127.0.0.1:28990:28990"  # Sonarr
       - "127.0.0.1:8080:8080"  # qBittorrent, on its WebUI port (see the client)
       - "127.0.0.1:28082:28082"
       - "127.0.0.1:28096:28096"
+      - "127.0.0.1:28098:28098"
       - "127.0.0.1:28181:28181"
       - "127.0.0.1:28460:28460"
       - "127.0.0.1:28480:28480"

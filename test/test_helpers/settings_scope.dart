@@ -149,6 +149,8 @@ SettingsModel settingsWith({
   String unraidApiKey = '',
   String jellyfinUrl = '',
   String jellyfinApiKey = '',
+  String embyUrl = '',
+  String embyApiKey = '',
   String qbittorrentUrl = '',
   String qbittorrentUsername = '',
   String qbittorrentPassword = '',
@@ -167,6 +169,7 @@ SettingsModel settingsWith({
   String plexUrl = '',
   String plexToken = '',
   String jellyfinUserId = '',
+  String embyUserId = '',
   String plexClientId = '',
   Map<String, String> trustedCertificates = const {},
   String region = 'US',
@@ -190,6 +193,7 @@ SettingsModel settingsWith({
   settings = _api(settings, ServiceKey.sabnzbd, sabnzbdUrl, sabnzbdApiKey);
   settings = _api(settings, ServiceKey.unraid, unraidUrl, unraidApiKey);
   settings = _api(settings, ServiceKey.jellyfin, jellyfinUrl, jellyfinApiKey);
+  settings = _api(settings, ServiceKey.emby, embyUrl, embyApiKey);
   settings = _cred(
     settings,
     ServiceKey.qbittorrent,
@@ -228,6 +232,9 @@ SettingsModel settingsWith({
   settings = _api(settings, ServiceKey.plex, plexUrl, plexToken);
   if (jellyfinUserId.isNotEmpty) {
     settings = settings.copyWithViewer(ServiceKey.jellyfin, jellyfinUserId);
+  }
+  if (embyUserId.isNotEmpty) {
+    settings = settings.copyWithViewer(ServiceKey.emby, embyUserId);
   }
   return settings;
 }

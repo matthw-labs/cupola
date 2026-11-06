@@ -1,5 +1,25 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Emby, the eighteenth service.** Add an Emby server with its address and an API key
+  and it gets the room Jellyfin has: Overview, Libraries, Users, Devices, Tasks and
+  Activity. You see who is watching right now and what you left halfway, and you can
+  pause, resume, stop or message a session. Titles open in the Emby app or in the
+  browser, Emby answers the global search, and a title Seerr finds on Emby offers
+  *Watch on Emby*, for a household member too, who keeps the simpler app.
+- **A wrong server now says so.** Point a connection at the address of another
+  service and the form names the one that answered, and offers to set that one up
+  with the same address.
+
+### Known limits
+
+- **Emby** is new: we wrote its client from answers recorded from a real Emby 4.10
+  and run it against one in our test lab, and we have not yet run it against a server
+  we use every day.
+
 ## 1.0.0-beta.1
 
 The first release of Cupola, published as a beta. Everything before it was published

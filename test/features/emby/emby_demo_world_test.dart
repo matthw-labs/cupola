@@ -18,6 +18,7 @@ import 'package:cupola/features/jellyfin/presentation/jellyfin_tab_screens.dart'
 import 'package:cupola/features/settings/data/service_connection_provider.dart';
 import 'package:cupola/features/settings/data/service_verification.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
 import 'package:cupola/features/stream/presentation/widgets/jellyfin_viewer_picker.dart';
 import 'package:cupola/features/stream/presentation/stream_backend.dart';
@@ -143,6 +144,40 @@ void main() {
       expect(
         harness.network.requestsTo(WorldIds.emby).map((r) => r.path),
         contains('/emby/Users/${EmbyFake.operatorId}/Items/${sintel.id}'),
+      );
+    });
+  });
+
+  group('a series', () {
+    test('opens on its seasons, and a season on its episodes', () async {
+      final harness = await ProfileHarness.start(_withEmby);
+      final container = harness.container(retry: (_, _) => null);
+      final client = container.read(
+        streamBackendOf(ServiceKey.emby).lensClient,
+      );
+
+      final groups = await client.search('cosmos');
+      final show = groups
+          .expand((group) => group.items)
+          .singleWhere((item) => item.kind == StreamItemKind.series);
+      final seasons = await client.getChildren(show.id);
+      final second = seasons.singleWhere((item) => item.seasonNumber == 2);
+      final episodes = await client.getChildren(second.id);
+
+      // The title page's "Contents" reads the same two routes: a series'
+      // seasons, then a season's episodes by its own id.
+      expect(
+        seasons.map((season) => season.kind),
+        everyElement(StreamItemKind.season),
+      );
+      expect(seasons, hasLength(2));
+      expect(episodes, hasLength(3));
+      expect(
+        harness.network.requestsTo(WorldIds.emby).map((r) => r.path),
+        containsAll([
+          '/emby/Shows/${show.id}/Seasons',
+          '/emby/Shows/${show.id}/Episodes',
+        ]),
       );
     });
   });

@@ -12,7 +12,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/status/media_status.dart';
 import 'package:cupola/core/utils/dot_separator.dart';
+import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/home/domain/now_playing.dart';
+import 'package:cupola/features/jellyfin/data/media_browser_client.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/services/domain/service_signal.dart';
 import 'package:cupola/features/services/presentation/service_kpi_provider.dart';
@@ -29,19 +31,21 @@ import '../test_helpers/settings_scope.dart';
 /// Overview and in the Stack, with one playback and with two, a pause and a
 /// stop.
 ///
-/// **The playbacks are real sessions on the lab's Jellyfin, and the pause and
-/// the stop are the app's own.** Each one is opened by
-/// `test/e2e/testlab/jellyfin_play.py --listen`, which reports `Playing` and
-/// then holds the WebSocket Jellyfin relays `Playstate` over. That is not
+/// **The playbacks are real sessions on the lab's Jellyfin and on its Emby,
+/// and the pause and the stop are the app's own.** The whole suite runs once
+/// per server ([_Server]). Each playback is opened by
+/// `test/e2e/testlab/jellyfin_play.py --listen` (or `emby_play.py`), which
+/// reports `Playing` and then holds the WebSocket the server relays `Playstate`
+/// over. That is not
 /// decoration: both commands are remote control. `POST /Sessions/{id}/Playing/
 /// Pause` and `/Stop` are answered 204 when they are *dispatched*, and the
 /// state only changes because the client reports `Progress` or `Stopped` back.
 /// So the test sends the command through the same methods the cards call
-/// (`jellyfinClientForProvider(...).pauseSession`, `streamClientForProvider(
-/// ...).stopSession`) and then re-reads the app's providers: a pause that only
+/// (`jellyfinClientForProvider(...).pauseSession` or the Emby twin,
+/// `streamClientForProvider(...).stopSession`) and then re-reads the app's providers: a pause that only
 /// reached the wire, or a stop the client ignored, fails here. A paired
-/// `jellyfin_play.py` run without `--listen` would have made both look fine
-/// while changing nothing.
+/// helper run without `--listen` would have made both look fine while
+/// changing nothing.
 ///
 /// **What each surface means here, and where the boundary is.** The e2e tier
 /// drives clients and providers, not pixels; the pixels are the design
@@ -52,31 +56,34 @@ import '../test_helpers/settings_scope.dart';
 ///    [streamActivityOfflineProvider] to tell silence from emptiness), and
 ///    renders each row with [nowPlayingTitle] and [nowPlayingLine];
 ///  * the Overview's slab reads [streamSessionsForProvider], which for the
-///    lens connection collapses onto [jellyfinSessionsProvider];
+///    lens connection collapses onto [jellyfinSessionsProvider] (or
+///    [embySessionsProvider]);
 ///  * the Stack's matrix cell reads [serviceSignalPairProvider], whose head is
 ///    the `Streams` figure said as `1 streaming` / `2 streaming`.
 ///
 /// The words a person sees are asserted through the same functions the widgets
 /// call, so a change of phrasing moves both sides together.
 ///
-/// **Counts are compared with the server, not hard-coded.** The lab's Jellyfin
-/// is shared with the other e2e files, and `flutter test` runs files at the
+/// **Counts are compared with the server, not hard-coded.** The lab's servers
+/// are shared with the other e2e files, and `flutter test` runs files at the
 /// same time: another suite's playback can be live while this one runs.
 /// [_converged] therefore waits until the three surfaces list exactly the
 /// sessions the server reports, which is S-09's own verification sentence
 /// ("the sessions read from the server match the cards"). In a quiet lab that
 /// count is one, then two, and the assertions below read it as such.
 ///
-/// **Jellyfin only, and why.** L8's plan makes a Plex playback a spike, and
+/// **Jellyfin and Emby only, and why.** L8's plan makes a Plex playback a spike, and
 /// `test/e2e/testlab/plex_play.py` is that spike: one fixed client identity, no
 /// device of its own, no pause, and no Stop from the app (`terminate` needs
 /// Plex Pass, which this server reports it does not have). So the
 /// one-playback and two-playback acceptance, which needs two devices, is
-/// carried by Jellyfin; the Plex half of S-09 stays with the spike rather than
-/// being faked here.
+/// carried by the two servers whose clients can be played for real; the Plex
+/// half of S-09 stays with the spike rather than being faked here.
 ///
 /// Prerequisites: the lab is up and seeded (`test/e2e/testlab/bootstrap.sh`)
 /// and `CUPOLA_TESTLAB_CREDENTIALS_FILE` points at its credentials.
+/// `CUPOLA_TESTLAB_EMBY_URL` points the Emby half at another address than the
+/// lab's published one (a disposable container).
 ///
 /// ```bash
 /// export CUPOLA_TESTLAB_CREDENTIALS_FILE="$PWD/.ai/scratch/zz_testlab/state/credentials.env"
@@ -84,6 +91,13 @@ import '../test_helpers/settings_scope.dart';
 ///   --tags e2e --run-skipped
 /// ```
 void main() {
+  for (final server in _Server.values) {
+    group(server.title, () => _suite(server));
+  }
+}
+
+/// The whole of S-09 against one server.
+void _suite(_Server server) {
   late _Lab lab;
   ProviderContainer? container;
   // Everything this file opened, killed before the sessions are ended: a
@@ -92,7 +106,7 @@ void main() {
   final playbacks = <_Playback>[];
 
   setUpAll(() async {
-    lab = _Lab.load();
+    lab = _Lab.load(server);
     await lab.waitForServer();
     // A rerun starts from the same server state this one found, even if an
     // earlier run died between a playback and its tearDown.
@@ -124,7 +138,7 @@ void main() {
 
       final surfaces = await _converged(live, lab, present: {id});
       final row = surfaces.home.singleWhere((row) => row.session.id == id);
-      expect(row.service, ServiceKey.jellyfin);
+      expect(row.service, server.service);
       expect(row.instanceId, lab.instanceId);
       // One connection, so a row names no connection beside the service.
       expect(row.connectionName, isNull);
@@ -149,7 +163,7 @@ void main() {
       expect(overview!.deviceLabel, contains(_livingRoom));
       // The Overview reads the lens connection, so the service's own cache and
       // the page are the same answer, never two reads a beat apart.
-      final lens = await live.read(jellyfinSessionsProvider.future);
+      final lens = await lab.lensSessions(live);
       expect(
         lens.map((session) => session.id).toSet(),
         surfaces.overview.map((session) => session.id).toSet(),
@@ -168,8 +182,8 @@ void main() {
     final live = container!;
     final first = await _open(lab, playbacks, device: _livingRoom);
     final second = await _open(lab, playbacks, device: _kitchen, title: _music);
-    // Two devices, so two rows: Jellyfin keys a session on the device, and one
-    // device cannot hold two titles at once.
+    // Two devices, so two rows: both servers key a session on the device, and
+    // one device cannot hold two titles at once.
     expect(first.id, isNot(second.id));
     expect(first.report['deviceId'], isNot(second.report['deviceId']));
 
@@ -205,7 +219,7 @@ void main() {
     await _converged(live, lab, present: {id});
 
     // The pause the session card sends, on the session id the card carries.
-    await live.read(jellyfinClientForProvider('')).pauseSession(id);
+    await lab.client(live).pauseSession(id);
 
     final paused = await _converged(
       live,
@@ -226,7 +240,7 @@ void main() {
     expect(figure.tone, StatusTone.info);
 
     // And the same control takes it back.
-    await live.read(jellyfinClientForProvider('')).unpauseSession(id);
+    await lab.client(live).unpauseSession(id);
     final resumed = await _converged(
       live,
       lab,
@@ -245,14 +259,11 @@ void main() {
     final id = playback.id;
     await _converged(live, lab, present: {id});
 
-    // The stop the session card sends. Jellyfin relays it to the client, the
+    // The stop the session card sends. The server relays it to the client, the
     // client reports `Stopped`, and only then does the row leave `/Sessions`.
     await live
         .read(
-          streamClientForProvider((
-            service: ServiceKey.jellyfin,
-            instanceId: '',
-          )),
+          streamClientForProvider((service: server.service, instanceId: '')),
         )
         .stopSession(id);
 
@@ -346,21 +357,21 @@ StreamSession? _byId(List<StreamSession> sessions, String id) =>
 Future<List<StreamActivityRow>> _home(ProviderContainer container) =>
     container.read(streamActivityProvider.future);
 
-Future<List<StreamSession>> _overview(ProviderContainer container) =>
+Future<List<StreamSession>> _overview(ProviderContainer container, _Lab lab) =>
     container.read(
       streamSessionsForProvider((
-        service: ServiceKey.jellyfin,
-        instanceId: ServiceInstance.primaryIdFor(ServiceKey.jellyfin),
+        service: lab.server.service,
+        instanceId: lab.instanceId,
       )).future,
     );
 
-Future<ServiceSignalPair?> _stack(ProviderContainer container) =>
-    container.read(serviceSignalPairProvider(ServiceKey.jellyfin).future);
+Future<ServiceSignalPair?> _stack(ProviderContainer container, _Lab lab) =>
+    container.read(serviceSignalPairProvider(lab.server.service).future);
 
 /// Reads the three surfaces and the server together until they agree.
 ///
 /// [present] are the sessions this test opened and [absent] the ones it ended;
-/// the counts are then checked against Jellyfin's own `/Sessions`, and the
+/// the counts are then checked against the server's own `/Sessions`, and the
 /// Stack's figure against the rows the Home lists. Retried because a playback
 /// is not on the next read in the same instant, and because another e2e file
 /// sharing the lab may open or end one while this runs.
@@ -374,10 +385,10 @@ Future<_Surfaces> _converged(
   final deadline = DateTime.now().add(_settleTimeout);
   var last = 'nothing read yet';
   while (true) {
-    _refresh(container);
+    _refresh(container, lab);
     final home = await _home(container);
-    final overview = await _overview(container);
-    final stack = await _stack(container);
+    final overview = await _overview(container, lab);
+    final stack = await _stack(container, lab);
     final surfaces = (home: home, overview: overview, stack: stack);
 
     final playing = await lab.playingCount();
@@ -413,8 +424,8 @@ Future<_Surfaces> _converged(
 /// Overview and the Home, the KPI fold behind the Stack, and the derived
 /// figures. The same set `refreshStreamSessions` and the Home's own retry
 /// touch, plus the two providers that fold the figures.
-void _refresh(ProviderContainer container) {
-  container.invalidate(jellyfinSessionsProvider);
+void _refresh(ProviderContainer container, _Lab lab) {
+  lab.invalidateSessions(container);
   container.invalidate(streamSessionsForProvider);
   container.invalidate(streamActivityProvider);
   container.invalidate(streamActivityOfflineProvider);
@@ -422,7 +433,7 @@ void _refresh(ProviderContainer container) {
   container.invalidate(serviceSignalPairProvider);
 }
 
-/// One playback on the lab's Jellyfin, as the CLI reports it and holds it.
+/// One playback on the lab's server, as the CLI reports it and holds it.
 ///
 /// The helper is a process, not a call, because the socket has to outlive it:
 /// a command is only acted on while the client is listening, and the app's
@@ -571,16 +582,77 @@ Object? _decodeOrNull(String text) {
   }
 }
 
-/// The lab: the app's settings for its Jellyfin, and the playback CLI.
+/// The two media servers this suite runs against, and what differs between
+/// them: where they answer, which helper plays on them, how the lab names their
+/// credentials and how the app's providers are reached.
+enum _Server {
+  jellyfin(
+    service: ServiceKey.jellyfin,
+    title: 'Jellyfin',
+    publishedUrl: 'http://127.0.0.1:8096',
+    urlEnvironment: 'CUPOLA_TESTLAB_JELLYFIN_URL',
+    script: 'test/e2e/testlab/jellyfin_play.py',
+    tokenName: 'CUPOLA_TESTLAB_JELLYFIN_TOKEN',
+    viewerName: 'CUPOLA_TESTLAB_JELLYFIN_USER_ID',
+  ),
+  emby(
+    service: ServiceKey.emby,
+    title: 'Emby',
+    publishedUrl: 'http://127.0.0.1:8097',
+    urlEnvironment: 'CUPOLA_TESTLAB_EMBY_URL',
+    script: 'test/e2e/testlab/emby_play.py',
+    tokenName: 'CUPOLA_TESTLAB_EMBY_TOKEN',
+    viewerName: 'CUPOLA_TESTLAB_EMBY_USER_ID',
+  );
+
+  const _Server({
+    required this.service,
+    required this.title,
+    required this.publishedUrl,
+    required this.urlEnvironment,
+    required this.script,
+    required this.tokenName,
+    required this.viewerName,
+  });
+
+  final ServiceKey service;
+  final String title;
+
+  /// The address the lab publishes the server on. The direct port, as the
+  /// other provider-level e2e suites use; the Toxiproxy port exists for
+  /// faults, and a session is the same session on either.
+  final String publishedUrl;
+
+  /// The variable a run points at another address with, for the helper and
+  /// for this file alike (a disposable container).
+  final String urlEnvironment;
+  final String script;
+
+  /// The lab's credential names for the app's connection: the token, and the
+  /// user id the app reads the server as.
+  final String tokenName;
+  final String viewerName;
+
+  /// Where the API lives under the address: Emby answers under `/emby`.
+  String get basePath => this == _Server.emby ? '/emby' : '';
+
+  /// How many seconds of silence make a session "not playing" for the app:
+  /// Jellyfin is asked for a window, Emby is filtered on the answer.
+  static const activeWindowSeconds = 180;
+}
+
+/// The lab: the app's settings for one server, and the playback CLI.
 class _Lab {
-  _Lab._(this._values, this._credentialsPath);
+  _Lab._(this.server, this._values, this._credentialsPath);
 
-  /// The app reaches the lab's Jellyfin on the address a person would save. The
-  /// direct port, as the other provider-level e2e suites do; the Toxiproxy port
-  /// exists for faults, and a session is the same session on either.
-  static const jellyfinUrl = 'http://127.0.0.1:8096';
+  final _Server server;
 
-  static const _script = 'test/e2e/testlab/jellyfin_play.py';
+  /// The server's address: the lab's published one, unless the environment
+  /// names another.
+  String get url {
+    final named = Platform.environment[server.urlEnvironment];
+    return named == null || named.isEmpty ? server.publishedUrl : named;
+  }
 
   final Map<String, String> _values;
 
@@ -589,23 +661,24 @@ class _Lab {
   /// two from talking to different labs.
   final String _credentialsPath;
 
-  String get instanceId => ServiceInstance.primaryIdFor(ServiceKey.jellyfin);
+  String get instanceId => ServiceInstance.primaryIdFor(server.service);
 
-  String get scriptPath => File(_script).absolute.path;
+  String get scriptPath => File(server.script).absolute.path;
 
   Map<String, String> get environment => {
     'CUPOLA_TESTLAB_STATE_DIR': File(_credentialsPath).parent.path,
+    server.urlEnvironment: url,
   };
 
   ServiceInstance connection() => ServiceInstance(
     id: instanceId,
-    service: ServiceKey.jellyfin,
-    url: jellyfinUrl,
-    credential: _required('CUPOLA_TESTLAB_JELLYFIN_TOKEN'),
-    viewerId: _required('CUPOLA_TESTLAB_JELLYFIN_USER_ID'),
+    service: server.service,
+    url: url,
+    credential: _required(server.tokenName),
+    viewerId: _required(server.viewerName),
   );
 
-  /// The app's providers over settings holding the lab's Jellyfin, with a real
+  /// The app's providers over settings holding the lab's server, with a real
   /// settings service behind them.
   Future<ProviderContainer> container() async {
     final overrides = await settingsScopeOverrides(
@@ -614,44 +687,78 @@ class _Lab {
     return ProviderContainer(overrides: overrides);
   }
 
+  /// The client the session card's commands go through, for the lens
+  /// connection. Both servers' clients are the one shared client.
+  MediaBrowserClient client(ProviderContainer container) => switch (server) {
+    _Server.jellyfin => container.read(jellyfinClientForProvider('')),
+    _Server.emby => container.read(embyClientForProvider('')),
+  };
+
+  /// Drops the app's own cache of this server's sessions, which the Overview
+  /// and the Home both fold.
+  void invalidateSessions(ProviderContainer container) => switch (server) {
+    _Server.jellyfin => container.invalidate(jellyfinSessionsProvider),
+    _Server.emby => container.invalidate(embySessionsProvider),
+  };
+
+  /// The lens connection's sessions, from the server's own provider.
+  Future<List<StreamSession>> lensSessions(ProviderContainer container) =>
+      switch (server) {
+        _Server.jellyfin => container.read(jellyfinSessionsProvider.future),
+        _Server.emby => container.read(embySessionsProvider.future),
+      };
+
   /// Every session the server knows about, playing or connected and idle.
   Future<List<Map<String, Object?>>> list() async {
     final answer = await _run(['--list', '--json']);
     return (answer as List).cast<Map<String, Object?>>();
   }
 
-  /// How many playbacks Jellyfin reports, read the way the app reads them:
+  /// How many playbacks the server reports, read the way the app reads them:
   /// active within three minutes and carrying a `NowPlayingItem`.
   ///
   /// Not `list()`: that asks for every session the server still remembers, and
   /// the lab can carry one whose client went away, which has a title and no
-  /// activity for hours. The app's own `/Sessions?activeWithinSeconds=180`
-  /// already ignores those, so the count to agree with is this one.
+  /// activity for hours. The app's own read already ignores those, so the count
+  /// to agree with is this one. Jellyfin is asked for the window; Emby takes no
+  /// such query, so the same window is applied to `LastActivityDate` here, the
+  /// way its dialect applies it.
   Future<int> playingCount() async {
-    const window = 180;
     final client = HttpClient();
     try {
+      final isEmby = server == _Server.emby;
       final request = await client.getUrl(
-        Uri.parse('$jellyfinUrl/Sessions?activeWithinSeconds=$window'),
+        Uri.parse(
+          isEmby
+              ? '$url${server.basePath}/Sessions'
+              : '$url/Sessions?activeWithinSeconds='
+                    '${_Server.activeWindowSeconds}',
+        ),
       );
-      request.headers.set(
-        'Authorization',
-        'MediaBrowser Token="${_required('CUPOLA_TESTLAB_JELLYFIN_TOKEN')}"',
-      );
+      final token = _required(server.tokenName);
+      if (isEmby) {
+        request.headers.set('X-Emby-Token', token);
+      } else {
+        request.headers.set('Authorization', 'MediaBrowser Token="$token"');
+      }
       final response = await request.close();
       final body = await response.transform(utf8.decoder).join();
       if (response.statusCode != 200) {
-        fail('Jellyfin answered ${response.statusCode} for /Sessions');
+        fail('${server.title} answered ${response.statusCode} for /Sessions');
       }
       final sessions = jsonDecode(body);
       if (sessions is! List) {
-        fail('Jellyfin answered no session list for /Sessions');
+        fail('${server.title} answered no session list for /Sessions');
       }
-      return sessions
-          .where(
-            (session) => session is Map && session['NowPlayingItem'] is Map,
-          )
-          .length;
+      final cutoff = DateTime.now().toUtc().subtract(
+        const Duration(seconds: _Server.activeWindowSeconds),
+      );
+      return sessions.where((session) {
+        if (session is! Map || session['NowPlayingItem'] is! Map) return false;
+        if (!isEmby) return true;
+        final at = DateTime.tryParse('${session['LastActivityDate']}');
+        return at == null || !at.toUtc().isBefore(cutoff);
+      }).length;
     } finally {
       client.close(force: true);
     }
@@ -667,7 +774,7 @@ class _Lab {
     }
   }
 
-  /// Waits for the lab's Jellyfin to answer the unauthenticated probe the
+  /// Waits for the lab's server to answer the unauthenticated probe the
   /// settings screen uses, so a lab that is down fails with its own sentence
   /// rather than as a mystery in the first playback.
   Future<void> waitForServer() async {
@@ -676,7 +783,7 @@ class _Lab {
       for (var attempt = 0; attempt < 30; attempt++) {
         try {
           final request = await client.getUrl(
-            Uri.parse('$jellyfinUrl/System/Info/Public'),
+            Uri.parse('$url${server.basePath}/System/Info/Public'),
           );
           final response = await request.close();
           await response.drain<void>();
@@ -689,7 +796,7 @@ class _Lab {
     } finally {
       client.close(force: true);
     }
-    fail('Jellyfin did not answer at $jellyfinUrl: bring the lab up first');
+    fail('${server.title} did not answer at $url: bring the lab up first');
   }
 
   /// Runs the playback CLI to completion and decodes its `--json` answer. The
@@ -707,7 +814,7 @@ class _Lab {
     if (result.exitCode != 0) {
       final error = '${result.stderr}'.trim();
       fail(
-        'jellyfin_play.py ${arguments.join(' ')} failed with '
+        '${server.script} ${arguments.join(' ')} failed with '
         '${result.exitCode}: $error',
       );
     }
@@ -715,11 +822,11 @@ class _Lab {
     try {
       return jsonDecode(text);
     } on FormatException {
-      fail('jellyfin_play.py ${arguments.join(' ')} printed no JSON: $text');
+      fail('${server.script} ${arguments.join(' ')} printed no JSON: $text');
     }
   }
 
-  static _Lab load() {
+  static _Lab load(_Server server) {
     final path = Platform.environment['CUPOLA_TESTLAB_CREDENTIALS_FILE'];
     if (path == null || path.isEmpty) {
       fail(
@@ -736,7 +843,7 @@ class _Lab {
       if (separator <= 0) continue;
       values[line.substring(0, separator)] = line.substring(separator + 1);
     }
-    return _Lab._(values, path);
+    return _Lab._(server, values, path);
   }
 
   String _required(String name) {

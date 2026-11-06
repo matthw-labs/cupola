@@ -278,6 +278,8 @@ List<String> _routes() {
     ServiceRoutes.dockgeStackEdit('immich'),
     ServiceRoutes.jellyfinLibrary('f137a2dd', title: 'Films'),
     ServiceRoutes.jellyfinItem('abc-123'),
+    ServiceRoutes.embyLibrary('3', title: 'Films'),
+    ServiceRoutes.embyItem('15'),
     ServiceRoutes.plexLibrary('1', title: 'Films'),
     ServiceRoutes.plexItem('9421'),
     ServiceRoutes.truenasDashboard,
@@ -382,6 +384,11 @@ SettingsModel _labSettings(
         ? 'wrong-token'
         : _required(credentials, 'CUPOLA_TESTLAB_JELLYFIN_TOKEN'),
     jellyfinUserId: _required(credentials, 'CUPOLA_TESTLAB_JELLYFIN_USER_ID'),
+    embyUrl: endpoint('http://127.0.0.1:8097'),
+    embyApiKey: invalidAuth
+        ? 'wrong-token'
+        : _required(credentials, 'CUPOLA_TESTLAB_EMBY_TOKEN'),
+    embyUserId: _required(credentials, 'CUPOLA_TESTLAB_EMBY_USER_ID'),
     plexUrl: endpoint('http://127.0.0.1:32400'),
     plexToken: invalidAuth
         ? 'wrong-token'

@@ -154,6 +154,31 @@ void main() {
     );
   });
 
+  test('the app reads Emby beside Jellyfin in P10', () async {
+    final document = await _writeConfiguration('P10');
+    final app = await _readWithTheApp(document);
+    final settings = app.settings;
+
+    expect(settings.instances.map((instance) => instance.id), [
+      'seerr',
+      'jellyfin',
+      'emby',
+    ]);
+    final emby = settings.instanceById('emby')!;
+    expect(emby.service, ServiceKey.emby);
+    expect(emby.url, 'http://127.0.0.1:28098');
+    // The API key, which no user owns, and the administrator the app reads
+    // the server as: the same two facts the connection form saves.
+    expect(emby.credential, credentials['CUPOLA_TESTLAB_EMBY_TOKEN']);
+    expect(emby.viewerId, credentials['CUPOLA_TESTLAB_EMBY_USER_ID']);
+    expect(settings.isServiceConfigured(ServiceKey.emby), isTrue);
+    expect(
+      settings.instanceById('jellyfin')!.viewerId,
+      credentials['CUPOLA_TESTLAB_JELLYFIN_USER_ID'],
+      reason: 'each media server keeps the viewer of its own',
+    );
+  });
+
   test('a service the profile does not have reads as not set up', () async {
     final document = await _writeConfiguration('P2');
     final app = await _readWithTheApp(document);
