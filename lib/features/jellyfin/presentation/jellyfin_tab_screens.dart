@@ -33,36 +33,55 @@ import 'package:cupola/features/stream/presentation/widgets/stream_now_playing_s
 /// root reads the connection the visit has in view first (`streamInstanceOf`,
 /// not pinned) and this where the visit has none; null reads the lens. The same
 /// on every tab below.
+///
+/// [service] is the server of the family the tab is drawn for (Jellyfin unless
+/// told otherwise): the four tabs are the same page over the same client
+/// surface, so one widget serves every server and picks its providers, its
+/// accent and its words by this. The same on every tab below.
 class JellyfinUsersScreen extends ConsumerWidget {
-  const JellyfinUsersScreen({super.key, this.topPadding = 0, this.instanceId});
+  const JellyfinUsersScreen({
+    super.key,
+    this.topPadding = 0,
+    this.instanceId,
+    this.service = ServiceKey.jellyfin,
+  });
 
   final double topPadding;
   final String? instanceId;
+  final ServiceKey service;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!_isConfigured(ref)) return _notConfigured();
+    if (!_isConfigured(ref, service)) return _notConfigured(service);
+    final providers = mediaBrowserProvidersOf(service);
     final connection = streamInstanceOf(
       ref,
-      ServiceKey.jellyfin,
+      service,
       instanceId,
       pinned: false,
     );
-    if (ref.watch(jellyfinLacksAdministratorForProvider(connection))) {
-      return _needsAdministrator(context, ref, 'users', topPadding, connection);
+    if (ref.watch(providers.lacksAdministratorFor(connection))) {
+      return _needsAdministrator(
+        context,
+        ref,
+        service,
+        'users',
+        topPadding,
+        connection,
+      );
     }
     return ServiceListPage<JellyfinUserDto>(
-      service: ServiceKey.jellyfin,
+      service: service,
       instanceId: connection,
       topPadding: topPadding,
-      value: ref.watch(jellyfinUsersForProvider(connection)),
-      serviceName: 'Jellyfin users',
+      value: ref.watch(providers.usersFor(connection)),
+      serviceName: '${service.title} users',
       emptyIcon: Icons.people_outline_rounded,
       emptyTitle: 'No users',
-      emptyMessage: 'Jellyfin returned no household users.',
+      emptyMessage: '${service.title} returned no household users.',
       onRetry: () {
-        ref.invalidate(jellyfinUsersForProvider(connection));
-        ref.invalidate(jellyfinUsersProvider);
+        ref.invalidate(providers.usersFor(connection));
+        ref.invalidate(providers.users);
       },
       summary: _usersSummary,
       rowBuilder: (user) => _UserRow(user: user),
@@ -70,47 +89,52 @@ class JellyfinUsersScreen extends ConsumerWidget {
   }
 }
 
-/// Read-only device inventory from Jellyfin's `/Devices` endpoint.
+/// Read-only device inventory from the server's `/Devices` endpoint.
 class JellyfinDevicesScreen extends ConsumerWidget {
   const JellyfinDevicesScreen({
     super.key,
     this.topPadding = 0,
     this.instanceId,
+    this.service = ServiceKey.jellyfin,
   });
 
   final double topPadding;
   final String? instanceId;
+  final ServiceKey service;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!_isConfigured(ref)) return _notConfigured();
+    if (!_isConfigured(ref, service)) return _notConfigured(service);
+    final providers = mediaBrowserProvidersOf(service);
     final connection = streamInstanceOf(
       ref,
-      ServiceKey.jellyfin,
+      service,
       instanceId,
       pinned: false,
     );
-    if (ref.watch(jellyfinLacksAdministratorForProvider(connection))) {
+    if (ref.watch(providers.lacksAdministratorFor(connection))) {
       return _needsAdministrator(
         context,
         ref,
+        service,
         'devices',
         topPadding,
         connection,
       );
     }
     return ServiceListPage<JellyfinDevice>(
-      service: ServiceKey.jellyfin,
+      service: service,
       instanceId: connection,
       topPadding: topPadding,
-      value: ref.watch(jellyfinDevicesForProvider(connection)),
-      serviceName: 'Jellyfin devices',
+      value: ref.watch(providers.devicesFor(connection)),
+      serviceName: '${service.title} devices',
       emptyIcon: Icons.devices_other_rounded,
       emptyTitle: 'No devices',
-      emptyMessage: 'Devices appear after a client signs in to Jellyfin.',
+      emptyMessage:
+          'Devices appear after a client signs in to ${service.title}.',
       onRetry: () {
-        ref.invalidate(jellyfinDevicesForProvider(connection));
-        ref.invalidate(jellyfinDevicesProvider);
+        ref.invalidate(providers.devicesFor(connection));
+        ref.invalidate(providers.devices);
       },
       summary: (devices) => countLabel(devices.length, 'device'),
       rowBuilder: (device) => _DeviceRow(device: device),
@@ -118,46 +142,54 @@ class JellyfinDevicesScreen extends ConsumerWidget {
   }
 }
 
-/// Scheduled maintenance jobs from Jellyfin's `/ScheduledTasks` endpoint.
+/// Scheduled maintenance jobs from the server's `/ScheduledTasks` endpoint.
 ///
 /// `Run now` is not drawn: the client contract is read-only, even though the
 /// design board shows the write as the eventual primary action.
 class JellyfinTasksScreen extends ConsumerWidget {
-  const JellyfinTasksScreen({super.key, this.topPadding = 0, this.instanceId});
+  const JellyfinTasksScreen({
+    super.key,
+    this.topPadding = 0,
+    this.instanceId,
+    this.service = ServiceKey.jellyfin,
+  });
 
   final double topPadding;
   final String? instanceId;
+  final ServiceKey service;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!_isConfigured(ref)) return _notConfigured();
+    if (!_isConfigured(ref, service)) return _notConfigured(service);
+    final providers = mediaBrowserProvidersOf(service);
     final connection = streamInstanceOf(
       ref,
-      ServiceKey.jellyfin,
+      service,
       instanceId,
       pinned: false,
     );
-    if (ref.watch(jellyfinLacksAdministratorForProvider(connection))) {
+    if (ref.watch(providers.lacksAdministratorFor(connection))) {
       return _needsAdministrator(
         context,
         ref,
+        service,
         'scheduled tasks',
         topPadding,
         connection,
       );
     }
     return ServiceListPage<JellyfinScheduledTask>(
-      service: ServiceKey.jellyfin,
+      service: service,
       instanceId: connection,
       topPadding: topPadding,
-      value: ref.watch(jellyfinTasksForProvider(connection)),
-      serviceName: 'Jellyfin tasks',
+      value: ref.watch(providers.tasksFor(connection)),
+      serviceName: '${service.title} tasks',
       emptyIcon: Icons.task_alt_rounded,
       emptyTitle: 'No scheduled tasks',
-      emptyMessage: 'Jellyfin returned no maintenance jobs.',
+      emptyMessage: '${service.title} returned no maintenance jobs.',
       onRetry: () {
-        ref.invalidate(jellyfinTasksForProvider(connection));
-        ref.invalidate(jellyfinTasksProvider);
+        ref.invalidate(providers.tasksFor(connection));
+        ref.invalidate(providers.tasks);
       },
       summary: _tasksSummary,
       rowBuilder: (task) => _TaskRow(task: task),
@@ -165,51 +197,51 @@ class JellyfinTasksScreen extends ConsumerWidget {
   }
 }
 
-/// Current Jellyfin playback activity.
+/// Current playback activity of the server.
 ///
-/// Jellyfin's historical `/System/ActivityLog/Entries` endpoint is not present
+/// The historical `/System/ActivityLog/Entries` endpoint is not present
 /// in the client contract. This tab therefore renders the real activity Cupola
 /// can operate today (live sessions) through the existing Stream shell.
 ///
 /// [instanceId] is the connection to read (`?i=`); null, or one that is not a
-/// Jellyfin connection, reads the active one.
+/// connection of [service], reads the active one.
 class JellyfinActivityScreen extends ConsumerWidget {
   const JellyfinActivityScreen({
     super.key,
     this.topPadding = 0,
     this.instanceId,
+    this.service = ServiceKey.jellyfin,
   });
 
   final double topPadding;
   final String? instanceId;
+  final ServiceKey service;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (!_isConfigured(ref)) return _notConfigured();
+    if (!_isConfigured(ref, service)) return _notConfigured(service);
     return _JellyfinActivityBody(
+      service: service,
       topPadding: topPadding,
-      instanceId: streamInstanceOf(
-        ref,
-        ServiceKey.jellyfin,
-        instanceId,
-        pinned: false,
-      ),
+      instanceId: streamInstanceOf(ref, service, instanceId, pinned: false),
     );
   }
 }
 
 class _JellyfinActivityBody extends ConsumerWidget {
   const _JellyfinActivityBody({
+    required this.service,
     required this.topPadding,
     required this.instanceId,
   });
 
+  final ServiceKey service;
   final double topPadding;
   final String instanceId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final connection = (service: ServiceKey.jellyfin, instanceId: instanceId);
+    final connection = (service: service, instanceId: instanceId);
     ref.watchWhileLive(context, streamSessionsPollProvider(connection));
     final sessions = ref.watch(streamSessionsForProvider(connection));
     // The host's two bands and the status bar the upper one consumes: this
@@ -219,24 +251,22 @@ class _JellyfinActivityBody extends ConsumerWidget {
     // watching right now".
     if (sessions.hasError && !sessions.hasValue) {
       return AmbientScaffold(
-        accent: ServiceKey.jellyfin.accent,
+        accent: service.accent,
         body: Padding(
           padding: EdgeInsets.only(top: top),
           child: ServiceOfflineState.failure(
-            service: ServiceKey.jellyfin,
+            service: service,
             instanceId: instanceId,
             error: sessions.error!,
-            onRetry: () =>
-                refreshStreamSessions(ref, ServiceKey.jellyfin, instanceId),
+            onRetry: () => refreshStreamSessions(ref, service, instanceId),
           ),
         ),
       );
     }
     return AmbientScaffold(
-      accent: ServiceKey.jellyfin.accent,
+      accent: service.accent,
       body: RefreshIndicator(
-        onRefresh: () async =>
-            refreshStreamSessions(ref, ServiceKey.jellyfin, instanceId),
+        onRefresh: () async => refreshStreamSessions(ref, service, instanceId),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
@@ -247,11 +277,15 @@ class _JellyfinActivityBody extends ConsumerWidget {
           ),
           children: [
             StreamNowPlayingSection(
-              service: ServiceKey.jellyfin,
+              service: service,
               instanceId: instanceId,
               sessions: sessions,
             ),
-            if (ref.watch(jellyfinLacksAdministratorForProvider(instanceId)))
+            if (ref.watch(
+              mediaBrowserProvidersOf(
+                service,
+              ).lacksAdministratorFor(instanceId),
+            ))
               const JellyfinOwnPlaybackNote(),
           ],
         ),
@@ -260,27 +294,29 @@ class _JellyfinActivityBody extends ConsumerWidget {
   }
 }
 
-bool _isConfigured(WidgetRef ref) =>
-    ref.watch(currentSettingsProvider).isServiceConfigured(ServiceKey.jellyfin);
+bool _isConfigured(WidgetRef ref, ServiceKey service) =>
+    ref.watch(currentSettingsProvider).isServiceConfigured(service);
 
-Widget _notConfigured() =>
-    NotConfiguredPlaceholder.forService(ServiceKey.jellyfin);
+Widget _notConfigured(ServiceKey service) =>
+    NotConfiguredPlaceholder.forService(service);
 
 /// The Devices and Tasks tabs on a non-administrator token: `/Devices` and
 /// `/ScheduledTasks` are elevated, so the list would only ever be a refusal.
 Widget _needsAdministrator(
   BuildContext context,
   WidgetRef ref,
+  ServiceKey service,
   String what,
   double topPadding,
   String instanceId,
 ) => AmbientScaffold(
-  accent: ServiceKey.jellyfin.accent,
+  accent: service.accent,
   body: JellyfinAdminPlaceholder(
+    service: service,
     what: what,
     // The host's two bands and the status bar the upper one consumes.
     topPadding: topPadding + MediaQuery.paddingOf(context).top,
-    connectionId: streamConnectionIdOf(ref, ServiceKey.jellyfin, instanceId),
+    connectionId: streamConnectionIdOf(ref, service, instanceId),
   ),
 );
 
