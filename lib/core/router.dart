@@ -129,6 +129,7 @@ import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart'
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_person_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_libraries_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
@@ -1348,22 +1349,37 @@ RouteBase _tracearrRoutes() => _serviceRoutes(
         const TracearrHistoryScreen(topPadding: _serviceTabTopPadding),
     ServiceTab.users: (state) =>
         const TracearrUsersScreen(topPadding: _serviceTabTopPadding),
-    ServiceTab.violations: (state) =>
-        const TracearrViolationsScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.violations: (state) => TracearrViolationsScreen(
+      topPadding: _serviceTabTopPadding,
+      // From the Users tab: the person's violations only.
+      userId: state.uri.queryParameters['user'],
+    ),
   },
-  // A person's page, under the tab it was opened from so Back returns to the
-  // row (`ServiceRoutes.tracearrPerson`). Under Users it is `users/:id`, the
-  // spelling a deep link uses; under the others `person/:id`. The id is
+  // A violation resolves from the path alone, so a card in Needs you and a
+  // notification open it cold (`?i=` names the Tracearr connection it came
+  // off). A person's page sits under the tab it was opened from so Back returns
+  // to the row (`ServiceRoutes.tracearrPerson`): `users/:id` under Users, the
+  // spelling a deep link uses, and `person/:id` under the others. The id is
   // Tracearr's own and the page resolves from it alone.
   inside: {
     ServiceTab.users: [_tracearrPerson(':id')],
-    for (final tab in const [
-      ServiceTab.overview,
-      ServiceTab.live,
-      ServiceTab.history,
-      ServiceTab.violations,
-    ])
-      tab: [_tracearrPerson('person/:id')],
+    ServiceTab.overview: [_tracearrPerson('person/:id')],
+    ServiceTab.live: [_tracearrPerson('person/:id')],
+    ServiceTab.history: [_tracearrPerson('person/:id')],
+    ServiceTab.violations: [
+      _page(
+        ':id',
+        (state) => TracearrViolationScreen(
+          violationId: state.pathParameters['id']!,
+          instanceId: state.uri.queryParameters['i'],
+        ),
+        redirect: (context, state) =>
+            (state.pathParameters['id']?.trim().isEmpty ?? true)
+            ? ServiceRoutes.tracearrViolations
+            : null,
+      ),
+      _tracearrPerson('person/:id'),
+    ],
   },
 );
 

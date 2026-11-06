@@ -101,7 +101,11 @@ class DecisionRow extends ConsumerWidget {
     // Faults are amber; a pending request is backlog and stays neutral. The tone
     // decides the marker's colour and nothing else: the row is not filled or
     // bordered in it, because six amber rows would be a wall.
-    final tone = decision.isFault ? StatusTone.warning : StatusTone.neutral;
+    final tone = decision.isFault
+        ? StatusTone.warning
+        : decision.kind == DecisionKind.violation
+        ? StatusTone.info
+        : StatusTone.neutral;
     final toneColor = statusToneColor(
       colorScheme,
       tone,
@@ -348,6 +352,9 @@ Future<void> runDecision(
   switch (decision.kind) {
     case DecisionKind.pendingRequest:
       return;
+    case DecisionKind.violation:
+      // The violation's own page, where the owner answers it.
+      return openDecision(context, ref, decision);
     case DecisionKind.stalledDownload:
       // A service's page reads its lens, so the client this transfer is on
       // is brought under the lens first: with two qBittorrent, "Open in

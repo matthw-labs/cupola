@@ -64,7 +64,7 @@ class ActivitySection extends StatelessWidget {
                 ? metaStyle
                 : metaStyle.weight(FontWeight.w600).tabular,
           );
-    final stacked = MediaQuery.textScalerOf(context).scale(10) >= 13;
+    final large = MediaQuery.textScalerOf(context).scale(10) >= 13;
     final titleText = Text(
       title,
       style: AppType.section.copyWith(color: room.ink),
@@ -83,44 +83,61 @@ class ActivitySection extends StatelessWidget {
         hint: openHint,
         onTap: open,
         excludeSemantics: true,
-        child: Flex(
-          // At a large reading size the count goes under the name: beside
-          // it, the name broke inside its words.
-          direction: stacked ? Axis.vertical : Axis.horizontal,
-          crossAxisAlignment: stacked
-              ? CrossAxisAlignment.start
-              : CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            if (stacked) titleText else Expanded(child: titleText),
-            if (count != null) ...[
-              if (!stacked) const SizedBox(width: AppSpacing.md),
-              if (open == null)
-                count
-              else
-                InkWell(
-                  onTap: open,
-                  borderRadius: AppRadius.borderRadiusSm,
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(minHeight: 44),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Under the name, at a large size, the count wraps
-                        // rather than run past the page.
-                        if (stacked) Flexible(child: count) else count,
-                        const SizedBox(width: AppSpacing.xxs),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 16,
-                          color: room.inkSecondary,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            // At a large reading size, or when the count is longer than what
+            // the name leaves of the line (`3 faults · 2 violations · 3
+            // requests` on a phone), the count goes under the name: beside
+            // it, the name broke inside its words or the count ran past the
+            // page.
+            final stacked =
+                large ||
+                (meta != null &&
+                    !_fitsBeside(
+                      context,
+                      title: title,
+                      meta: meta!,
+                      led: open != null,
+                      width: constraints.maxWidth,
+                    ));
+            return Flex(
+              direction: stacked ? Axis.vertical : Axis.horizontal,
+              crossAxisAlignment: stacked
+                  ? CrossAxisAlignment.start
+                  : CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                if (stacked) titleText else Expanded(child: titleText),
+                if (count != null) ...[
+                  if (!stacked) const SizedBox(width: AppSpacing.md),
+                  if (open == null)
+                    count
+                  else
+                    InkWell(
+                      onTap: open,
+                      borderRadius: AppRadius.borderRadiusSm,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Under the name, at a large size, the count wraps
+                            // rather than run past the page.
+                            if (stacked) Flexible(child: count) else count,
+                            const SizedBox(width: AppSpacing.xxs),
+                            Icon(
+                              Icons.chevron_right_rounded,
+                              size: 16,
+                              color: room.inkSecondary,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-            ],
-          ],
+                ],
+              ],
+            );
+          },
         ),
       ),
     );
@@ -274,4 +291,44 @@ class ActivitySlabLink extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Whether [meta] fits on the line of [title], with the gap between them and,
+/// for a count that leads on ([led]), its chevron: measured as it will be set,
+/// at the reader's text size. A few points of slack keep a count that only
+/// just fits beside the name from wrapping under it on rounding.
+bool _fitsBeside(
+  BuildContext context, {
+  required String title,
+  required String meta,
+  required bool led,
+  required double width,
+}) {
+  final room = CupolaRoom.of(context);
+  final scaler = MediaQuery.textScalerOf(context);
+  final direction = Directionality.of(context);
+  double measure(String text, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: direction,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    final result = painter.width;
+    painter.dispose();
+    return result;
+  }
+
+  final metaStyle = AppType.meta.copyWith(color: room.inkSecondary);
+  final countWidth = measure(
+    meta,
+    led ? metaStyle.weight(FontWeight.w600).tabular : metaStyle,
+  );
+  final chevron = led ? 16 + AppSpacing.xxs : 0;
+  return measure(title, AppType.section) +
+          AppSpacing.md +
+          countWidth +
+          chevron +
+          4 <=
+      width;
 }

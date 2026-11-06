@@ -2,7 +2,7 @@
 
 One record in a service tab's list (a scheduled task, a user, a device, a playlist) that speaks as a single sentence.
 
-Rendered from `lib/core/widgets/service_record_row.dart` by `test/design_catalog/service_record_row_catalog_test.dart`. Used by the Plex, Jellyfin and Emby tab screens and by the Live, History, Users and Violations tabs of Tracearr. Built on `AppCard.outlined` (transparent fill, 1px `outline`, `AppRadius.md`) with padding `AppSpacing.md` (12).
+Rendered from `lib/core/widgets/service_record_row.dart` by `test/design_catalog/service_record_row_catalog_test.dart`. Used by the Plex, Jellyfin and Emby tab screens and by the Live, History, Users and Violations tabs of Tracearr. A Violations row is the one record row that leads somewhere: it is wrapped in `PressableScale` (hint *opens the violation*) and opens the violation's page. Built on `AppCard.outlined` (transparent fill, 1px `outline`, `AppRadius.md`) with padding `AppSpacing.md` (12).
 
 ## Values
 
@@ -26,6 +26,7 @@ Each sheet is drawn in the dark and the light room.
 - Tasks in each tone: running (blue), failed (amber), completed (green), idle (neutral).
 - Users and playlists: administrator (primary), disabled (neutral), smart playlist (blue).
 - Poster rows (Tracearr Live and History) and footer rows (Tracearr Users), also at 200%.
+- Tracearr violations: unseen blue whatever the severity, an acknowledged one neutral, the severity in words at the end (`High`, `Warning`, `Low`).
 - Long text: a title on two lines, a detail on three, a trailing figure that yields.
 - Text at 200%: the four task rows.
 - The desktop: the same row across a wider list.

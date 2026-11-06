@@ -3021,6 +3021,34 @@ class TracearrFake extends ServiceFake {
           'version': s.version,
         },
     ];
+    // One violation, with what Tracearr did about it: only the single read
+    // carries the actions.
+    const violationPath = '/api/v2/public/violations/';
+    if (r.path.startsWith(violationPath)) {
+      final id = r.path.substring(violationPath.length);
+      for (final v in _violations(c)) {
+        if (v['id'] == id) {
+          return NetworkReply.json({
+            ...v,
+            'actions': [
+              {
+                'type': 'notify',
+                'success': true,
+                'skipped': false,
+                'skip_reason': null,
+                'error_message': null,
+                'executed_at': v['created_at'],
+              },
+            ],
+          });
+        }
+      }
+      return NetworkReply.json({
+        'statusCode': 404,
+        'error': 'NotFoundError',
+        'message': 'Not Found',
+      }, status: 404);
+    }
     switch (r.path) {
       case '/health':
         return NetworkReply.json({
@@ -3073,10 +3101,15 @@ class TracearrFake extends ServiceFake {
         return NetworkReply.json(_paged(r, _history(c)));
       case '/api/v2/public/violations':
         final unseen = r.query['acknowledged'] == 'false';
+        final severity = r.query['severity'];
+        final person = r.query['user_id'];
         return NetworkReply.json(
           _paged(r, [
             for (final v in _violations(c))
-              if (!unseen || v['acknowledged_at'] == null) v,
+              if ((!unseen || v['acknowledged_at'] == null) &&
+                  (severity == null || v['severity'] == severity) &&
+                  (person == null || (v['user'] as JsonMap)['id'] == person))
+                v,
           ]),
         );
       case '/api/v2/public/top-media':

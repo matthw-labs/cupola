@@ -1675,6 +1675,27 @@ void main() {
       expect(needsYouMeta(faults: 0, requests: 0), isEmpty);
     });
 
+    test('violations are their own group, between faults and requests, and '
+        'a floor says so', () {
+      expect(
+        needsYouMeta(faults: 3, requests: 2, violations: 2),
+        '3 faults\u00A0· 2 violations\u00A0· 2 requests',
+      );
+      expect(
+        needsYouMeta(faults: 0, requests: 0, violations: 1),
+        '1 violation',
+      );
+      expect(
+        needsYouMeta(
+          faults: 0,
+          requests: 1,
+          violations: 5,
+          violationsFloor: true,
+        ),
+        '5+ violations\u00A0· 1 request',
+      );
+    });
+
     test('the line over the waiting requests', () {
       expect(requestsWaitLine(1), '1 request waits for your approval');
       expect(requestsWaitLine(2), '2 requests wait for your approval');

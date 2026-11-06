@@ -16,7 +16,7 @@ Every section of the Activity page: Needs you, Everyone's requests, Watching now
 - Lit slab (`ActivitySection(light:)`, `ActivitySlab(light:)`): a section about titles may carry its first title's light inside its slab (`SlabLight`, the picture at 0.5 clipped to the corners, in the dark room only: by day the slab stays white). Downloads does, from the first download with a poster.
 - Slab link (`ActivitySlabLink`): a line of at least 44, the label in `AppType.label` in `inkSecondary`, the count after it in `AppType.meta` in `inkTertiary` (one line beside the label, ellipsised before the label is; under it at a large reading size), a 18px chevron at the end, over a hairline when it follows rows (`divided: false` when it is the slab's only line).
 
-At a large reading size (a text scale of 1.3 and over) the count goes under the name instead of beside it, left-aligned: beside it, the name broke inside its words. A slab link at that size puts its count under its label, whole and free to wrap, rather than ellipsising it in what the label leaves of the line.
+At a large reading size (a text scale of 1.3 and over) the count goes under the name instead of beside it, left-aligned: beside it, the name broke inside its words. The same happens at any size when the count, measured as it is set, does not fit beside the name with its gap and chevron (Needs you's `3 faults · 2 violations · 3 requests` on a phone): it goes under the name rather than run past the page. A slab link at that size puts its count under its label, whole and free to wrap, rather than ellipsising it in what the label leaves of the line.
 
 ## The consumer provides
 
@@ -34,6 +34,7 @@ Each sheet is drawn in the dark and the light room, on the phone and on the desk
 
 - A section with a count and three rows, a section with no count, and one whose count leads on (`onOpen`, with its chevron).
 - `ActivitySlabLink` as the last line of a slab, and as the slab's only line with a long count at 320pt.
+- A count too long for the name's line (`3 faults · 2 violations · 3 requests`), under the name at the default size.
 - Text at 200%: the count under the name, on a section that leads on and on one that does not, with a link line.
 - The desktop: a section in the page well.
 

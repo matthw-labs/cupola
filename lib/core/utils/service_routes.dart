@@ -177,11 +177,21 @@ class ServiceRoutes {
     };
   }
 
-  /// Tracearr's Violations tab narrowed to one person, by `?user=` (their
-  /// Tracearr id). A tab that does not read the narrowing opens unnarrowed,
-  /// which is the whole of what it would have shown.
+  /// One violation, inside the Violations tab. The id is a path segment, so a
+  /// deep link (a Needs you card, a notification) resolves from the path
+  /// alone. [instanceId] names the Tracearr connection it was read from
+  /// (`?i=`), only when given: a stale or missing one reads the lens.
+  static String tracearrViolation(String id, {String? instanceId}) =>
+      _withQuery('$tracearrViolations/${Uri.encodeComponent(id)}', {
+        'i': instanceId,
+      });
+
+  /// The Violations tab narrowed to one person (`?user=`), which is where the
+  /// Users tab leads. [userId] is Tracearr's own id for the person, a UUID: a
+  /// value that is not one is ignored by the tab, since the server answers a
+  /// 400 to it.
   static String tracearrViolationsOf(String userId) =>
-      '$tracearrViolations?user=${Uri.encodeQueryComponent(userId)}';
+      _withQuery(tracearrViolations, {'user': userId});
 
   static const plexOverview = '$plex/overview';
 
