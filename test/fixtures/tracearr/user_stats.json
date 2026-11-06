@@ -1,0 +1,31 @@
+{
+  "user_id": "7a3e91c4-5d28-4b6f-8e10-2f4a6c8d0b13",
+  "windows": {
+    "all_time": {
+      "plays": 412,
+      "watch_time_ms": 1209600000
+    },
+    "last_30": {
+      "plays": 38,
+      "watch_time_ms": 97200000
+    },
+    "last_7": {
+      "plays": 9,
+      "watch_time_ms": 21600000
+    }
+  },
+  "top_genres": [
+    {
+      "genre": "Drama",
+      "plays": 120
+    },
+    {
+      "genre": "Fantasy",
+      "plays": 64
+    },
+    {
+      "genre": "Crime",
+      "plays": 31
+    }
+  ]
+}

@@ -1,0 +1,42 @@
+{
+    "data": [
+        {
+            "id": "9d7d8f7d-0e17-4f3a-a169-bbc545d802c2",
+            "username": "Anna",
+            "identity_name": null,
+            "email": null,
+            "plex_account_id": null,
+            "accounts": [
+                {
+                    "server_id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+                    "server_type": "emby",
+                    "server_user_id": "7760cf43-f9bd-4964-9d7d-f2c5e2185def",
+                    "external_user_id": "ce18a8c31c4f49f291677ac853d0fb12",
+                    "username": "Anna",
+                    "removed_at": null
+                }
+            ]
+        },
+        {
+            "id": "0a46dd5c-e8c3-42fd-990d-46a7d922f573",
+            "username": "Luca",
+            "identity_name": null,
+            "email": null,
+            "plex_account_id": null,
+            "accounts": [
+                {
+                    "server_id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+                    "server_type": "emby",
+                    "server_user_id": "f5738191-5419-4d28-b028-40b6aecaa336",
+                    "external_user_id": "be67dc243fb0464eba6565434ac08870",
+                    "username": "Luca",
+                    "removed_at": null
+                }
+            ]
+        }
+    ],
+    "meta": {
+        "nextCursor": null,
+        "pageSize": 25
+    }
+}

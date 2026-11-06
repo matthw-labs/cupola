@@ -391,6 +391,7 @@ const _apiClientSites = <String, String>{
       'its own through seerrClientFactoryProvider first.',
   'lib/features/jellyfin/data/jellyfin_client.dart': 'Jellyfin.',
   'lib/features/plex/data/plex_client.dart': 'Plex.',
+  'lib/features/tracearr/data/tracearr_client.dart': 'Tracearr.',
 };
 
 /// What a `SeerrService` may be built over.

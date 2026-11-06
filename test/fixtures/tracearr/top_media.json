@@ -1,0 +1,20 @@
+{
+  "data": [
+    {
+      "media_id": "d1d1d1d1-0000-4000-8000-0000000000a1",
+      "media_type": "movie",
+      "title": "The Lantern Keeper",
+      "year": 2021,
+      "tmdb_id": 603,
+      "tvdb_id": null,
+      "plays": 3,
+      "watch_time_ms": 17160000,
+      "unique_users": 2,
+      "last_watched_day": "2026-11-05"
+    }
+  ],
+  "meta": {
+    "nextCursor": null,
+    "pageSize": 100
+  }
+}

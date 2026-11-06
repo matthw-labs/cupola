@@ -509,6 +509,13 @@ const _allowed = <({String file, String literal, String reason})>[
     reason: 'Unraid Connect is the plugin\'s name, as above',
   ),
   (
+    file: 'lib/features/tracearr/domain/models/tracearr_server.dart',
+    literal: 'online',
+    reason:
+        "the name of the field Tracearr's health read uses for a server it "
+        'reaches, read off the wire; never shown',
+  ),
+  (
     file: 'lib/features/discover/data/seerr_service.dart',
     literal: 'pending',
     reason:

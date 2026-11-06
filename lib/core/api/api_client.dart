@@ -174,6 +174,33 @@ class ApiClient {
     );
   }
 
+  /// [get] for an answer that is read as it arrives and never ends on its own
+  /// (server-sent events): `data` is the [ResponseBody], whose `stream` the
+  /// caller consumes.
+  ///
+  /// It goes through the same Dio as every other read, so the pin, the access
+  /// headers, the redirect guard and the gateway guard apply to it as they do
+  /// to the rest. The receive timeout is lifted for this request alone: a quiet
+  /// stream is a healthy one, and the caller owns what to do when it ends.
+  /// [headers] override the client's, which ask for JSON.
+  Future<Response<ResponseBody>> getStream(
+    String path, {
+    Map<String, dynamic>? queryParameters,
+    Map<String, dynamic>? headers,
+    CancelToken? cancelToken,
+  }) {
+    return _dio.get<ResponseBody>(
+      path,
+      queryParameters: queryParameters,
+      cancelToken: cancelToken,
+      options: Options(
+        responseType: ResponseType.stream,
+        receiveTimeout: Duration.zero,
+        headers: headers,
+      ),
+    );
+  }
+
   Future<Response> post(
     String path, {
     dynamic data,

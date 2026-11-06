@@ -1,0 +1,12 @@
+{
+  "data": [],
+  "summary": {
+    "total": 0,
+    "transcodes": 0,
+    "audio_transcodes": 0,
+    "direct_streams": 0,
+    "direct_plays": 0,
+    "total_bitrate": "\u2014",
+    "by_server": []
+  }
+}
