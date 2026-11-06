@@ -30,6 +30,10 @@ import 'package:cupola/features/settings/domain/connection_address.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
+import 'package:cupola/features/tracearr/data/tracearr_violation_owner.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_provider.dart';
 
 import 'package:cupola/features/onboarding/data/onboarding_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -349,6 +353,91 @@ class _StatusClient extends ApiClient {
   @override
   void close({bool force = false}) {}
 }
+
+const _oneTracearr = SettingsModel(
+  instances: [
+    ServiceInstance(
+      id: 'tracearr',
+      service: ServiceKey.tracearr,
+      label: '',
+      url: 'https://tracearr.lan:3000',
+      credential: 'trr_pub_k',
+    ),
+  ],
+);
+
+/// Invented, and not read off a real Tracearr: the places are made up, and the
+/// `data` spellings are the ones the model expects. One action went through,
+/// one failed and one was skipped.
+TracearrViolation _travel() => TracearrViolation.fromJson({
+  'id': 'v1',
+  'severity': 'high',
+  'created_at': catalogNow.subtract(const Duration(hours: 2)).toIso8601String(),
+  'acknowledged_at': null,
+  'session_id': 'session-1',
+  'rule': {'id': 'rule-1', 'name': 'Impossible travel'},
+  'server': {'id': 'server-1', 'name': 'Plex Living Room', 'type': 'plex'},
+  'user': {'id': 'person-1', 'username': 'Anna'},
+  'data': {
+    'from': {'city': 'Valmora', 'region': 'North Reach', 'country': 'Nordavia'},
+    'to': {'city': 'Port Aster', 'region': 'Eastmark', 'country': 'Eastmark'},
+    'distance_km': 5120.4,
+    'time_diff_minutes': 95,
+  },
+  'actions': [
+    {'type': 'notify', 'success': true, 'skipped': false},
+    {
+      'type': 'terminate_stream',
+      'success': false,
+      'skipped': false,
+      'error_message': 'Plex Living Room did not answer',
+    },
+    {
+      'type': 'notify_admins',
+      'success': false,
+      'skipped': true,
+      'skip_reason': 'cooldown',
+    },
+  ],
+});
+
+/// A rule Cupola does not read, acknowledged an hour ago.
+TracearrViolation _unknownRule() => TracearrViolation.fromJson({
+  'id': 'v2',
+  'severity': 'low',
+  'created_at': catalogNow.subtract(const Duration(days: 1)).toIso8601String(),
+  'acknowledged_at': catalogNow
+      .subtract(const Duration(hours: 1))
+      .toIso8601String(),
+  'rule': {'id': 'rule-2', 'name': 'Night owl'},
+  'server': {'id': 'server-2', 'name': 'Jellyfin Attic', 'type': 'jellyfin'},
+  'user': {'id': 'person-2', 'username': 'Luca'},
+  'data': {'city': 'Valmora', 'hour': 3},
+  'actions': <Object>[],
+});
+
+/// Nobody has signed in as the owner, or somebody has.
+class _OwnerStub implements TracearrViolationOwner {
+  @override
+  Future<TracearrOwnerOutcome> acknowledge(String violationId) async =>
+      TracearrOwnerOutcome.done;
+
+  @override
+  Future<TracearrOwnerOutcome> dismiss(String violationId) async =>
+      TracearrOwnerOutcome.done;
+}
+
+Widget _violation(TracearrViolation violation, {bool owner = false}) =>
+    _Isolated([
+      sharedPreferencesProvider.overrideWithValue(_prefs),
+      secureSettingsStoreProvider.overrideWithValue(FakeSecureSettingsStore()),
+      initialSettingsProvider.overrideWithValue(_oneTracearr),
+      initialOnboardingCompletedProvider.overrideWithValue(true),
+      initialActiveInstancesProvider.overrideWithValue(const {}),
+      tracearrViolationProvider.overrideWith((ref, key) async => violation),
+      if (owner)
+        tracearrViolationOwnerProvider.overrideWith((ref, id) => _OwnerStub()),
+    ], TracearrViolationScreen(violationId: violation.id));
 
 late SharedPreferences _prefs;
 
@@ -682,6 +771,24 @@ void main() {
             tester.element(section),
           ).read(_sonarrAttention.notifier).stopAnswering();
         },
+      ),
+      CatalogScene(
+        'TracearrViolationScreen · an unseen violation: the rule blue, the '
+        'two places and the distance, the automatic actions with the failed '
+        'one amber, and Acknowledge and Dismiss dimmed (no owner signed in)',
+        (_) => _violation(_travel()),
+        width: 390,
+        height: 1500,
+        id: 'tracearr-violation-unseen-travel',
+      ),
+      CatalogScene(
+        'TracearrViolationScreen · a rule Cupola does not read, already '
+        'acknowledged, the owner signed in: its name and the way to open '
+        'Tracearr, Dismiss at full ink and no Acknowledge',
+        (_) => _violation(_unknownRule(), owner: true),
+        width: 390,
+        height: 1100,
+        id: 'tracearr-violation-unknown-rule',
       ),
       CatalogScene(
         'Text at 200% · RadarrOverviewScreen, the library timed out: the amber '

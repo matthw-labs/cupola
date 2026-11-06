@@ -66,6 +66,20 @@ void main() {
         width: 390,
       ),
       CatalogScene(
+        'ActivitySection(onOpen:) · a count too long for the name\'s line '
+        '(three groups) goes under the name, left-aligned, as it does at a '
+        'large reading size, instead of running past the page',
+        (_) => ActivitySection(
+          title: 'Needs you',
+          meta: '3 faults · 2 violations · 3 requests',
+          onOpen: () {},
+          openHint: 'Opens Needs you',
+          children: const [_Row('Big Buck Bunny', 'Stuck at 47%')],
+        ),
+        width: 390,
+        id: 'long-count-goes-under-the-name',
+      ),
+      CatalogScene(
         'ActivitySection(onOpen:) · the count leads to the section\'s own '
         'view, with a chevron and a 44pt target',
         (_) => ActivitySection(

@@ -46,6 +46,9 @@ import 'package:cupola/features/truenas/presentation/truenas_provider.dart';
 import 'package:cupola/features/services/presentation/services_history.dart';
 import 'package:cupola/features/services/presentation/services_probe.dart';
 import 'package:cupola/features/services/presentation/services_queue.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 
 /// Decisions, and which sources answered for them.
 typedef DashboardDecisions = ({
@@ -158,6 +161,15 @@ final dashboardDecisionSourceProvider =
           return (
             decisions: _connectionFaultDecisions(ref),
             coverage: SourceCoverage.none,
+          );
+        case DecisionSource.violations:
+          // Every Tracearr, each answering for itself: a violation on the
+          // second one is as much the owner's as one on the first, and the
+          // card must open the Tracearr it came off.
+          return _decisionsOnEveryConnection(
+            ref,
+            ServiceKey.tracearr,
+            (source) => _violationDecisions(ref, source),
           );
       }
     }, retry: noProviderRetry);
@@ -751,6 +763,53 @@ Future<List<DashboardDecision>> _expiringCertificateDecisions(
           // is what "oldest first" means for a deadline.
           occurredAt: certificate.expiresOn,
           route: ServiceRoutes.forService(ServiceKey.nginxProxyManager),
+        ),
+  ];
+}
+
+/// Tracearr's unseen violations of severity high, as the decisions Needs you
+/// draws: the rule, the person and when, never a place or an address.
+///
+/// Blue and not a fault (`DecisionKind.violation`), and read one past the cap
+/// so the count can say it is a floor. The route carries the connection it
+/// came off, so the card opens that Tracearr's own page for it.
+Future<List<DashboardDecision>> _violationDecisions(
+  Ref ref,
+  MergeConnection source,
+) async {
+  final page = await ref.watch(
+    tracearrFlaggedProvider(source.instanceId).future,
+  );
+  return [
+    for (final violation in page.items)
+      // Belt and braces over the server's filter: only what is still unseen
+      // and as bad as it gets is a decision.
+      if (!violation.isAcknowledged &&
+          violation.severity == TracearrSeverity.high)
+        DashboardDecision(
+          kind: DecisionKind.violation,
+          id: 'tracearr-violation-${source.instanceId}-${violation.id}',
+          service: ServiceKey.tracearr,
+          title: violation.rule.name.trim().isEmpty
+              ? 'Violation'
+              : violation.rule.name.trim(),
+          detail: joinDisplayParts([
+            tracearrPersonOf(violation.person),
+            // Which Tracearr, once there are two to tell apart.
+            if (source.name != null)
+              serviceWithConnection(
+                ServiceKey.tracearr,
+                source.name,
+                joiner: ' ',
+              ),
+          ]),
+          occurredAt: violation.createdAt,
+          instanceId: source.instanceId,
+          connectionName: source.name,
+          route: ServiceRoutes.tracearrViolation(
+            violation.id,
+            instanceId: source.instanceId,
+          ),
         ),
   ];
 }

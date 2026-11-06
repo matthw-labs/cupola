@@ -4,11 +4,14 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/widgets/failure_remedy.dart';
+import 'package:cupola/core/widgets/status_badge.dart';
 import 'package:cupola/features/activity/presentation/widgets/activity_section.dart';
 import 'package:cupola/features/activity/presentation/widgets/fault_card.dart';
 import 'package:cupola/features/activity/presentation/widgets/needs_you_cards.dart'
     show RequestsWaitRow;
+import 'package:cupola/features/activity/presentation/widgets/violation_rows.dart';
 import 'package:cupola/features/home/presentation/widgets/home_module_parts.dart';
 import 'package:cupola/features/services/domain/dashboard_decision.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
@@ -194,6 +197,29 @@ void main() {
         width: 440,
       ),
       CatalogScene(
+        'ViolationDecisionRow · Tracearr\'s unseen violations of severity '
+        'high under the faults: a blue count, then a row each (the rule, '
+        'the person, when) that opens the violation; no fill, no remedy',
+        (_) => _violations(),
+        width: 390,
+        id: 'violation-rows',
+      ),
+      CatalogScene(
+        'ViolationDecisionRow · a longer list than the page reads: the '
+        'count is a floor, `5+`, never the total',
+        (_) => _violations(floor: true),
+        width: 390,
+        id: 'violation-rows-floor',
+      ),
+      CatalogScene(
+        'Text at 200% · ViolationDecisionRow, the words wrap and the row '
+        'keeps its 44pt target',
+        (_) => _violations(),
+        width: 390,
+        textScale: catalogTextScale,
+        id: 'violation-rows-text-200',
+      ),
+      CatalogScene(
         'Text at 200% · FaultCard.row(), the remedy under the words',
         (_) => _rows(),
         width: 784,
@@ -221,6 +247,43 @@ FaultCard _health() {
       for (final arr in ['Radarr 4K', 'Sonarr', 'Lidarr'])
         (label: 'Open in $arr', onPressed: () {}, semanticLabel: null),
     ],
+  );
+}
+
+/// Tracearr's violations as Needs you draws them, under the faults: one blue
+/// line that counts, a row each. Invented: the rule, the person and when.
+Widget _violations({bool floor = false}) {
+  final decisions = [
+    for (final (index, rule, who, ago) in [
+      (1, 'Impossible travel', 'Anna', const Duration(hours: 2)),
+      (2, 'Too many streams', 'Luca', const Duration(hours: 5)),
+      (3, 'Night owl', 'Anna', const Duration(days: 1)),
+    ])
+      DashboardDecision(
+        kind: DecisionKind.violation,
+        id: 'tracearr-violation-$index',
+        service: ServiceKey.tracearr,
+        title: rule,
+        detail: who,
+        occurredAt: catalogNow.subtract(ago),
+      ),
+  ];
+  return Builder(
+    builder: (context) {
+      final room = CupolaRoom.of(context);
+      final blue = statusToneColor(
+        Theme.of(context).colorScheme,
+        StatusTone.info,
+        surface: room.slab,
+      );
+      return ActivitySlab(
+        children: violationRowsOf((
+          shown: decisions,
+          count: floor ? kNeedsYouViolationCap : decisions.length,
+          floor: floor,
+        ), blue),
+      );
+    },
   );
 }
 

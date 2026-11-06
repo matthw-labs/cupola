@@ -235,6 +235,7 @@ String needsYouLine(
       DecisionKind.serviceHealth => '$count health checks are failing',
       DecisionKind.failingIndexer => '$count indexers are failing',
       DecisionKind.expiringCertificate => '$count certificates are expiring',
+      DecisionKind.violation => '$count violations need a look',
       DecisionKind.pendingRequest => '$count requests wait for approval',
     };
   }
@@ -256,6 +257,9 @@ String needsYouLine(
       decision.occurredAt,
       now,
     ),
+    // Blue, so Needs you's lead never says one (it leads with faults), but a
+    // sentence stays total: the rule and whose it was.
+    DecisionKind.violation => '$title by ${decision.detail}',
     DecisionKind.pendingRequest => '$title waits for approval',
   };
 }

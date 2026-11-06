@@ -28,6 +28,43 @@ void main() {
       expect(ranked.map((d) => d.title), ['stall', 'request']);
     });
 
+    test('a violation ranks after every fault and before a request', () {
+      final ranked = rankDecisions([
+        _decision(DecisionKind.pendingRequest, 'request', at: null),
+        _decision(
+          DecisionKind.violation,
+          'violation',
+          at: DateTime.utc(2024, 6),
+          service: ServiceKey.tracearr,
+        ),
+        _decision(
+          DecisionKind.expiringCertificate,
+          'certificate',
+          at: DateTime.utc(2024, 6),
+        ),
+      ]);
+
+      expect(ranked.map((d) => d.title), [
+        'certificate',
+        'violation',
+        'request',
+      ]);
+    });
+
+    test('violations are never folded into one row, however alike', () {
+      final grouped = groupDecisions([
+        for (final title in ['a', 'b', 'c'])
+          _decision(
+            DecisionKind.violation,
+            title,
+            at: null,
+            service: ServiceKey.tracearr,
+          ),
+      ]);
+
+      expect(grouped, hasLength(3));
+    });
+
     test('oldest first inside a kind', () {
       final ranked = rankDecisions([
         _decision(
@@ -247,14 +284,23 @@ void main() {
   });
 
   group('the vocabulary', () {
-    test('only a pending request is backlog', () {
+    test('only a pending request and a violation are not faults', () {
       for (final kind in DecisionKind.values) {
         expect(
           kind.isFault,
-          kind != DecisionKind.pendingRequest,
+          kind != DecisionKind.pendingRequest && kind != DecisionKind.violation,
           reason: '$kind',
         );
       }
+    });
+
+    test('a violation is reviewed, and says what it could not open', () {
+      expect(decisionActionLabel(DecisionKind.violation), 'Review');
+      expect(
+        decisionUnavailableToast(DecisionKind.violation, ServiceKey.tracearr),
+        endsWith('to open this violation.'),
+      );
+      expect(DecisionKind.violation.opensUnderLens, isFalse);
     });
 
     test('the stall control names the client it would open', () {

@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-import 'package:cupola/core/platform/browser_opener.dart';
 import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/utils/arr_activity_display.dart';
 import 'package:cupola/core/utils/date_format.dart';
+import 'package:cupola/core/utils/service_routes.dart';
 import 'package:cupola/core/utils/string_utils.dart';
 import 'package:cupola/core/widgets/widgets.dart';
 import 'package:cupola/features/media/presentation/open_media.dart';
 import 'package:cupola/features/services/domain/service_tab.dart';
 import 'package:cupola/features/services/domain/services_semantics.dart';
-import 'package:cupola/features/settings/data/connection_reach_provider.dart';
-import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_image.dart';
@@ -20,6 +19,7 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_open.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
@@ -43,8 +43,8 @@ import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 /// **It draws neither the app bar nor the tab bar**: the service home owns
 /// them and floats them above this page, which reserves their room with
 /// [topPadding]. Later lots deepen the regions in place: Live's rows grow
-/// into the Live tab's, the violation rows open their detail, and a server
-/// row opens its filters.
+/// into the Live tab's, and a server row opens its filters. A violation row
+/// opens its detail.
 class TracearrOverviewScreen extends StatelessWidget {
   const TracearrOverviewScreen({
     super.key,
@@ -172,27 +172,11 @@ class _ServerRow extends ConsumerWidget {
           ? ServiceOverviewRowAction.remedy(
               label: 'Fix it in Tracearr',
               hint: 'opens Tracearr in the browser',
-              onPressed: () => _openTracearrServers(ref),
+              onPressed: () => openInTracearr(ref, tracearrServersWebPath),
             )
           : null,
     );
   }
-}
-
-/// Opens Tracearr's own server settings in the browser, at the address the
-/// connection is reached on now.
-Future<void> _openTracearrServers(WidgetRef ref) async {
-  final id = ref.read(activeInstanceProvider(_service))?.id ?? '';
-  final reach = ref.read(connectionReachProvider(id));
-  if (reach == null) return;
-  final base = Uri.tryParse(reach.url);
-  if (base == null || base.host.isEmpty) return;
-  final prefix = base.path.endsWith('/')
-      ? base.path.substring(0, base.path.length - 1)
-      : base.path;
-  await ref
-      .read(browserOpenerProvider)
-      .open(base.replace(path: '$prefix/settings/servers/connections'));
 }
 
 // ─── 2. Playing now ─────────────────────────────────────────────────────────
@@ -344,6 +328,8 @@ class _ViolationRow extends StatelessWidget {
       titleColor: tone,
       detail: detail,
       trailing: severity,
+      onTap: () => context.push(ServiceRoutes.tracearrViolation(violation.id)),
+      doorHint: 'opens the violation',
     );
   }
 }

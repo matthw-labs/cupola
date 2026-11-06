@@ -108,6 +108,9 @@ _tabDetailPaths = [
   (service: ServiceKey.plex, tab: ServiceTab.libraries, path: ':id'),
   (service: ServiceKey.emby, tab: ServiceTab.libraries, path: 'item/:id'),
   (service: ServiceKey.emby, tab: ServiceTab.libraries, path: ':id'),
+  // A violation, opened from Violations' list, the Overview and Needs you; a
+  // title opens under every tab like everywhere else (`_mediaPaths`).
+  (service: ServiceKey.tracearr, tab: ServiceTab.violations, path: ':id'),
   // The new-stack editor is not a detail, and it is here for the reason one
   // would be: it is reached from the Stacks list's own header and from nowhere
   // else, so Stacks is the tab that owns it. The compose editor of an existing
@@ -157,9 +160,6 @@ const List<ServiceKey> _servicesWithoutTabDetails = [
   ServiceKey.sabnzbd,
   ServiceKey.nzbget,
   ServiceKey.unraid,
-  // Five lists and nothing pushed from them: a title opens under the tab
-  // like everywhere else (`_mediaPaths`).
-  ServiceKey.tracearr,
 ];
 
 /// The record each service's Library pushes, by the path it is mounted at.

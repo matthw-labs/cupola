@@ -555,9 +555,15 @@ void main() {
 
       expect(find.byType(ServiceRecordRow), findsNWidgets(2));
       expect(find.text('Concurrent streams'), findsOneWidget);
-      expect(find.text('Warning'), findsOneWidget);
-      expect(find.text('Low'), findsOneWidget);
-      expect(find.text('High'), findsNothing);
+      // The words on the rows; the severity pills carry the same words, so
+      // the rows are asked apart from them.
+      Finder inRows(String word) => find.descendant(
+        of: find.byType(ServiceRecordRow),
+        matching: find.text(word),
+      );
+      expect(inRows('Warning'), findsOneWidget);
+      expect(inRows('Low'), findsOneWidget);
+      expect(inRows('High'), findsNothing);
       // What a violation carries (its places, its addresses) never reaches a
       // row: the unknown rule is its name alone.
       expect(find.textContaining('Turin'), findsNothing);
@@ -567,7 +573,7 @@ void main() {
       await harness.settle(tester);
 
       expect(find.byType(ServiceRecordRow), findsNWidgets(3));
-      expect(find.text('High'), findsOneWidget);
+      expect(inRows('High'), findsOneWidget);
       expect(find.textContaining('Acknowledged'), findsOneWidget);
       await harness.unmount(tester);
     });

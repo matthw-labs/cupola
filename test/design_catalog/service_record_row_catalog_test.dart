@@ -111,6 +111,40 @@ void main() {
         width: 390,
       ),
       CatalogScene(
+        'Tracearr violations · unseen blue, whatever the severity, and an '
+        'acknowledged one neutral; the severity in words at the end',
+        (_) => _list(const [
+          ServiceRecordRow(
+            icon: Icons.flag_outlined,
+            tone: StatusTone.info,
+            title: 'Impossible travel',
+            detail: 'Anna · Plex Living Room · 2 h ago',
+            trailing: 'High',
+            semanticLabel:
+                'Impossible travel, High, Anna, Plex Living Room, 2 h ago',
+          ),
+          ServiceRecordRow(
+            icon: Icons.flag_outlined,
+            tone: StatusTone.info,
+            title: 'Too many streams',
+            detail: 'Luca · Emby Study · yesterday',
+            trailing: 'Warning',
+            semanticLabel:
+                'Too many streams, Warning, Luca, Emby Study, yesterday',
+          ),
+          ServiceRecordRow(
+            icon: Icons.flag_outlined,
+            tone: StatusTone.neutral,
+            title: 'Night owl',
+            detail: 'Luca · Jellyfin Attic · Tue 3 Nov · Acknowledged',
+            trailing: 'Low',
+            semanticLabel:
+                'Night owl, Low, Luca, Jellyfin Attic, Tue 3 Nov, Acknowledged',
+          ),
+        ]),
+        width: 390,
+      ),
+      CatalogScene(
         'Long text · the title holds two lines, the detail three, and the '
         'trailing value yields to the title before either overflows',
         (_) => const ServiceRecordRow(

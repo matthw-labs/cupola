@@ -128,6 +128,7 @@ import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.da
 import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_libraries_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
@@ -1347,8 +1348,29 @@ RouteBase _tracearrRoutes() => _serviceRoutes(
         const TracearrHistoryScreen(topPadding: _serviceTabTopPadding),
     ServiceTab.users: (state) =>
         const TracearrUsersScreen(topPadding: _serviceTabTopPadding),
-    ServiceTab.violations: (state) =>
-        const TracearrViolationsScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.violations: (state) => TracearrViolationsScreen(
+      topPadding: _serviceTabTopPadding,
+      // From the Users tab: the person's violations only.
+      userId: state.uri.queryParameters['user'],
+    ),
+  },
+  inside: {
+    ServiceTab.violations: [
+      // One violation, resolved from the path alone: a card in Needs you and
+      // a notification open it cold. `?i=` names the Tracearr connection it
+      // came off.
+      _page(
+        ':id',
+        (state) => TracearrViolationScreen(
+          violationId: state.pathParameters['id']!,
+          instanceId: state.uri.queryParameters['i'],
+        ),
+        redirect: (context, state) =>
+            (state.pathParameters['id']?.trim().isEmpty ?? true)
+            ? ServiceRoutes.tracearrViolations
+            : null,
+      ),
+    ],
   },
 );
 

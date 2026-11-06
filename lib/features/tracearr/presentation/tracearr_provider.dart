@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cupola/core/providers/provider_retry.dart';
 import 'package:cupola/features/settings/data/connection_providers.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
+import 'package:cupola/features/services/domain/dashboard_decision.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
@@ -100,3 +102,19 @@ final tracearrUnseenViolationsProvider =
 ({int count, bool isFloor}) tracearrUnseenCount(
   TracearrPage<TracearrViolation> page,
 ) => (count: page.items.length, isFloor: page.hasMore);
+
+/// The violations Needs you reads, per connection (empty id: the lens): the
+/// unseen ones of severity high, one page past [kNeedsYouViolationCap] so a
+/// longer list is told apart from one that ends there.
+final tracearrFlaggedProvider =
+    FutureProvider.family<TracearrPage<TracearrViolation>, String>(
+      (ref, instanceId) => ref
+          .watch(tracearrClientForProvider(instanceId))
+          .getViolations(
+            pageSize: kNeedsYouViolationCap + 1,
+            filter: const TracearrViolationFilter.unseen(
+              severity: TracearrSeverity.high,
+            ),
+          ),
+      retry: noProviderRetry,
+    );

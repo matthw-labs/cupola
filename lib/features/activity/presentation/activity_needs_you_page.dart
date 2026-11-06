@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cupola/core/app_spacing.dart';
+import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/dot_separator.dart';
 import 'package:cupola/core/widgets/widgets.dart';
@@ -16,6 +17,7 @@ import 'package:cupola/features/activity/presentation/activity_page.dart'
 import 'package:cupola/features/activity/presentation/widgets/activity_section.dart';
 import 'package:cupola/features/activity/presentation/widgets/import_done_card.dart';
 import 'package:cupola/features/activity/presentation/widgets/needs_you_cards.dart';
+import 'package:cupola/features/activity/presentation/widgets/violation_rows.dart';
 import 'package:cupola/features/home/data/answered_requests.dart';
 import 'package:cupola/features/home/presentation/widgets/home_module_parts.dart';
 import 'package:cupola/features/services/domain/dashboard_decision.dart';
@@ -53,6 +55,7 @@ class _ActivityNeedsYouPageState extends ConsumerState<ActivityNeedsYouPage> {
           decision,
     ];
     final requests = [...waiting, for (final a in answered.values) ?a.decision];
+    final flagged = violationsOf(decisions.decisions);
     final room = CupolaRoom.of(context);
     final scheme = Theme.of(context).colorScheme;
     final blue = statusToneColor(scheme, StatusTone.info, surface: room.slab);
@@ -75,6 +78,7 @@ class _ActivityNeedsYouPageState extends ConsumerState<ActivityNeedsYouPage> {
         report == null &&
         entries.isEmpty &&
         requests.isEmpty &&
+        flagged.count == 0 &&
         coverage.pending.isEmpty &&
         coverage.failed.isEmpty;
 
@@ -91,6 +95,8 @@ class _ActivityNeedsYouPageState extends ConsumerState<ActivityNeedsYouPage> {
             _Heading(
               faults: entries.length,
               requests: waiting.length,
+              violations: flagged.count,
+              violationsFloor: flagged.floor,
               answeredLine:
                   note == null &&
                       coverage.answered.isNotEmpty &&
@@ -115,6 +121,7 @@ class _ActivityNeedsYouPageState extends ConsumerState<ActivityNeedsYouPage> {
                   whole: true,
                 ),
               ]),
+            if (flagged.count > 0) slab(violationRowsOf(flagged, blue)),
             if (requests.isNotEmpty)
               slab(requestRowsOf(requests, answered, blue)),
             if (nothing)
@@ -122,8 +129,9 @@ class _ActivityNeedsYouPageState extends ConsumerState<ActivityNeedsYouPage> {
                 icon: Icons.check_circle_outline_rounded,
                 title: 'Nothing needs you',
                 message:
-                    'A download that stops, a disk that reports errors or a '
-                    'request that waits for an answer appears here.',
+                    'A download that stops, a disk that reports errors, a '
+                    'request that waits for an answer or a rule broken at its '
+                    'worst appears here.',
               ),
           ],
         ),
@@ -136,12 +144,16 @@ class _Heading extends StatelessWidget {
   const _Heading({
     required this.faults,
     required this.requests,
+    this.violations = 0,
+    this.violationsFloor = false,
     this.answeredLine,
     this.note,
   });
 
   final int faults;
   final int requests;
+  final int violations;
+  final bool violationsFloor;
   final String? answeredLine;
   final Widget? note;
 
@@ -156,7 +168,12 @@ class _Heading extends StatelessWidget {
     );
     final blue = statusToneColor(scheme, StatusTone.info, surface: room.slab);
     final style = AppType.label;
-    final meta = needsYouMeta(faults: faults, requests: requests);
+    final meta = needsYouMeta(
+      faults: faults,
+      requests: requests,
+      violations: violations,
+      violationsFloor: violationsFloor,
+    );
 
     Widget dot(Color color) => Container(
       width: 7,
@@ -183,6 +200,21 @@ class _Heading extends StatelessWidget {
                     Text(
                       faults == 1 ? '1 fault' : '$faults faults',
                       style: style.copyWith(color: amber),
+                    ),
+                  ],
+                ),
+              if (violations > 0)
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    dot(blue),
+                    Text(
+                      violationsFloor
+                          ? '${Lexicon.floor(violations)} violations'
+                          : violations == 1
+                          ? '1 violation'
+                          : '$violations violations',
+                      style: style.copyWith(color: blue),
                     ),
                   ],
                 ),

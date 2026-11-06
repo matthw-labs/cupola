@@ -1,10 +1,14 @@
 import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/utils/arr_activity_display.dart';
+import 'package:cupola/core/utils/duration_format.dart';
 import 'package:cupola/core/utils/episode_code.dart';
+import 'package:cupola/core/utils/string_utils.dart';
+import 'package:cupola/core/utils/unit_space.dart';
 import 'package:cupola/features/media/domain/media_key.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_playback.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
 
 /// What every Tracearr screen says about its rows, written once: a row read
 /// on the Overview, in Live, in History and in the Violations list is the
@@ -85,3 +89,50 @@ MediaKey? tracearrMediaKeyOf(TracearrMedia media) {
   }
   return MediaKey.movie(tmdb);
 }
+
+/// What Tracearr did about a violation, in a person's words. The two actions
+/// the owner's rules commonly carry are named; any other is its own word made
+/// readable (`log_only` is `Log only`), never the raw key.
+String tracearrActionWord(String type) => switch (type.trim()) {
+  'notify' => 'Sent a notification',
+  'terminate_stream' => 'Ended the stream',
+  '' => 'An action',
+  final other => humanizeCamelCase(other),
+};
+
+/// How an action ended, as a short word and, where Tracearr said why, the
+/// reason: a skip's own word (`cooldown`) or a failure's message. A failed
+/// action is the fault; a skipped one is Tracearr's choice and rests.
+({String word, String? why}) tracearrActionResult(
+  TracearrViolationAction action,
+) {
+  if (action.skipped) {
+    final reason = action.skipReason?.trim();
+    return (
+      word: 'Skipped',
+      why: reason == null || reason.isEmpty ? null : humanizeCamelCase(reason),
+    );
+  }
+  if (action.success) return (word: 'Done', why: null);
+  return (word: 'Failed', why: action.errorMessage?.trim());
+}
+
+/// A distance as the detail page says it, whole kilometres: `5,120 km`.
+String tracearrDistanceWord(double km) {
+  final whole = km.round();
+  final digits = whole.abs().toString();
+  final grouped = StringBuffer();
+  for (var i = 0; i < digits.length; i++) {
+    if (i > 0 && (digits.length - i) % 3 == 0) grouped.write(',');
+    grouped.write(digits[i]);
+  }
+  return withUnit('${whole < 0 ? '-' : ''}$grouped', 'km');
+}
+
+/// The time between two streams, to the minute: `1 h 35 min`.
+String tracearrElapsedWord(Duration elapsed) => formatTimeSpan(elapsed);
+
+/// `3 streams at once, the limit is 2`: the concurrent-streams rule in a
+/// sentence. Pure numbers, nothing of where anyone is.
+String tracearrConcurrentWord(TracearrConcurrentStreams rule) =>
+    '${countLabel(rule.count, 'stream')} at once, the limit is ${rule.limit}';

@@ -76,6 +76,7 @@ FaultWords faultWordsOf(DashboardDecision decision) {
     // The hostname, and its expiry with the service under it.
     DecisionKind.expiringCertificate ||
     DecisionKind.stalledDownload ||
+    DecisionKind.violation ||
     DecisionKind.pendingRequest => (
       headline: decision.title,
       explanation: null,
