@@ -57,9 +57,12 @@ import 'package:cupola/features/stream/presentation/stream_activity_provider.dar
 import 'package:cupola/core/widgets/screen_title.dart';
 
 /// The services Activity reads: the queues, the clients, the requests and
-/// the media servers. With none of them set up the page has nothing to say
-/// and says how to begin.
-const _activityServices = [
+/// whatever says who is playing. With none of them set up the page has
+/// nothing to say and says how to begin.
+///
+/// Not `const`: the playing services come from their capability, so a new one
+/// is read here without this list being touched.
+final _activityServices = [
   ServiceKey.radarr,
   ServiceKey.sonarr,
   ServiceKey.lidarr,
@@ -69,8 +72,7 @@ const _activityServices = [
   ServiceKey.sabnzbd,
   ServiceKey.nzbget,
   ServiceKey.seerr,
-  ServiceKey.jellyfin,
-  ServiceKey.plex,
+  ...sessionServices,
 ];
 
 /// The arrs whose History tab the page's foot leads to.
@@ -705,7 +707,7 @@ class _EveryonesRequestsSection extends ConsumerWidget {
   }
 }
 
-/// Who is watching, on every media server: the Home's rows.
+/// Who is watching, on every service that says so: the Home's rows.
 class _WatchingNowSection extends ConsumerWidget {
   const _WatchingNowSection();
 

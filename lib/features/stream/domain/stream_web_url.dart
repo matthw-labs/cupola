@@ -3,7 +3,8 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 
 /// The media server's own web client, deep-linked to item [itemId], or null
 /// when there is no address to build one from: Plex needs its server's
-/// [plexMachineId].
+/// [plexMachineId], and a service that is not a media server has no web client
+/// to open an item in.
 ///
 /// A web URL rather than an app scheme: neither Jellyfin nor Plex publishes a
 /// documented, reliably-registered scheme across iOS, Android and macOS, and a
@@ -17,12 +18,22 @@ Uri? streamItemWebUrl({
 }) {
   final root = UrlUtils.normalizeBaseUrl(baseUrl);
   if (root.isEmpty) return null;
-  if (service == ServiceKey.jellyfin) {
-    return Uri.tryParse('$root/web/index.html#!/details?id=$itemId');
-  }
-  if (plexMachineId == null || plexMachineId.isEmpty) return null;
+  if (!service.isMediaServer) return null;
+  return switch (service) {
+    ServiceKey.jellyfin => Uri.tryParse(
+      '$root/web/index.html#!/details?id=$itemId',
+    ),
+    ServiceKey.plex => _plexWebUrl(root, itemId, plexMachineId),
+    // Plex's spelling is the one a media server left unnamed here would have
+    // been given, and it is wrong for any other: each names its own.
+    _ => throw UnimplementedError('${service.name} has no web client link'),
+  };
+}
+
+Uri? _plexWebUrl(String root, String itemId, String? machineId) {
+  if (machineId == null || machineId.isEmpty) return null;
   final key = Uri.encodeComponent('/library/metadata/$itemId');
   return Uri.tryParse(
-    '$root/web/index.html#!/server/$plexMachineId/details?key=$key',
+    '$root/web/index.html#!/server/$machineId/details?key=$key',
   );
 }

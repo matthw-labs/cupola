@@ -555,6 +555,63 @@ void main() {
       );
     });
 
+    group('a media server\'s routes, asked by capability', () {
+      // Each media server must land under its own prefix: the ternaries these
+      // replaced sent every one that was not Jellyfin (or not Plex) to the
+      // other's pages.
+      for (final service in mediaServers) {
+        test('${service.name}: item, library and playbacks are its own', () {
+          final base = ServiceRoutes.forService(service);
+          expect(
+            ServiceRoutes.streamItem(service, 'x1', instanceId: 'i2'),
+            startsWith('$base/libraries/item/x1'),
+          );
+          expect(
+            ServiceRoutes.streamItem(service, 'x1', instanceId: 'i2'),
+            endsWith('?i=i2'),
+          );
+          expect(
+            ServiceRoutes.streamLibrary(service, '7', instanceId: 'i2'),
+            startsWith('$base/libraries/7'),
+          );
+          expect(
+            ServiceRoutes.streamActivity(service, instanceId: 'i2'),
+            allOf(startsWith('$base/'), endsWith('?i=i2')),
+          );
+        });
+      }
+
+      test('a service that is no media server is refused by name, never '
+          'routed to Plex or Jellyfin', () {
+        for (final service in ServiceKey.values.where(
+          (s) => !s.isMediaServer,
+        )) {
+          final named = throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.toString(),
+              'message',
+              contains(service.name),
+            ),
+          );
+          expect(
+            () => ServiceRoutes.streamItem(service, 'x1'),
+            named,
+            reason: service.name,
+          );
+          expect(
+            () => ServiceRoutes.streamLibrary(service, '7'),
+            named,
+            reason: service.name,
+          );
+          expect(
+            () => ServiceRoutes.streamActivity(service),
+            named,
+            reason: service.name,
+          );
+        }
+      });
+    });
+
     test('the Dockge tab roots are spelled by the tabs they mount', () {
       // The same tie every other service carries, and it has to be its own
       // case for the same reason: these are `const` literals precisely because

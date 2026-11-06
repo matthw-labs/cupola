@@ -150,7 +150,7 @@ void retryDashboardServices(WidgetRef ref, Iterable<ServiceKey> services) {
   if (asked.contains(ServiceKey.truenas) || asked.contains(ServiceKey.unraid)) {
     ref.invalidate(homeStorageProvider);
   }
-  if (asked.contains(ServiceKey.jellyfin) || asked.contains(ServiceKey.plex)) {
+  if (asked.any((service) => service.isMediaServer)) {
     ref.invalidate(homeResumeProvider);
   }
 }

@@ -592,6 +592,10 @@ Future<String?> _loadVersion(
     );
   }
 
+  // Past both arms above, so none is left: a media server on the generic
+  // branch below would be read as answering whatever key it is given.
+  assert(!service.isMediaServer, '${service.name} has no credential probe');
+
   if (service == ServiceKey.nzbget) {
     // The connection's own client, for the reason SABnzbd's is.
     final client = ref.watch(nzbgetClientForProvider(instance.id));

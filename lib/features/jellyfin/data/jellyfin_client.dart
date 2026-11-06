@@ -525,6 +525,7 @@ class JellyfinClient implements StreamServerClient {
   /// nothing is in progress. Throws on a remote failure too, for the reason
   /// Plex's `getContinueWatching` does. What somebody is playing right now
   /// stays out (`excludeActiveSessions`): Now playing has it.
+  @override
   Future<List<StreamItem>> getContinueWatching({
     String? viewerId,
     int count = 12,

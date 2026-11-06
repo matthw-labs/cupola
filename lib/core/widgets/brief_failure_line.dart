@@ -128,8 +128,10 @@ class BriefFailureLine extends ConsumerWidget {
         sentence: Lexicon.signInToKeepAsking,
       );
     }
+    // A media server is named, the player the person watches with; every
+    // other service is the server behind the page.
     final subject = switch (service) {
-      ServiceKey.jellyfin || ServiceKey.plex => service!.title,
+      final media? when media.isMediaServer => media.title,
       _ => 'the server',
     };
     return (

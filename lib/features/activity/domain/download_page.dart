@@ -248,8 +248,9 @@ const _arrs = {
   ServiceKey.readarr,
 };
 
-/// The media servers a step may name, in the order the app prefers them.
-const downloadPlayers = [ServiceKey.jellyfin, ServiceKey.plex];
+/// The media servers a step may name, in the order the app prefers them
+/// (registry order).
+final downloadPlayers = mediaServers;
 
 /// The way from the grab to the server: `Grabbed` (`Radarr → qBittorrent`),
 /// `Downloading` (`qBittorrent · 62%`), `Import` (`Radarr, when it

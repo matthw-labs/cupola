@@ -196,22 +196,49 @@ class ServiceRoutes {
   static String plexItem(String id, {String? instanceId}) =>
       _withQuery('$plexItemBase/$id', {'i': instanceId});
 
+  /// [jellyfinLibrary] or [plexLibrary], by [service].
+  static String streamLibrary(
+    ServiceKey service,
+    String id, {
+    String? title,
+    String? instanceId,
+  }) => switch (service) {
+    ServiceKey.jellyfin => jellyfinLibrary(
+      id,
+      title: title,
+      instanceId: instanceId,
+    ),
+    ServiceKey.plex => plexLibrary(id, title: title, instanceId: instanceId),
+    _ => throw _notAMediaServer(service),
+  };
+
   /// [jellyfinItem] or [plexItem], by [service].
   static String streamItem(
     ServiceKey service,
     String id, {
     String? instanceId,
-  }) => service == ServiceKey.jellyfin
-      ? jellyfinItem(id, instanceId: instanceId)
-      : plexItem(id, instanceId: instanceId);
+  }) => switch (service) {
+    ServiceKey.jellyfin => jellyfinItem(id, instanceId: instanceId),
+    ServiceKey.plex => plexItem(id, instanceId: instanceId),
+    _ => throw _notAMediaServer(service),
+  };
 
   /// A media server's page of playbacks, on connection [instanceId] when
   /// given (`?i=`), else on the active one.
   static String streamActivity(ServiceKey service, {String? instanceId}) =>
       _withQuery(
-        service == ServiceKey.plex ? plexActivities : jellyfinActivity,
+        switch (service) {
+          ServiceKey.jellyfin => jellyfinActivity,
+          ServiceKey.plex => plexActivities,
+          _ => throw _notAMediaServer(service),
+        },
         {'i': instanceId},
       );
+
+  /// The error a media server route is asked for [service] with, which names
+  /// it: the other arm of a ternary would have silently routed it to Plex.
+  static ArgumentError _notAMediaServer(ServiceKey service) =>
+      ArgumentError.value(service.name, 'service', 'has no media server route');
 
   // ── TrueNAS sections ──────────────────────────────────────────────────────
   static const truenasDashboard = '$truenas/dashboard';

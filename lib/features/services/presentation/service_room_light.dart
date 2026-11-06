@@ -26,13 +26,12 @@ import 'package:cupola/features/stream/presentation/stream_session_poster.dart';
 /// playing; Bazarr's by the first title it wants subtitles for. Every other
 /// service room (a download client, the machines, the indexers) is lit by the
 /// lamp.
-const _litByWhatTheyHold = {
+final _litByWhatTheyHold = {
   ServiceKey.radarr,
   ServiceKey.sonarr,
   ServiceKey.lidarr,
   ServiceKey.seerr,
-  ServiceKey.jellyfin,
-  ServiceKey.plex,
+  ...mediaServers,
   ServiceKey.bazarr,
 };
 
@@ -50,7 +49,7 @@ final serviceRoomSourceProvider = Provider.autoDispose
       }
       String? public(String? url) =>
           url != null && url.startsWith('http') ? url : null;
-      if (service == ServiceKey.jellyfin || service == ServiceKey.plex) {
+      if (service.isMediaServer) {
         final sessions = ref
             .watch(
               streamSessionsForProvider((service: service, instanceId: '')),

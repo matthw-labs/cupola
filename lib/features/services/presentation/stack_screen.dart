@@ -78,13 +78,14 @@ class StackScreen extends ConsumerWidget {
 
     final settings = ref.watch(currentSettingsProvider);
     // The one live figure on this page is what plays, and it sits in the
-    // media servers' sessions cache, which lives as long as the app: the Home
-    // may have filled it a while ago. Each connection's sessions poll runs
+    // sessions cache of the services that say who is playing, which lives as
+    // long as the app: the Home may have filled it a while ago. Each
+    // connection's sessions poll runs
     // here as in its room, reading again at once over an answer this page did
     // not just read and every 15 s after, so a row never says `0 streaming`
     // over a playback that has started. The two-minute return refresh below
     // stays for everything else.
-    for (final service in ServiceDomain.stream.services) {
+    for (final service in sessionServices) {
       for (final instance in settings.configuredInstancesOf(service)) {
         ref.watchWhileLive(
           context,

@@ -97,12 +97,11 @@ final globalSearchServices = ServiceKey.values
     .where(_catalogSources.contains)
     .toList(growable: false);
 
-const _catalogSources = {
+final _catalogSources = {
   ServiceKey.seerr,
   ServiceKey.radarr,
   ServiceKey.sonarr,
-  ServiceKey.jellyfin,
-  ServiceKey.plex,
+  ...mediaServers,
 };
 
 /// The connections global search fans out to, as one comparable scalar. Not

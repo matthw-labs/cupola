@@ -10,11 +10,11 @@ import 'package:cupola/core/utils/unit_space.dart';
 import 'package:cupola/core/widgets/widgets.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_admin_placeholder.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/domain/models/stream_library.dart';
 import 'package:cupola/features/stream/domain/stream_semantics.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_provider.dart';
 
@@ -69,8 +69,8 @@ class StreamLibrariesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     assert(
-      service.domain == ServiceDomain.stream,
-      'StreamLibrariesScreen only serves the Stream domain',
+      service.isMediaServer,
+      'StreamLibrariesScreen only serves media servers',
     );
     final settings = ref.watch(currentSettingsProvider);
 
@@ -119,7 +119,7 @@ class _LibrariesBody extends ConsumerWidget {
     // `/Library/VirtualFolders` is elevated on Jellyfin: a household member's
     // token is refused it, and an empty list would read as a server with no
     // libraries.
-    if (service == ServiceKey.jellyfin &&
+    if (service.speaksMediaBrowser &&
         ref.watch(jellyfinLacksAdministratorForProvider(instanceId))) {
       return JellyfinAdminPlaceholder(
         what: 'libraries',
@@ -133,11 +133,7 @@ class _LibrariesBody extends ConsumerWidget {
     // family re-reads, so a Retry asks both.
     void reload() {
       ref.invalidate(streamLibrariesForProvider(key));
-      ref.invalidate(
-        service == ServiceKey.jellyfin
-            ? jellyfinLibrariesProvider
-            : plexLibrariesProvider,
-      );
+      ref.invalidate(streamBackendOf(service).libraries);
     }
 
     // The tab is this one read, so a cold failure is the server's leaf.
@@ -285,17 +281,12 @@ class _LibraryRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final route = service == ServiceKey.jellyfin
-        ? ServiceRoutes.jellyfinLibrary(
-            library.id,
-            title: library.name,
-            instanceId: instanceId,
-          )
-        : ServiceRoutes.plexLibrary(
-            library.id,
-            title: library.name,
-            instanceId: instanceId,
-          );
+    final route = ServiceRoutes.streamLibrary(
+      service,
+      library.id,
+      title: library.name,
+      instanceId: instanceId,
+    );
 
     return AppCard.filled(
       // A library row is a full-width card with plenty of surface, so the ink

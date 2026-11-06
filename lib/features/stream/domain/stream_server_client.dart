@@ -238,6 +238,20 @@ abstract interface class StreamServerClient {
     CancelToken? cancelToken,
   });
 
+  /// What the viewer started and did not finish, the most recently played
+  /// first, at most [count] (a server may hand back titles nobody has
+  /// started, so the caller asks for more than it draws and filters).
+  ///
+  /// Throws on a remote failure, for the reason [getSessions] does: Continue
+  /// watching names a server that did not answer, and an empty list would say
+  /// nothing is in progress there. A server whose resume is user-scoped and has
+  /// no viewer chosen throws too; the caller asks who the viewer is before it
+  /// asks this.
+  Future<List<StreamItem>> getContinueWatching({
+    required int count,
+    CancelToken? cancelToken,
+  });
+
   /// What the viewer finished last, the latest first: movies, and series by
   /// their latest episode, each once, at most [limit].
   ///

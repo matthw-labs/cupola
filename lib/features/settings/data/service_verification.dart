@@ -544,6 +544,9 @@ Future<ServiceDiagnosis> diagnoseCredentials(
     }
   }
 
+  // A media server's status route is anonymous, so one that reached the generic
+  // branch would read any key as answering: each has its own arm above.
+  assert(!service.isMediaServer, '${service.name} has no credential check');
   return _diagnoseOverApiClient(
     service,
     url: urlTrimmed,

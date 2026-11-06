@@ -26,13 +26,12 @@ import 'package:cupola/core/utils/image_utils.dart';
 import 'package:cupola/core/utils/url_utils.dart';
 import 'package:cupola/features/discover/presentation/library_calendar_provider.dart'
     show calendarClockProvider;
-import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/settings/data/connection_reach_provider.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/shell/domain/shell_audience.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 
 /// One module's last drawing: its name in the store, the shape of its data,
 /// the services it reads (whose connections the drawing is valid for), and
@@ -168,17 +167,13 @@ ImageSource resolveStoredImage(
       );
     case StoredStreamImage(:final service, :final connectionId, :final path):
       if (settings.instanceById(connectionId) == null) return noImage;
-      final source = switch (service) {
-        ServiceKey.jellyfin =>
-          ref
-              .read(jellyfinClientForProvider(connectionId))
-              .imageFor(path, width: image.width),
-        ServiceKey.plex =>
-          ref
-              .read(plexClientForProvider(connectionId))
-              .imageFor(path, width: image.width),
-        _ => null,
-      };
+      // A picture kept against anything but a media server has no client to
+      // resolve it through, and is drawn as none.
+      final source = service.isMediaServer
+          ? ref
+                .read(streamBackendOf(service).clientFor(connectionId))
+                .imageFor(path, width: image.width)
+          : null;
       return source ?? noImage;
   }
 }

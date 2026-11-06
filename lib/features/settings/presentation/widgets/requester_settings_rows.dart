@@ -34,8 +34,7 @@ class RequesterAccountCard extends ConsumerWidget {
             if (instance.isConfigured || instance.isSignedOut)
               if (instance.service == ServiceKey.seerr &&
                       instance.account != null ||
-                  instance.service == ServiceKey.jellyfin ||
-                  instance.service == ServiceKey.plex)
+                  instance.service.isMediaServer)
                 instance,
         ],
       ),

@@ -615,9 +615,7 @@ class _MediaPageState extends ConsumerState<MediaPage> {
     final shown = [
       for (final row in rows)
         if (audience == Audience.operator ||
-            (row is MediaConnectionRow &&
-                (row.service == ServiceKey.jellyfin ||
-                    row.service == ServiceKey.plex)))
+            (row is MediaConnectionRow && row.service.isMediaServer))
           row,
     ];
     // The one image that lights the room: the backdrop, else the poster. Until

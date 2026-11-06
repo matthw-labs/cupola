@@ -15,7 +15,6 @@ import 'package:cupola/features/discover/data/seerr_service.dart';
 import 'package:cupola/features/discover/domain/seerr_numbering.dart';
 import 'package:cupola/features/discover/domain/seerr_server_facts.dart';
 import 'package:cupola/features/discover/domain/seerr_media_copy.dart';
-import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/media/domain/media_collection.dart';
 import 'package:cupola/features/media/domain/media_copies.dart';
 import 'package:cupola/features/media/domain/media_key.dart';
@@ -23,7 +22,6 @@ import 'package:cupola/features/media/domain/media_reading.dart';
 import 'package:cupola/features/media/domain/media_rows.dart';
 import 'package:cupola/features/movies/data/radarr_service.dart';
 import 'package:cupola/features/movies/domain/models/radarr_movie.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/series/data/sonarr_service.dart';
 import 'package:cupola/features/series/domain/models/sonarr_series.dart';
 import 'package:cupola/features/series/presentation/series_provider.dart';
@@ -34,6 +32,7 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/stream_external_match.dart';
 import 'package:cupola/features/stream/domain/stream_server_client.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 
 /// One source of a Media page: a title, read through one connection.
 ///
@@ -179,11 +178,8 @@ final mediaStreamCopyProvider = FutureProvider.autoDispose
         ),
       );
       final client = switch (service) {
-        ServiceKey.jellyfin => ref.watch(
-          jellyfinClientForProvider(source.connectionId),
-        ),
-        ServiceKey.plex => ref.watch(
-          plexClientForProvider(source.connectionId),
+        final media? when media.isMediaServer => ref.watch(
+          streamBackendOf(media).clientFor(source.connectionId),
         ),
         _ => throw ArgumentError.value(
           source.connectionId,
@@ -456,7 +452,7 @@ final mediaRowsProvider = Provider.autoDispose.family<List<MediaRow>, MediaKey>(
     MediaSource sourceOf(ServiceInstance connection) =>
         (key: key, connectionId: connection.id);
 
-    for (final service in const [ServiceKey.jellyfin, ServiceKey.plex]) {
+    for (final service in mediaServers) {
       for (final connection in _configured(ref, service)) {
         final reading = MediaReading.of(
           ref.watch(mediaStreamCopyProvider(sourceOf(connection))),
@@ -487,8 +483,7 @@ final mediaRowsProvider = Provider.autoDispose.family<List<MediaRow>, MediaKey>(
     // With no media server of Cupola's own, Seerr's word that the title is
     // on the one Seerr is set up with, and its link to it there (rule 9).
     final players = [
-      for (final service in const [ServiceKey.jellyfin, ServiceKey.plex])
-        ..._configured(ref, service),
+      for (final service in mediaServers) ..._configured(ref, service),
     ];
     if (players.isEmpty) {
       for (final seerr in seerrReadings) {
@@ -743,9 +738,11 @@ final mediaSeerrNumberingProvider = FutureProvider.autoDispose
 void retryMediaRow(WidgetRef ref, MediaKey key, MediaRow row) {
   if (row is! MediaConnectionRow) return;
   final source = (key: key, connectionId: row.connection.id);
+  if (row.service.isMediaServer) {
+    ref.invalidate(mediaStreamCopyProvider(source));
+    return;
+  }
   switch (row.service) {
-    case ServiceKey.jellyfin || ServiceKey.plex:
-      ref.invalidate(mediaStreamCopyProvider(source));
     case ServiceKey.radarr:
       ref.invalidate(mediaRadarrCopyProvider(source));
     case ServiceKey.sonarr:

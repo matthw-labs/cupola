@@ -19,10 +19,10 @@ import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
 
-/// Now playing: every playback on every Jellyfin and Plex, one row each.
+/// Now playing: every playback on every media server, one row each.
 ///
 /// Absent when nobody is watching and every server answered, and without a
-/// media server (Set up next names Jellyfin). A server that did not answer
+/// media server (Set up next names one). A server that did not answer
 /// keeps the module in its place: nobody watching there is not known.
 class HomeNowPlayingModule extends ConsumerWidget {
   const HomeNowPlayingModule({super.key});

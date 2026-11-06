@@ -22,6 +22,7 @@ import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/models/stream_library.dart';
 import 'package:cupola/features/stream/domain/stream_server_client.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_provider.dart';
 import 'package:cupola/features/stream/presentation/widgets/stream_now_playing_section.dart';
@@ -97,8 +98,8 @@ class StreamOverviewScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     assert(
-      service.domain == ServiceDomain.stream,
-      'StreamOverviewScreen only serves the Stream domain',
+      service.isMediaServer,
+      'StreamOverviewScreen only serves media servers',
     );
 
     // Checked **before** any provider is reached. `jellyfinClientProvider` and
@@ -193,16 +194,15 @@ class _OverviewBody extends ConsumerWidget {
       );
       ref.invalidate(streamSessionsForProvider(connection));
       ref.invalidate(streamLibrariesForProvider(connection));
+      final backend = streamBackendOf(service);
+      ref.invalidate(backend.sessions);
+      ref.invalidate(backend.libraries);
+      // The regions only Plex draws.
       if (_isPlex) {
-        ref.invalidate(plexSessionsProvider);
-        ref.invalidate(plexLibrariesProvider);
         ref.invalidate(plexOnDeckProvider);
         ref.invalidate(plexOnDeckForProvider(instanceId));
         ref.invalidate(plexCapabilitiesProvider);
         ref.invalidate(plexCapabilitiesForProvider(instanceId));
-      } else {
-        ref.invalidate(jellyfinSessionsProvider);
-        ref.invalidate(jellyfinLibrariesProvider);
       }
     }
 
@@ -252,7 +252,7 @@ class _OverviewBody extends ConsumerWidget {
                   instanceId: instanceId,
                   sessions: sessions,
                 ),
-                if (!_isPlex &&
+                if (service.speaksMediaBrowser &&
                     ref.watch(
                       jellyfinLacksAdministratorForProvider(instanceId),
                     ))
@@ -502,7 +502,7 @@ class _LibrariesSection extends ConsumerWidget {
     // `/Library/VirtualFolders` is elevated on Jellyfin, so a household
     // member's token is refused it: the Libraries tab says so calmly, and so
     // does this region, rather than drawing the refusal as a fault.
-    if (service == ServiceKey.jellyfin &&
+    if (service.speaksMediaBrowser &&
         ref.watch(jellyfinLacksAdministratorForProvider(instanceId))) {
       return ServiceOverviewSection(
         service: service,
@@ -545,11 +545,7 @@ class _LibrariesSection extends ConsumerWidget {
               instanceId: instanceId,
             )),
           );
-          ref.invalidate(
-            service == ServiceKey.jellyfin
-                ? jellyfinLibrariesProvider
-                : plexLibrariesProvider,
-          );
+          ref.invalidate(streamBackendOf(service).libraries);
         },
         skeleton: const ServiceOverviewRowsSkeleton(rows: 2),
         isEmpty: (list) => list.isEmpty,

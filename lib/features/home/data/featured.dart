@@ -20,19 +20,18 @@ import 'package:cupola/features/home/data/last_known/my_requests_last_known.dart
 import 'package:cupola/features/home/data/resume.dart';
 import 'package:cupola/features/home/domain/featured.dart';
 import 'package:cupola/features/home/domain/home_module.dart';
-import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/media/domain/media_copies.dart';
 import 'package:cupola/features/media/domain/media_key.dart';
 import 'package:cupola/features/media/domain/media_reading.dart';
 import 'package:cupola/features/media/domain/media_series.dart'
     show mediaNextEpisode;
 import 'package:cupola/features/media/presentation/media_sources_provider.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/services/presentation/services_provider.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/shell/domain/shell_audience.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 
 /// Featured's slides: the first title in progress, the newest movie or
 /// series that arrived, and a movie or an episode dated today, as their
@@ -48,7 +47,7 @@ final featuredProvider = FutureProvider.autoDispose<List<FeaturedSlide>>((
   final settings = ref.watch(currentSettingsProvider);
   bool any(List<ServiceKey> services) =>
       services.any(settings.isServiceConfigured);
-  final players = any(const [ServiceKey.jellyfin, ServiceKey.plex]);
+  final players = any(mediaServers);
   final arrs = any(const [ServiceKey.radarr, ServiceKey.sonarr]);
   if (!players && !arrs) return const [];
 
@@ -130,9 +129,9 @@ class FeaturedSourcesSilent implements Exception {
 ImageSource? _resumeArt(Ref ref, ResumeRow row) {
   final path = row.item.backdropPath;
   if (path == null || path.isEmpty) return null;
-  final server = row.service == ServiceKey.jellyfin
-      ? ref.watch(jellyfinClientForProvider(row.instanceId))
-      : ref.watch(plexClientForProvider(row.instanceId));
+  final server = ref.watch(
+    streamBackendOf(row.service).clientFor(row.instanceId),
+  );
   return server.imageFor(path, width: featuredArtWidth);
 }
 
@@ -148,7 +147,7 @@ Future<FeaturedPlay?> _playOf(Ref ref, ArrHistoryEntry entry) async {
       : MediaKey.tv(tmdb);
   final settings = ref.read(currentSettingsProvider);
   final servers = [
-    for (final service in const [ServiceKey.jellyfin, ServiceKey.plex])
+    for (final service in mediaServers)
       ...settings.configuredInstancesOf(service),
   ];
   final answers = await Future.wait([

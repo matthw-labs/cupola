@@ -9,11 +9,10 @@ import 'package:cupola/features/discover/domain/collection_shelf.dart';
 import 'package:cupola/features/discover/domain/library_shelves.dart';
 import 'package:cupola/features/discover/domain/models/collection_detail.dart';
 import 'package:cupola/features/discover/presentation/discover_details_provider.dart';
-import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/movies/data/radarr_service.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 
 /// Because you watched: what the household finished last, on any media
 /// server, and TMDB's recommendations for it as Seerr relays them.
@@ -25,21 +24,19 @@ typedef CollectionInvitation = ({
   CollectionShelf shelf,
 });
 
-/// Whether the atrium has a media server to ask what was watched: Jellyfin
-/// with a viewer chosen, or Plex.
+/// Whether the atrium has a media server to ask what was watched: one that
+/// is set up and, where its watch state is a household member's
+/// ([ServiceKeyExtension.needsViewerSelection]), has one chosen.
 final hasWatchHistoryProvider = Provider<bool>((ref) {
-  final viewer = ref
-      .watch(activeInstanceProvider(ServiceKey.jellyfin))
-      ?.viewerId;
-  final (jellyfin, plex) = ref.watch(
-    currentSettingsProvider.select(
-      (s) => (
-        s.isServiceConfigured(ServiceKey.jellyfin),
-        s.isServiceConfigured(ServiceKey.plex),
-      ),
-    ),
-  );
-  return jellyfin && (viewer ?? '').isNotEmpty || plex;
+  return mediaServers.any((service) {
+    final configured = ref.watch(
+      currentSettingsProvider.select((s) => s.isServiceConfigured(service)),
+    );
+    if (!configured) return false;
+    if (!service.needsViewerSelection) return true;
+    final viewer = ref.watch(activeInstanceProvider(service))?.viewerId;
+    return (viewer ?? '').isNotEmpty;
+  });
 });
 
 /// Null when nothing watched carries a TMDB id, or TMDB recommends nothing
@@ -49,10 +46,9 @@ final becauseYouWatchedProvider = FutureProvider<WatchedShelf?>((ref) async {
   if (!ref.watch(hasWatchHistoryProvider)) return null;
   final settings = ref.read(currentSettingsProvider);
   final servers = await Future.wait([
-    if (settings.isServiceConfigured(ServiceKey.jellyfin))
-      ref.watch(jellyfinServerProvider).getRecentlyWatched(),
-    if (settings.isServiceConfigured(ServiceKey.plex))
-      ref.watch(plexServerProvider).getRecentlyWatched(),
+    for (final service in mediaServers)
+      if (settings.isServiceConfigured(service))
+        ref.watch(streamBackendOf(service).lensClient).getRecentlyWatched(),
   ]);
   final latest = latestRecommendable(servers);
   if (latest == null) return null;

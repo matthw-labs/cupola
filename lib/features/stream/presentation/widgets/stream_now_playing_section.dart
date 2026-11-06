@@ -8,6 +8,7 @@ import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/title_light.dart';
 import 'package:cupola/core/utils/snack_bar_helper.dart';
 import 'package:cupola/core/widgets/widgets.dart';
+import 'package:cupola/features/jellyfin/data/jellyfin_client.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_capability.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
@@ -172,7 +173,12 @@ class StreamNowPlayingSection extends ConsumerWidget {
   }) {
     final tab = switch (service) {
       ServiceKey.plex => ServiceTab.activities,
-      _ => ServiceTab.activity,
+      ServiceKey.jellyfin => ServiceTab.activity,
+      _ => throw ArgumentError.value(
+        service.name,
+        'service',
+        'has no playback tab',
+      ),
     };
     final first = value.value?.firstOrNull;
     return ServiceOverviewSection(
@@ -343,7 +349,8 @@ class StreamNowPlayingSection extends ConsumerWidget {
     return () => _confirmStop(context, ref, session);
   }
 
-  /// Pause / resume, and only on Jellyfin.
+  /// Pause / resume, and only on a server that speaks the MediaBrowser API
+  /// ([ServiceKeyExtension.speaksMediaBrowser]).
   ///
   /// `/Sessions/{id}/Playing/Pause` is a Jellyfin remote-control command relayed
   /// over the WebSocket the server already holds to that client. Plex has no
@@ -356,20 +363,30 @@ class StreamNowPlayingSection extends ConsumerWidget {
     WidgetRef ref,
     StreamSession session,
   ) {
-    if (service != ServiceKey.jellyfin || session.id.isEmpty) return null;
+    if (!service.speaksMediaBrowser || session.id.isEmpty) return null;
     return () => _togglePause(context, ref, session);
   }
 
-  /// Send a line of text to the player. Jellyfin only, same reason as
-  /// [_pauseHandler].
+  /// Send a line of text to the player. Only where [_pauseHandler] is, for the
+  /// same reason.
   VoidCallback? _messageHandler(
     BuildContext context,
     WidgetRef ref,
     StreamSession session,
   ) {
-    if (service != ServiceKey.jellyfin || session.id.isEmpty) return null;
+    if (!service.speaksMediaBrowser || session.id.isEmpty) return null;
     return () => _sendMessage(context, ref, session);
   }
+
+  /// The client that takes Pause and Message for this connection: the concrete
+  /// one, because those commands are not on `StreamServerClient` (Plex has no
+  /// counterpart). Only reached behind [_pauseHandler] and [_messageHandler],
+  /// so a service that cannot is a bug and says so rather than being handed
+  /// another server's client.
+  JellyfinClient _remoteOf(WidgetRef ref) => switch (service) {
+    ServiceKey.jellyfin => ref.read(jellyfinClientForProvider(instanceId)),
+    _ => throw UnsupportedError('${service.name} takes no remote control'),
+  };
 
   /// Pausing asks nobody: it is the one control here that is instantly
   /// reversible by the person it happens to, and a confirm on it would be
@@ -379,7 +396,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
     WidgetRef ref,
     StreamSession session,
   ) async {
-    final client = ref.read(jellyfinClientForProvider(instanceId));
+    final client = _remoteOf(ref);
     try {
       if (session.isPaused) {
         await client.unpauseSession(session.id);
@@ -396,7 +413,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
           : 'Could not pause playback';
       SnackBarHelper.error(
         context,
-        '$failed. ${writeFailureReason(ServiceKey.jellyfin, error)}',
+        '$failed. ${writeFailureReason(service, error)}',
         cause: error,
       );
     }
@@ -415,9 +432,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
     if (text == null || !context.mounted) return;
 
     try {
-      await ref
-          .read(jellyfinClientForProvider(instanceId))
-          .sendMessage(session.id, text: text);
+      await _remoteOf(ref).sendMessage(session.id, text: text);
       if (!context.mounted) return;
       // "Sent", never "delivered": the server relays it and the client decides
       // whether it has anywhere to draw it. Claiming delivery would be the same
@@ -428,7 +443,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
       SnackBarHelper.error(
         context,
         'Could not send the message. '
-        '${writeFailureReason(ServiceKey.jellyfin, error)}',
+        '${writeFailureReason(service, error)}',
         cause: error,
       );
     }

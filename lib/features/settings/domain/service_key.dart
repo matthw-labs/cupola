@@ -276,7 +276,59 @@ extension ServiceKeyExtension on ServiceKey {
   /// capability so the shared settings screen inserts the control the same way
   /// it decides on `SearchHeadroomCard.appliesTo`, rather than naming a
   /// `ServiceKey` inline.
-  bool get needsViewerSelection => this == ServiceKey.jellyfin;
+  bool get needsViewerSelection => speaksMediaBrowser;
+
+  /// A media server: it holds libraries and items, says who is playing, and
+  /// a `StreamServerClient` reaches it.
+  ///
+  /// What [ServiceDomain.stream] used to mean in code before the domain held
+  /// anything else: the Stream band is a grouping, this is a capability. A
+  /// site that reads libraries, items, sessions or a server's own player asks
+  /// this, never the domain, so a service that joins the band without being a
+  /// media server is never handed a media server's providers.
+  ///
+  /// An exhaustive switch, so the next service declares what it is.
+  bool get isMediaServer => switch (this) {
+    ServiceKey.jellyfin || ServiceKey.plex => true,
+    ServiceKey.seerr ||
+    ServiceKey.radarr ||
+    ServiceKey.sonarr ||
+    ServiceKey.lidarr ||
+    ServiceKey.qbittorrent ||
+    ServiceKey.transmission ||
+    ServiceKey.bazarr ||
+    ServiceKey.truenas ||
+    ServiceKey.dockge ||
+    ServiceKey.prowlarr ||
+    ServiceKey.readarr ||
+    ServiceKey.sabnzbd ||
+    ServiceKey.nzbget ||
+    ServiceKey.unraid ||
+    ServiceKey.nginxProxyManager => false,
+  };
+
+  /// Says who is playing now: its answer becomes rows of Now playing,
+  /// Watching now, a room's figure and its light, and the Stack's counts.
+  ///
+  /// Every media server does; a service that only watches media servers may
+  /// too, without being one ([isMediaServer] stays false for it).
+  bool get givesSessions => isMediaServer;
+
+  /// Speaks the MediaBrowser API, the one Jellyfin forked: an API key with no
+  /// user behind it (so [needsViewerSelection]), sessions that take Pause and
+  /// a message besides Stop, and a server-wide admin console.
+  bool get speaksMediaBrowser => this == ServiceKey.jellyfin;
+
+  /// Its shell mounts `ConnectionInViewScope`, so the page header names the
+  /// connection the visit has in view and the shell's lens strip stays quiet
+  /// at a tab's root (a second chip would read the location instead and could
+  /// disagree).
+  ///
+  /// The Stream band's shells all do, which is why the strip asked the domain
+  /// before this had a name. It is the band's, not [isMediaServer]'s: a
+  /// service in the band whose shell does not mount the scope is excluded
+  /// here, in this getter, never at the strip.
+  bool get mountsConnectionInView => domain == ServiceDomain.stream;
 
   /// The port this service listens on out of the box.
   ///
@@ -810,3 +862,18 @@ extension ServiceKeyExtension on ServiceKey {
     }
   }
 }
+
+/// The media servers, in registry order ([ServiceKeyExtension.isMediaServer]).
+///
+/// The one list a site walks when it means "every media server": never a
+/// literal `[ServiceKey.jellyfin, ServiceKey.plex]`, which a new media server
+/// would silently miss.
+final List<ServiceKey> mediaServers = List.unmodifiable(
+  ServiceKey.values.where((s) => s.isMediaServer),
+);
+
+/// The services that say who is playing now, in registry order
+/// ([ServiceKeyExtension.givesSessions]).
+final List<ServiceKey> sessionServices = List.unmodifiable(
+  ServiceKey.values.where((s) => s.givesSessions),
+);

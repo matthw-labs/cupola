@@ -56,6 +56,10 @@ enum HomeModule {
   ),
 
   /// What somebody started and did not finish.
+  ///
+  /// [services] is spelled out because an enum argument is const; the guard
+  /// `test/features/home/domain/home_module_services_test.dart` holds it to
+  /// `mediaServers`.
   continueWatching(
     audience: Audience.operator,
     label: 'Continue watching',
@@ -111,6 +115,10 @@ enum HomeModule {
   ),
 
   /// Who is watching what, and on which screen.
+  ///
+  /// [services] is spelled out because an enum argument is const; the guard
+  /// `test/features/home/domain/home_module_services_test.dart` holds it to
+  /// `sessionServices`.
   nowPlaying(
     audience: Audience.operator,
     label: 'Now playing',

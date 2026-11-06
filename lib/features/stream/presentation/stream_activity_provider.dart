@@ -4,14 +4,12 @@ import 'package:flutter_riverpod/misc.dart' show ProviderBase;
 import 'package:cupola/core/capability/connection_capability.dart';
 import 'package:cupola/core/lifecycle/gated_poll.dart';
 import 'package:cupola/core/providers/provider_retry.dart';
-import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_capability.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/stream/domain/models/stream_session.dart';
-import 'package:cupola/features/stream/domain/stream_server_client.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 
 /// One playback plus which server is serving it.
 ///
@@ -42,8 +40,9 @@ typedef StreamConnection = ({ServiceKey service, String instanceId});
 
 /// What is playing on one named connection of a media server.
 ///
-/// The lens's own connection collapses onto [jellyfinSessionsProvider] or
-/// [plexSessionsProvider], so the service's own Now playing page and Activity
+/// The lens's own connection collapses onto the service's sessions provider
+/// ([StreamBackend.sessions]: `jellyfinSessionsProvider`,
+/// `plexSessionsProvider`), so the service's own Now playing page and Activity
 /// read one cache and an override of either still reaches both. Every other
 /// connection asks its own client. Read by both [streamActivityProvider] and
 /// [streamActivityOfflineProvider], so a second Jellyfin is asked once.
@@ -52,17 +51,12 @@ final streamSessionsForProvider =
       ref,
       key,
     ) async {
+      final backend = streamBackendOf(key.service);
       final lens = ref.watch(activeInstanceProvider(key.service))?.id ?? '';
-      final isJellyfin = key.service == ServiceKey.jellyfin;
       if (key.instanceId.isEmpty || key.instanceId == lens) {
-        return isJellyfin
-            ? ref.watch(jellyfinSessionsProvider.future)
-            : ref.watch(plexSessionsProvider.future);
+        return ref.watch(backend.sessions.future);
       }
-      final StreamServerClient client = isJellyfin
-          ? ref.watch(jellyfinClientForProvider(key.instanceId))
-          : ref.watch(plexClientForProvider(key.instanceId));
-      return client.getSessions();
+      return ref.watch(backend.clientFor(key.instanceId)).getSessions();
     }, retry: noProviderRetry);
 
 /// How often a media server's own pages read its sessions again while seen.
@@ -93,9 +87,7 @@ final streamSessionsPollProvider = Provider.autoDispose
         if (key.instanceId.isNotEmpty && key.instanceId != lens) {
           return streamSessionsForProvider(key);
         }
-        return key.service == ServiceKey.jellyfin
-            ? jellyfinSessionsProvider
-            : plexSessionsProvider;
+        return streamBackendOf(key.service).sessions;
       }
 
       final read = source();
@@ -112,7 +104,7 @@ final streamSessionsPollProvider = Provider.autoDispose
 List<({StreamConnection key, String? name})> _streamConnections(Ref ref) {
   final settings = ref.watch(currentSettingsProvider);
   return [
-    for (final service in ServiceDomain.stream.services)
+    for (final service in sessionServices)
       for (final instance in settings.configuredInstancesOf(service))
         (
           key: (service: service, instanceId: instance.id),
