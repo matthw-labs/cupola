@@ -96,6 +96,28 @@ final class TracearrMediaIds {
   bool get hasExternalId => tmdb != null || tvdb != null || imdb != null;
 }
 
+/// What `GET media/{ref}` says of a title, as far as opening it goes: its kind
+/// and the external ids it is known by. Tracearr's own reply holds a good deal
+/// more (availability per server, merged ids); none of it is read.
+final class TracearrMediaIdentity {
+  const TracearrMediaIdentity({
+    this.type = TracearrMediaType.unknown,
+    this.tmdb,
+    this.tvdb,
+  });
+
+  factory TracearrMediaIdentity.fromJson(TracearrJson json) =>
+      TracearrMediaIdentity(
+        type: TracearrMediaType.fromWire(json['media_type']),
+        tmdb: json.integer('tmdb_id'),
+        tvdb: json.integer('tvdb_id'),
+      );
+
+  final TracearrMediaType type;
+  final int? tmdb;
+  final int? tvdb;
+}
+
 /// What is being played.
 final class TracearrMedia {
   const TracearrMedia({

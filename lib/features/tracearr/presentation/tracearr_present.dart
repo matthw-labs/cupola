@@ -140,9 +140,11 @@ String tracearrMediaTitleOf(TracearrMedia media) {
 /// everything else.
 ///
 /// An episode's ids on a Tracearr row are the episode's, not the series':
-/// the row names the series by Tracearr's own id, which Cupola cannot open a
-/// page by. So an episode, a track or a title with no external id is a row
-/// that is only read, never a door that leads to the wrong title or nowhere.
+/// the row names the series by Tracearr's own id (`show_media_id`), which
+/// Cupola cannot open a page by, so here an episode, a track or a title with no
+/// external id is null, never a door that leads to the wrong title or nowhere.
+/// An episode's series is found one read further, through
+/// [tracearrSeriesKeyOf].
 MediaKey? tracearrMediaKeyOf(TracearrMedia media) {
   final tmdb = media.ids.tmdb;
   final tvdb = media.ids.tvdb;
@@ -154,6 +156,18 @@ MediaKey? tracearrMediaKeyOf(TracearrMedia media) {
     TracearrMediaType.show when tvdb != null && tvdb > 0 => MediaKey.tvdb(tvdb),
     _ => null,
   };
+}
+
+/// The page of the series Tracearr names by `show_media_id`, from what
+/// `media/{id}` says of it: by its TMDB id, else by its TheTVDB id. Null when
+/// that is not a series, or has neither.
+MediaKey? tracearrSeriesKeyOf(TracearrMediaIdentity series) {
+  if (series.type != TracearrMediaType.show) return null;
+  final tmdb = series.tmdb;
+  final tvdb = series.tvdb;
+  if (tmdb != null && tmdb > 0) return MediaKey.tv(tmdb);
+  if (tvdb != null && tvdb > 0) return MediaKey.tvdb(tvdb);
+  return null;
 }
 
 /// What Tracearr did about a violation, in a person's words. The two actions

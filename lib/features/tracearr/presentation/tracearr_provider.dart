@@ -5,14 +5,15 @@ import 'package:cupola/features/settings/data/connection_providers.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/services/domain/dashboard_decision.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/media/domain/media_key.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
-import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
 
 /// The size of the page a count that cannot be summed is read at. A page that
 /// came back with another following has counted rows, not the set, so its
@@ -56,13 +57,6 @@ final tracearrHealthProvider = FutureProvider<TracearrHealth>(
 /// The servers Tracearr watches, with what it last saw of each.
 final tracearrServersProvider = FutureProvider<TracearrServers>(
   (ref) => ref.watch(tracearrClientProvider).getServers(),
-  retry: noProviderRetry,
-);
-
-/// What is playing now, with the summary above it. Read again by a pull; the
-/// live event stream that keeps it moving is a later lot's.
-final tracearrStreamsProvider = FutureProvider<TracearrStreams>(
-  (ref) => ref.watch(tracearrClientProvider).getStreams(),
   retry: noProviderRetry,
 );
 
@@ -118,3 +112,18 @@ final tracearrFlaggedProvider =
           ),
       retry: noProviderRetry,
     );
+
+/// The page of the series an episode belongs to, or null when Tracearr does
+/// not know the series or holds no external id for it.
+///
+/// An episode's own ids are the episode's, so the series is read once through
+/// Tracearr's id of it (`show_media_id`), when the sheet of an episode is open.
+/// Dropped with the sheet: nothing keeps an answer that a later scan of the
+/// library could improve.
+final tracearrSeriesKeyProvider = FutureProvider.autoDispose
+    .family<MediaKey?, String>((ref, showMediaId) async {
+      final series = await ref
+          .watch(tracearrClientProvider)
+          .getMediaIdentity(TracearrMediaRef.id(showMediaId));
+      return series == null ? null : tracearrSeriesKeyOf(series);
+    }, retry: noProviderRetry);

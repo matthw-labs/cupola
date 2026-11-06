@@ -23,7 +23,13 @@ const int kTracearrPersonHistory = 10;
 /// A household has a handful and a big server a few hundred; past
 /// [kTracearrDirectoryPages] pages we stop asking and work with what we have.
 /// People whose every account was removed are not listed, as on the Users tab.
-final tracearrPeopleProvider = FutureProvider<List<TracearrUser>>((ref) async {
+///
+/// Dropped when nothing is watching it, which is the point: a read that failed
+/// once, or a list that has since gained a person in Tracearr, is read again
+/// the next time something asks, instead of being kept for the whole session.
+final tracearrPeopleProvider = FutureProvider.autoDispose<List<TracearrUser>>((
+  ref,
+) async {
   final client = ref.watch(tracearrClientProvider);
   final people = <TracearrUser>[];
   String? cursor;
@@ -52,42 +58,42 @@ String tracearrPersonName(TracearrUser user) {
 ///
 /// A name is a person's Tracearr name, the name the owner gave them, or the
 /// name of any account of theirs on a server.
-final tracearrPersonDirectoryProvider = FutureProvider<Map<String, String?>>((
-  ref,
-) async {
-  final people = await ref.watch(tracearrPeopleProvider.future);
-  final directory = <String, String?>{};
-  void add(String? name, String id) {
-    final key = name?.trim().toLowerCase() ?? '';
-    if (key.isEmpty) return;
-    directory[key] = directory.containsKey(key) && directory[key] != id
-        ? null
-        : id;
-  }
+///
+/// Dropped with [tracearrPeopleProvider] it is read from, for the same reason.
+final tracearrPersonDirectoryProvider =
+    FutureProvider.autoDispose<Map<String, String?>>((ref) async {
+      final people = await ref.watch(tracearrPeopleProvider.future);
+      final directory = <String, String?>{};
+      void add(String? name, String id) {
+        final key = name?.trim().toLowerCase() ?? '';
+        if (key.isEmpty) return;
+        directory[key] = directory.containsKey(key) && directory[key] != id
+            ? null
+            : id;
+      }
 
-  for (final user in people) {
-    // Each person counts once per name, so a person who goes by the same
-    // name everywhere is not ambiguous with themselves.
-    final names = {
-      user.username,
-      user.identityName,
-      for (final account in user.activeAccounts) account.username,
-    };
-    for (final name in names) {
-      add(name, user.id);
-    }
-  }
-  return directory;
-}, retry: noProviderRetry);
+      for (final user in people) {
+        // Each person counts once per name, so a person who goes by the same
+        // name everywhere is not ambiguous with themselves.
+        final names = {
+          user.username,
+          user.identityName,
+          for (final account in user.activeAccounts) account.username,
+        };
+        for (final name in names) {
+          add(name, user.id);
+        }
+      }
+      return directory;
+    }, retry: noProviderRetry);
 
 /// The Tracearr id of the person a row is about: the row's own when it carries
 /// one (history and violations do), else the one person the directory knows by
 /// that name. Null when nobody, or more than one, does.
-final tracearrPersonIdProvider =
-    FutureProvider.family<String?, ({String? id, String name})>((
-      ref,
-      who,
-    ) async {
+///
+/// Dropped when the sheet that asks for it closes, with the directory under it.
+final tracearrPersonIdProvider = FutureProvider.autoDispose
+    .family<String?, ({String? id, String name})>((ref, who) async {
       final id = who.id;
       if (id != null) return id;
       final directory = await ref.watch(tracearrPersonDirectoryProvider.future);

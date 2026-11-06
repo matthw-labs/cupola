@@ -366,9 +366,9 @@ const _oneTracearr = SettingsModel(
   ],
 );
 
-/// Invented, and not read off a real Tracearr: the places are made up, and the
-/// `data` spellings are the ones the model expects. One action went through,
-/// one failed and one was skipped.
+/// Made up: the places are invented, but the `data` is the shape Tracearr 3.1.4
+/// writes (the speed condition and its details). One action went through, one
+/// failed and one was skipped.
 TracearrViolation _travel() => TracearrViolation.fromJson({
   'id': 'v1',
   'severity': 'high',
@@ -379,10 +379,27 @@ TracearrViolation _travel() => TracearrViolation.fromJson({
   'server': {'id': 'server-1', 'name': 'Plex Living Room', 'type': 'plex'},
   'user': {'id': 'person-1', 'username': 'Anna'},
   'data': {
-    'from': {'city': 'Valmora', 'region': 'North Reach', 'country': 'Nordavia'},
-    'to': {'city': 'Port Aster', 'region': 'Eastmark', 'country': 'Eastmark'},
-    'distance_km': 5120.4,
-    'time_diff_minutes': 95,
+    'evidence': [
+      {
+        'groupIndex': 0,
+        'matched': true,
+        'conditions': [
+          {
+            'field': 'travel_speed_kmh',
+            'operator': 'gt',
+            'threshold': 500,
+            'actual': 3413.6,
+            'matched': true,
+            'details': {
+              'distance': 5120.4,
+              'timeDeltaHours': 1.5,
+              'previousLocation': {'city': 'Valmora', 'country': 'Nordavia'},
+              'currentLocation': {'city': 'Port Aster', 'country': 'Eastmark'},
+            },
+          },
+        ],
+      },
+    ],
   },
   'actions': [
     {'type': 'notify', 'success': true, 'skipped': false},

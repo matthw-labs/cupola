@@ -55,6 +55,11 @@ final RegExp _uuid = RegExp(
   r'[0-9a-fA-F]{12}$',
 );
 
+/// Whether [value] is spelt like one of Tracearr's ids, which are UUIDs. The
+/// server answers a 400 to anything else where an id is asked for, and a 400
+/// reads as a failure of Tracearr when the id is only a bad link.
+bool isTracearrId(String value) => _uuid.hasMatch(value.trim());
+
 /// The person a link names (`?user=`), or null for no filter.
 ///
 /// Tracearr answers a 400 to a `user_id` that is not a UUID, which the tab
@@ -62,7 +67,7 @@ final RegExp _uuid = RegExp(
 /// old link, a hand-written one) opens the tab unfiltered instead.
 String? tracearrUserParam(String? value) {
   final id = value?.trim() ?? '';
-  return _uuid.hasMatch(id) ? id : null;
+  return isTracearrId(id) ? id : null;
 }
 
 /// The Violations tab's state: newest first, a page at a time, narrowed by the
@@ -126,13 +131,18 @@ typedef TracearrViolationKey = ({String id, String instanceId});
 ///
 /// Read through the connection the link named (or the lens), so a card in
 /// Needs you that came off a second Tracearr opens on that one.
+///
+/// An id that is not spelt like Tracearr's is a violation that is not there,
+/// answered with no request: the server would call it a 400, and an old link
+/// or a bad notification payload would read as a failure of Tracearr with a
+/// Retry that cannot succeed.
 final tracearrViolationProvider =
-    FutureProvider.family<TracearrViolation?, TracearrViolationKey>(
-      (ref, key) => ref
+    FutureProvider.family<TracearrViolation?, TracearrViolationKey>((ref, key) {
+      if (!isTracearrId(key.id)) return Future.value();
+      return ref
           .watch(tracearrClientForProvider(key.instanceId))
-          .getViolation(key.id),
-      retry: noProviderRetry,
-    );
+          .getViolation(key.id);
+    }, retry: noProviderRetry);
 
 /// The owner's two writes for a connection (empty id: the lens), or null while
 /// no owner is signed in on it.

@@ -62,8 +62,8 @@ import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
-import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 import 'package:cupola/features/truenas/presentation/truenas_provider.dart';
 import 'package:cupola/features/truenas/domain/models/dashboard.dart';
@@ -225,7 +225,7 @@ List<ProviderOrFamily> serviceKpiSources(ServiceKey service) =>
       ],
       ServiceKey.emby => [embySessionsProvider, embyStrictLibrariesProvider],
       ServiceKey.tracearr => [
-        tracearrStreamsProvider,
+        tracearrLiveProvider,
         tracearrTodayProvider,
         tracearrUnseenViolationsProvider,
         tracearrServersProvider,
@@ -1830,8 +1830,13 @@ List<ServiceKpi> _npmKpisFrom(
 /// rail's does, so the page says the server did not answer once, not four
 /// times. The unseen figure is a **floor** (`25+`) when more follow the first
 /// page, since the API gives no total.
+///
+/// **Streams now counts the rows Live draws** (`tracearrLiveProvider`, the
+/// list the Overview's Playing section also reads), so the rail and the section
+/// cannot disagree after an event moves the list. Only the count is selected:
+/// a progress tick, which moves no row, must not rebuild the rail.
 Future<List<ServiceKpi>> _tracearrKpis(Ref ref) => _tracearrKpisFrom(
-  ref.watch(tracearrStreamsProvider.future),
+  ref.watch(tracearrLiveProvider.selectAsync((live) => live.streams.length)),
   ref.watch(tracearrTodayProvider.future),
   ref.watch(tracearrUnseenViolationsProvider.future),
   ref.watch(tracearrServersProvider.future),
@@ -1840,7 +1845,7 @@ Future<List<ServiceKpi>> _tracearrKpis(Ref ref) => _tracearrKpisFrom(
 Future<List<ServiceKpi>> _tracearrKpisFor(Ref ref, String instanceId) {
   final client = ref.watch(tracearrClientForProvider(instanceId));
   return _tracearrKpisFrom(
-    client.getStreams(),
+    client.getStreams().then((live) => live.streams.length),
     client.getToday(),
     client.getViolations(
       pageSize: kTracearrCountPage,
@@ -1851,7 +1856,7 @@ Future<List<ServiceKpi>> _tracearrKpisFor(Ref ref, String instanceId) {
 }
 
 Future<List<ServiceKpi>> _tracearrKpisFrom(
-  Future<TracearrStreams> streams,
+  Future<int> streams,
   Future<TracearrToday> today,
   Future<TracearrPage<TracearrViolation>> unseen,
   Future<TracearrServers> servers,
@@ -1869,7 +1874,7 @@ Future<List<ServiceKpi>> _tracearrKpisFrom(
     _ => null,
   };
 
-  final playing = read<TracearrStreams>(0);
+  final playing = read<int>(0);
   final day = read<TracearrToday>(1);
   final unseenPage = read<TracearrPage<TracearrViolation>>(2);
   final watched = read<TracearrServers>(3);
@@ -1884,9 +1889,9 @@ Future<List<ServiceKpi>> _tracearrKpisFrom(
   return [
     _figure(
       label: 'Streams now',
-      value: playing == null ? null : '${playing.summary.total}',
+      value: playing == null ? null : '$playing',
       icon: Icons.play_circle_outline_rounded,
-      tone: playing == null ? null : _activityIf(playing.summary.total > 0),
+      tone: playing == null ? null : _activityIf(playing > 0),
     ),
     // Plays and the time they took, as the spec has it. The day is cut at UTC
     // midnight: Tracearr wants an IANA zone name for its own cut and the app

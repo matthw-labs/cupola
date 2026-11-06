@@ -36,6 +36,7 @@ import 'package:cupola/features/services/presentation/services_provider.dart';
 import 'package:cupola/features/settings/data/connection_reach_provider.dart';
 import 'package:cupola/features/settings/data/route_probe.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 import 'package:cupola/features/transmission/presentation/transmission_provider.dart';
 
 /// The providers the Dashboard's merged regions read from [service] and that
@@ -65,6 +66,10 @@ List<ProviderOrFamily> dashboardSourcesOf(ServiceKey service) =>
       ],
       ServiceKey.dockge => [dockgeStackListProvider],
       ServiceKey.nginxProxyManager => [npmCertificatesProvider],
+      // The violations Needs you reads, one cached page per connection: left
+      // out, a failed read was served again by every Retry and pull, and an
+      // acknowledged violation stayed listed until the app restarted.
+      ServiceKey.tracearr => [tracearrFlaggedProvider],
       ServiceKey.radarr ||
       ServiceKey.sonarr ||
       ServiceKey.lidarr ||
@@ -74,10 +79,7 @@ List<ProviderOrFamily> dashboardSourcesOf(ServiceKey service) =>
       ServiceKey.unraid ||
       ServiceKey.jellyfin ||
       ServiceKey.plex ||
-      ServiceKey.emby ||
-      // Its four sources are the rail's own (`serviceKpiSources`), dropped with
-      // the figures; it feeds no merged region of the Dashboard.
-      ServiceKey.tracearr => const [],
+      ServiceKey.emby => const [],
     };
 
 /// Asks [services] again, everywhere the Dashboard shows them: the probe of

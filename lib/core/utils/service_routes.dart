@@ -186,10 +186,10 @@ class ServiceRoutes {
         'i': instanceId,
       });
 
-  /// The Violations tab narrowed to one person (`?user=`), which is where the
-  /// Users tab leads. [userId] is Tracearr's own id for the person, a UUID: a
-  /// value that is not one is ignored by the tab, since the server answers a
-  /// 400 to it.
+  /// The Violations tab narrowed to one person (`?user=`), which is where a
+  /// person's page leads with its Violations button. [userId] is Tracearr's
+  /// own id for the person (`TracearrUser.id`), a UUID: a value that is not one
+  /// is ignored by the tab, since the server answers a 400 to it.
   static String tracearrViolationsOf(String userId) =>
       _withQuery(tracearrViolations, {'user': userId});
 

@@ -176,8 +176,81 @@ void main() {
       expect(loop.link, TracearrLink.streaming);
 
       final whileDown = polls;
-      await time.advance(tester, const Duration(seconds: 60));
+      await time.advance(tester, const Duration(seconds: 50));
       expect(polls, whileDown, reason: 'no poll while the stream is open');
+    });
+
+    loopTest('a connection that opens and never says a word is given up on '
+        'after ten seconds, and the rows are read meanwhile', (tester) async {
+      make().start();
+      await time.advance(tester, const Duration(seconds: 9));
+      expect(loop.link, TracearrLink.connecting);
+      expect(opened.single.cancelled, isFalse);
+
+      await time.advance(tester, const Duration(seconds: 1));
+      expect(loop.link, TracearrLink.polling);
+      expect(opened.single.cancelled, isTrue);
+      expect(links, [TracearrLink.connecting, TracearrLink.polling]);
+
+      // The wait before the next attempt is the base two seconds, and the poll
+      // starts reading ten seconds after the stream was given up on.
+      await time.advance(tester, const Duration(seconds: 2));
+      expect(opened, hasLength(2));
+      await time.advance(tester, const Duration(seconds: 8));
+      expect(polls, 1);
+    });
+
+    loopTest('a connection that spoke and then goes quiet is given up on '
+        'after a minute', (tester) async {
+      make().start();
+      opened.single.controller.add(const TracearrReady());
+      await tester.pump();
+      expect(loop.link, TracearrLink.streaming);
+
+      await time.advance(tester, const Duration(seconds: 59));
+      expect(loop.link, TracearrLink.streaming);
+
+      await time.advance(tester, const Duration(seconds: 1));
+      expect(loop.link, TracearrLink.polling);
+      expect(opened.single.cancelled, isTrue);
+      expect(
+        opened,
+        hasLength(1),
+        reason: 'the reconnection waits two seconds',
+      );
+      await time.advance(tester, const Duration(seconds: 2));
+      expect(opened, hasLength(2));
+    });
+
+    loopTest('a ping is a sign of life, and moves nothing', (tester) async {
+      make().start();
+      opened.single.controller.add(const TracearrReady());
+      await tester.pump();
+
+      // Pings every 25 seconds for five minutes: the minute's silence never
+      // runs out.
+      for (var i = 0; i < 12; i++) {
+        await time.advance(tester, const Duration(seconds: 25));
+        opened.single.controller.add(const TracearrKeepAlive());
+        await tester.pump();
+      }
+
+      expect(loop.link, TracearrLink.streaming);
+      expect(opened, hasLength(1));
+      expect(polls, 0);
+      expect(heard.single, isA<TracearrReady>());
+    });
+
+    loopTest('a ping is also a first word', (tester) async {
+      make().start();
+      await time.advance(tester, const Duration(seconds: 5));
+      opened.single.controller.add(const TracearrKeepAlive());
+      await tester.pump();
+
+      expect(loop.link, TracearrLink.streaming);
+      await time.advance(tester, const Duration(seconds: 30));
+      expect(loop.link, TracearrLink.streaming);
+      expect(heard, isEmpty);
     });
 
     loopTest('the loop reconnects on that schedule when attempts keep '
@@ -402,6 +475,39 @@ void main() {
       expect(client.reads, 2, reason: 'the opening read and one more');
     });
 
+    providerTest('a read still out when the connection is switched is dropped, '
+        'not written over the new connection\'s rows', (tester) async {
+      final before = _FakeClient([
+        TracearrStreams(streams: [_stream('old')]),
+        TracearrStreams(streams: [_stream('old'), _stream('stale')]),
+      ]);
+      final after = _FakeClient([
+        TracearrStreams(streams: [_stream('new')]),
+      ]);
+      _Switch.first = before;
+      final container = ProviderContainer(
+        overrides: [
+          tracearrClientProvider.overrideWith((ref) => ref.watch(_switch)),
+          pollClockProvider.overrideWithValue(clock),
+        ],
+      );
+      containers.add(container);
+      await container.read(tracearrLiveProvider.future);
+      final notifier = container.read(tracearrLiveProvider.notifier);
+
+      before.hold = Completer<void>();
+      final inFlight = notifier.refresh();
+      container.read(_switch.notifier).use(after);
+      final rebuilt = await container.read(tracearrLiveProvider.future);
+      expect(rebuilt.streams.map((s) => s.id), ['new']);
+
+      before.hold!.complete();
+      await inFlight;
+
+      final rows = container.read(tracearrLiveProvider).requireValue;
+      expect(rows.streams.map((s) => s.id), ['new']);
+    });
+
     providerTest('a read that fails keeps the rows and carries the failure', (
       tester,
     ) async {
@@ -561,10 +667,16 @@ void main() {
     });
 
     testWidgets('a page on screen holds one connection', (tester) async {
-      final (client, _) = await pump(tester, branchActive: true);
+      final (client, container) = await pump(tester, branchActive: true);
 
       expect(client.connections, hasLength(1));
       expect(client.connections.single.hasListener, isTrue);
+
+      // The page goes before the test ends: the connection's silence deadline
+      // is a timer, and the binding checks for pending ones.
+      await tester.pumpWidget(const SizedBox());
+      container.dispose();
+      await tester.pump();
     });
 
     testWidgets('the app leaving the foreground closes it, and coming back '
@@ -582,6 +694,9 @@ void main() {
       await tester.pump();
       expect(client.connections, hasLength(count + 1));
       expect(client.connections.last.hasListener, isTrue);
+      await tester.pumpWidget(const SizedBox());
+      container.dispose();
+      await tester.pump();
     });
 
     testWidgets('leaving the page closes it', (tester) async {
@@ -671,6 +786,19 @@ class _FakeClient extends TracearrClient {
     connections.add(wire);
     return wire.stream;
   }
+}
+
+/// Which client the connection reads through, switched by a test the way a
+/// person switches connections.
+final _switch = NotifierProvider<_Switch, TracearrClient>(_Switch.new);
+
+class _Switch extends Notifier<TracearrClient> {
+  static late TracearrClient first;
+
+  @override
+  TracearrClient build() => first;
+
+  void use(TracearrClient client) => state = client;
 }
 
 /// One connection of the fake client.

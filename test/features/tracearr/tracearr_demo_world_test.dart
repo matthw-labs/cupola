@@ -10,6 +10,7 @@ library;
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cupola/core/models/service_kpi.dart';
 import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
@@ -17,7 +18,9 @@ import 'package:cupola/features/services/presentation/service_kpi_provider.dart'
 import 'package:cupola/features/settings/data/service_connection_provider.dart';
 import 'package:cupola/features/settings/data/service_verification.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/data/tracearr_events.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 
@@ -89,7 +92,7 @@ void main() {
       final harness = await ProfileHarness.start(_household);
       final container = harness.container(retry: (_, _) => null);
 
-      final streams = await container.read(tracearrStreamsProvider.future);
+      final streams = await container.read(tracearrLiveProvider.future);
       final jellyfin = await container.read(jellyfinSessionsProvider.future);
       final emby = await container.read(embySessionsProvider.future);
       final plex = await container.read(plexSessionsProvider.future);
@@ -193,5 +196,30 @@ void main() {
         'Servers': '3 of 3',
       },
     );
+  });
+
+  test('the rail counts the streams Live draws, so an event that moves the '
+      'list moves the figure with it', () async {
+    final harness = await ProfileHarness.start(_household);
+    final container = harness.container(retry: (_, _) => null);
+    final rail = serviceKpiProvider(ServiceKey.tracearr);
+    // The rail is on screen beside the Playing section that reads Live.
+    container.listen(rail, (_, _) {});
+    final live = await container.read(tracearrLiveProvider.future);
+    String streamsNow(List<ServiceKpi> kpis) =>
+        kpis.firstWhere((k) => k.label == 'Streams now').value;
+    expect(streamsNow(await container.read(rail.future)), '3');
+
+    container
+        .read(tracearrLiveProvider.notifier)
+        .apply(TracearrStreamStopped(id: live.streams.first.id));
+
+    expect(
+      container.read(tracearrLiveProvider).requireValue.streams,
+      hasLength(2),
+    );
+    // The rail re-folds on the next turn of the loop, not in the same one.
+    await container.pump();
+    expect(streamsNow(await container.read(rail.future)), '2');
   });
 }

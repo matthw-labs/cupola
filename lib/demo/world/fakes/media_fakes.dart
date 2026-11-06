@@ -2860,6 +2860,40 @@ class TracearrFake extends ServiceFake {
   /// Three violations with no address in them: Anna on two servers at once
   /// (unseen), a rule the owner named himself (unseen, which Cupola can say
   /// only by its name), and an old impossible journey somebody acknowledged.
+  /// What Tracearr 3.x keeps in a violation's `data`: the conditions its
+  /// engine weighed, grouped, each with the figure it measured (`actual`) and
+  /// the one it was held to (`threshold`). The rule is told by the condition's
+  /// `field`, which is how the app tells one (see `TracearrViolation`).
+  static JsonMap _evidence(
+    String field,
+    String operator, {
+    required Object threshold,
+    required Object actual,
+    required String rule,
+    JsonMap? details,
+  }) => {
+    'evidence': [
+      {
+        'groupIndex': 0,
+        'matched': true,
+        'match': 'all',
+        'conditions': [
+          {
+            'field': field,
+            'operator': operator,
+            'threshold': threshold,
+            'actual': actual,
+            'matched': true,
+            'details': ?details,
+          },
+        ],
+      },
+    ],
+    'relatedSessionIds': const <String>[],
+    'ruleName': rule,
+    'matchedGroups': const [0],
+  };
+
   static List<JsonMap> _violations(ServerContext c) {
     JsonMap row(
       int n,
@@ -2872,12 +2906,14 @@ class TracearrFake extends ServiceFake {
       JsonMap data, {
       Duration? acknowledged,
     }) => {
-      'id': 'violation-$n',
+      // A UUID, as every id Tracearr gives is: the screens refuse any other
+      // before asking, since the server answers it with a 400.
+      'id': '00000000-0000-4000-8000-00000000000$n',
       'severity': severity,
       'created_at': c.ago(ago),
       'acknowledged_at': acknowledged == null ? null : c.ago(acknowledged),
       'session_id': null,
-      'rule': {'id': 'rule-$n', 'name': rule},
+      'rule': {'id': '00000000-0000-4000-9000-00000000000$n', 'name': rule},
       'server': {'id': server.id, 'name': server.name, 'type': server.type},
       'user': {
         'id': personId,
@@ -2897,7 +2933,13 @@ class TracearrFake extends ServiceFake {
         annaId,
         (id: jellyfinServerId, name: 'nas', type: 'jellyfin'),
         const Duration(minutes: 12),
-        const {'stream_count': 2, 'max_streams': 1},
+        _evidence(
+          'concurrent_streams',
+          'gt',
+          threshold: 1,
+          actual: 2,
+          rule: 'Concurrent streams',
+        ),
       ),
       row(
         2,
@@ -2907,7 +2949,13 @@ class TracearrFake extends ServiceFake {
         lucaId,
         (id: plexServerId, name: 'basement-nas', type: 'plex'),
         const Duration(hours: 9),
-        const {},
+        _evidence(
+          'is_local_network',
+          'eq',
+          threshold: false,
+          actual: false,
+          rule: 'Unknown device',
+        ),
       ),
       row(
         3,
@@ -2917,12 +2965,29 @@ class TracearrFake extends ServiceFake {
         lucaId,
         (id: embyServerId, name: 'tower', type: 'emby'),
         const Duration(days: 2),
-        const {
-          'from': {'city': 'Turin', 'region': 'Piedmont', 'country': 'Italy'},
-          'to': {'city': 'Lisbon', 'region': 'Lisbon', 'country': 'Portugal'},
-          'distance_km': 1700.0,
-          'time_diff_minutes': 95,
-        },
+        _evidence(
+          'travel_speed_kmh',
+          'gt',
+          threshold: 500,
+          actual: 1700.0 / 1.5,
+          rule: 'Impossible travel',
+          details: const {
+            'distance': 1700.0,
+            'timeDeltaHours': 1.5,
+            'previousLocation': {
+              'lat': 45.07,
+              'lon': 7.69,
+              'city': 'Turin',
+              'country': 'Italy',
+            },
+            'currentLocation': {
+              'lat': 38.72,
+              'lon': -9.14,
+              'city': 'Lisbon',
+              'country': 'Portugal',
+            },
+          },
+        ),
         acknowledged: const Duration(days: 1, hours: 20),
       ),
     ];

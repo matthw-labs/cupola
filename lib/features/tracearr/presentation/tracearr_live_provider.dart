@@ -58,18 +58,31 @@ class TracearrLiveNotifier extends AsyncNotifier<TracearrStreams> {
 
   /// Reads the streams again, in place: the rows stay on the page while the
   /// read is out, and a read already out is not asked twice.
+  ///
+  /// The client is captured when the read starts, and an answer that comes
+  /// back after the connection was switched is dropped: it is another
+  /// Tracearr's streams, and the new build has already read its own.
   Future<void> refresh() async {
     if (!ref.mounted || _heldDuringRead != null) return;
     final held = _heldDuringRead = <TracearrEvent>[];
+    final client = ref.read(tracearrClientProvider);
     try {
-      final fresh = await ref.read(tracearrClientProvider).getStreams();
-      if (!ref.mounted) return;
+      final fresh = await client.getStreams();
+      if (!ref.mounted ||
+          !identical(ref.read(tracearrClientProvider), client)) {
+        return;
+      }
       state = AsyncData(applyTracearrEvents(fresh, held));
     } catch (error, stack) {
-      if (!ref.mounted) return;
+      if (!ref.mounted ||
+          !identical(ref.read(tracearrClientProvider), client)) {
+        return;
+      }
       state = AsyncError<TracearrStreams>(error, stack);
     } finally {
-      _heldDuringRead = null;
+      // Only our own list: a read that outlived a connection switch must not
+      // clear the one a newer read is collecting events into.
+      if (identical(_heldDuringRead, held)) _heldDuringRead = null;
     }
   }
 

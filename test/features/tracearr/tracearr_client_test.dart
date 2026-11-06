@@ -381,6 +381,34 @@ void main() {
       expect(watchers!.watchers, hasLength(2));
     });
 
+    test(
+      'a title is read by its reference, for the ids that open it',
+      () async {
+        final adapter = CapturingHttpAdapter(
+          response: const {
+            'id': 'd1d1d1d1-0000-4000-8000-0000000000b3',
+            'media_type': 'show',
+            'title': 'Harbor Lights',
+            'tmdb_id': 1399,
+            'tvdb_id': 121361,
+            'show_media_id': null,
+          },
+        );
+
+        final identity = await _client(adapter).getMediaIdentity(
+          const TracearrMediaRef.id('d1d1d1d1-0000-4000-8000-0000000000b3'),
+        );
+
+        expect(
+          adapter.lastUri!.path,
+          '/api/v2/public/media/d1d1d1d1-0000-4000-8000-0000000000b3',
+        );
+        expect(identity!.type, TracearrMediaType.show);
+        expect(identity.tmdb, 1399);
+        expect(identity.tvdb, 121361);
+      },
+    );
+
     test('a reference with odd characters is encoded as a segment', () async {
       final adapter = CapturingHttpAdapter(
         response: jsonFixture('tracearr/watchers_movie.json'),
@@ -464,6 +492,10 @@ void main() {
       expect(await client.getUserStats('x'), isNull);
       expect(await client.getViolation('x'), isNull);
       expect(await client.getWatchers(TracearrMediaRef.movieTmdb(1)), isNull);
+      expect(
+        await client.getMediaIdentity(const TracearrMediaRef.id('x')),
+        isNull,
+      );
     });
 
     test('any other failure on a single item is not swallowed', () async {
@@ -724,35 +756,41 @@ void main() {
       expect(request.headers['Authorization'], 'Bearer $_key');
     });
 
-    test('yields typed events across chunks cut anywhere', () async {
-      final text = StringBuffer()
-        ..write('retry: 4000\n\n')
-        ..write(
-          'event: ready\ndata: {"type":"ready","at":"2026-11-06T10:00:00Z","data":{}}\n\n',
-        )
-        ..write(': keep-alive\n\n')
-        ..write('event: nothing.we.know\ndata: {}\n\n')
-        ..write(
-          'event: stream.progress\ndata: {"type":"stream.progress","data":{"id":"s","progress_ms":9}}\n\n',
-        );
-      final all = bytes(text.toString());
-      final chunks = [
-        for (var i = 0; i < all.length; i += 7)
-          all.sublist(i, i + 7 > all.length ? all.length : i + 7),
-      ];
-      final adapter = _EventStreamAdapter(chunks);
-      final retries = <Duration>[];
+    test(
+      'yields typed events, and a ping as a keep-alive, across chunks cut anywhere',
+      () async {
+        final text = StringBuffer()
+          ..write('retry: 4000\n\n')
+          ..write(
+            'event: ready\ndata: {"type":"ready","at":"2026-11-06T10:00:00Z","data":{}}\n\n',
+          )
+          ..write(': keep-alive\n\n')
+          ..write('event: nothing.we.know\ndata: {}\n\n')
+          ..write(
+            'event: stream.progress\ndata: {"type":"stream.progress","data":{"id":"s","progress_ms":9}}\n\n',
+          );
+        final all = bytes(text.toString());
+        final chunks = [
+          for (var i = 0; i < all.length; i += 7)
+            all.sublist(i, i + 7 > all.length ? all.length : i + 7),
+        ];
+        final adapter = _EventStreamAdapter(chunks);
+        final retries = <Duration>[];
 
-      final events = await _client(
-        adapter,
-      ).events(onRetry: retries.add).toList();
+        final events = await _client(
+          adapter,
+        ).events(onRetry: retries.add).toList();
 
-      expect(events, hasLength(2));
-      expect(events[0], isA<TracearrReady>());
-      expect(events[1], isA<TracearrStreamProgress>());
-      expect((events[1] as TracearrStreamProgress).progressMs, 9);
-      expect(retries, [const Duration(seconds: 4)]);
-    });
+        // The comment line is a sign of life, which the loop's silence deadline
+        // listens for; the event we do not know is dropped.
+        expect(events, hasLength(3));
+        expect(events[0], isA<TracearrReady>());
+        expect(events[1], isA<TracearrKeepAlive>());
+        expect(events[2], isA<TracearrStreamProgress>());
+        expect((events[2] as TracearrStreamProgress).progressMs, 9);
+        expect(retries, [const Duration(seconds: 4)]);
+      },
+    );
 
     test('with no filters it sends no query', () async {
       final adapter = _EventStreamAdapter(const []);

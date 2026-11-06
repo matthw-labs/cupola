@@ -369,19 +369,21 @@ void main() {
       expect(page.items[2].severity, TracearrSeverity.low);
     });
 
-    test('impossible travel reads two places, a distance and a time', () {
+    test('impossible travel reads two places, a distance and a time off the '
+        'condition Tracearr weighed', () {
       final travel = page.items[0].impossibleTravel;
 
       expect(travel, isNotNull);
-      expect(travel!.from?.label, 'Valmora, North Reach, Nordavia');
+      expect(travel!.from?.label, 'Valmora, Nordavia');
       expect(travel.to?.city, 'Port Aster');
-      expect(travel.to?.label, 'Port Aster, Eastmark, Eastmark');
+      expect(travel.to?.label, 'Port Aster, Eastmark');
       expect(travel.distanceKm, 5120.4);
-      expect(travel.elapsed, const Duration(minutes: 95));
+      expect(travel.elapsed, const Duration(minutes: 90));
       expect(page.items[0].concurrentStreams, isNull);
     });
 
-    test('concurrent streams read the count and the limit', () {
+    test('concurrent streams read the count and the limit off the condition '
+        'Tracearr weighed', () {
       final concurrent = page.items[1].concurrentStreams;
 
       expect(concurrent, isNotNull);
@@ -390,7 +392,8 @@ void main() {
       expect(page.items[1].impossibleTravel, isNull);
     });
 
-    test('a rule we do not know reads as nothing typed', () {
+    test('a rule we do not know reads as nothing typed, even with a count and '
+        'a limit among its figures', () {
       final unknown = page.items[2];
 
       expect(unknown.rule.name, 'Night owl');
@@ -398,59 +401,188 @@ void main() {
       expect(unknown.concurrentStreams, isNull);
     });
 
-    test('readers accept camel case and other time units', () {
-      TracearrViolation violation(Map<String, Object?> data) =>
-          TracearrViolation.fromJson({'id': 'v', 'data': data});
+    TracearrViolation violation(Map<String, Object?> data) =>
+        TracearrViolation.fromJson({'id': 'v', 'data': data});
 
-      final hours = violation({
+    Map<String, Object?> weighed(
+      String field, {
+      String operator = 'gt',
+      Object? threshold = 2,
+      Object? actual = 4,
+      bool matched = true,
+      Map<String, Object?>? details,
+    }) => {
+      'evidence': [
+        {
+          'groupIndex': 0,
+          'matched': matched,
+          'conditions': [
+            {
+              'field': field,
+              'operator': operator,
+              'threshold': threshold,
+              'actual': actual,
+              'matched': matched,
+              'details': ?details,
+            },
+          ],
+        },
+      ],
+    };
+
+    test('the rule is told by the condition field, and only by it', () {
+      expect(
+        violation(weighed('concurrent_streams')).concurrentStreams?.limit,
+        2,
+      );
+      for (final field in [
+        'unique_ips_in_window',
+        'unique_devices_in_window',
+        'active_session_distance_km',
+      ]) {
+        expect(
+          violation(weighed(field)).concurrentStreams,
+          isNull,
+          reason: field,
+        );
+      }
+      expect(
+        violation(
+          weighed('concurrent_streams', operator: 'gte'),
+        ).concurrentStreams,
+        isNull,
+        reason: 'at the threshold is not over a limit',
+      );
+      expect(
+        violation(
+          weighed('concurrent_streams', matched: false),
+        ).concurrentStreams,
+        isNull,
+        reason: 'a condition that did not match is not what was broken',
+      );
+      expect(
+        violation(
+          weighed('concurrent_streams', threshold: null),
+        ).concurrentStreams,
+        isNull,
+      );
+    });
+
+    test('the spellings we once guessed are not read: they are not '
+        'Tracearr\'s', () {
+      expect(
+        violation({'stream_count': 4, 'max_streams': 2}).concurrentStreams,
+        isNull,
+      );
+      expect(violation({'count': 3, 'limit': 2}).concurrentStreams, isNull);
+      expect(
+        violation({
+          'from': {'city': 'A'},
+          'to': {'city': 'B'},
+          'distance_km': 10,
+          'time_diff_minutes': 5,
+        }).impossibleTravel,
+        isNull,
+      );
+    });
+
+    test('travel needs the details of the speed condition, with a distance and '
+        'a place or a time', () {
+      Map<String, Object?> travel(Map<String, Object?>? details) =>
+          weighed('travel_speed_kmh', actual: 900, details: details);
+
+      expect(violation(travel(null)).impossibleTravel, isNull);
+      expect(
+        violation(travel(const {'distance': 10})).impossibleTravel,
+        isNull,
+      );
+      expect(
+        violation(travel(const {'timeDeltaHours': 2})).impossibleTravel,
+        isNull,
+        reason: 'a time alone is not a journey',
+      );
+      expect(
+        violation(
+          travel({
+            'distance': 10,
+            'previousLocation': {'lat': 1.0, 'lon': 2.0},
+          }),
+        ).impossibleTravel,
+        isNull,
+        reason: 'coordinates are not a place we name',
+      );
+      final read = violation(
+        travel({
+          'distance': 800,
+          'timeDeltaHours': 1.25,
+          'previousLocation': {'city': 'A', 'country': 'X'},
+          'currentLocation': {'city': 'B'},
+        }),
+      ).impossibleTravel;
+      expect(read?.elapsed, const Duration(minutes: 75));
+      expect(read?.from?.label, 'A, X');
+      expect(read?.to?.label, 'B');
+    });
+
+    test('a violation recorded before Tracearr 3 is read by its own flat keys, '
+        'marked by the speed or the pair', () {
+      final travel = violation({
+        'calculatedSpeedKmh': 900,
         'distanceKm': 800,
         'timeDiffHours': 1.5,
         'previousLocation': {'city': 'A'},
         'currentLocation': {'city': 'B'},
       }).impossibleTravel;
-      expect(hours?.elapsed, const Duration(minutes: 90));
-      expect(hours?.from?.city, 'A');
-      expect(hours?.to?.city, 'B');
+      expect(travel?.elapsed, const Duration(minutes: 90));
+      expect(travel?.from?.city, 'A');
+      expect(travel?.to?.city, 'B');
 
       final flat = violation({
+        'calculatedSpeedKmh': 900,
         'distance': 10,
         'fromCity': 'A',
         'toCity': 'B',
+        'timeWindowMinutes': 45,
       }).impossibleTravel;
       expect(flat?.from?.label, 'A');
-      expect(flat?.elapsed, isNull);
+      expect(flat?.elapsed, const Duration(minutes: 45));
 
-      final camel = violation({
+      final concurrent = violation({
         'streamCount': 3,
         'maxStreams': 1,
       }).concurrentStreams;
-      expect(camel?.count, 3);
-      expect(camel?.limit, 1);
-    });
+      expect(concurrent?.count, 3);
+      expect(concurrent?.limit, 1);
 
-    test('a distance alone, or a count alone, is not a known rule', () {
-      TracearrViolation violation(Map<String, Object?> data) =>
-          TracearrViolation.fromJson({'id': 'v', 'data': data});
-
-      expect(violation({'distance': 10}).impossibleTravel, isNull);
-      expect(violation({'count': 3}).concurrentStreams, isNull);
+      // Without the marker, a distance is only a distance.
       expect(
-        violation({
-          'from': 'a string, not a place',
-          'distance': 3,
-        }).impossibleTravel,
-        isNull,
-        reason: 'a bare string could as well be an address',
-      );
-      expect(violation(const {}).impossibleTravel, isNull);
-      expect(
-        TracearrViolation.fromJson({
-          'id': 'v',
-          'data': 'oops',
-        }).concurrentStreams,
+        violation({'distanceKm': 800, 'fromCity': 'A'}).impossibleTravel,
         isNull,
       );
+      expect(violation({'streamCount': 3}).concurrentStreams, isNull);
     });
+
+    test(
+      'a place that is a bare string could be an address, and is not one',
+      () {
+        expect(
+          violation({
+            'calculatedSpeedKmh': 1,
+            'fromLocation': 'a string, not a place',
+            'distance': 3,
+          }).impossibleTravel,
+          isNull,
+        );
+        expect(violation(const {}).impossibleTravel, isNull);
+        expect(
+          TracearrViolation.fromJson({
+            'id': 'v',
+            'data': 'oops',
+          }).concurrentStreams,
+          isNull,
+        );
+      },
+    );
 
     test('the single read carries the actions, and a failure is a fault', () {
       final detail = TracearrViolation.fromJson(

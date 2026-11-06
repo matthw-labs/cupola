@@ -21,20 +21,49 @@
     "avatar_url": "/api/v1/images/proxy?server=5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51&url=%2Fusers%2Fanna"
   },
   "data": {
-    "from": {
-      "city": "Valmora",
-      "region": "North Reach",
-      "country": "Nordavia",
-      "ip": "192.0.2.17"
-    },
-    "to": {
-      "city": "Port Aster",
-      "region": "Eastmark",
-      "country": "Eastmark",
-      "ip": "192.0.2.88"
-    },
-    "distance_km": 5120.4,
-    "time_diff_minutes": 95
+    "evidence": [
+      {
+        "groupIndex": 0,
+        "matched": true,
+        "match": "all",
+        "conditions": [
+          {
+            "field": "travel_speed_kmh",
+            "operator": "gt",
+            "threshold": 500,
+            "actual": 3413.6,
+            "matched": true,
+            "relatedSessionIds": [
+              "f0a1b2c3-0002-4aaa-8bbb-000000000002"
+            ],
+            "details": {
+              "distance": 5120.4,
+              "timeDeltaHours": 1.5,
+              "previousLocation": {
+                "lat": 48.1,
+                "lon": 11.5,
+                "city": "Valmora",
+                "country": "Nordavia"
+              },
+              "currentLocation": {
+                "lat": -33.9,
+                "lon": 151.2,
+                "city": "Port Aster",
+                "country": "Eastmark"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "relatedSessionIds": [
+      "f0a1b2c3-0002-4aaa-8bbb-000000000002"
+    ],
+    "ruleName": "Impossible travel",
+    "matchedGroups": [
+      0
+    ],
+    "ipAddress": "192.0.2.88"
   },
   "actions": [
     {

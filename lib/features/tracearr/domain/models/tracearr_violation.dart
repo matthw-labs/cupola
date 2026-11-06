@@ -56,19 +56,19 @@ final class TracearrViolationAction {
   bool get failed => !success && !skipped;
 }
 
-/// A place a violation names. Where someone is, is theirs: [toString] prints
-/// none of it.
+/// A place a violation names: Tracearr gives a city and a country, from its
+/// own geolocation of an address. Where someone is, is theirs: [toString]
+/// prints none of it.
 final class TracearrPlace {
-  const TracearrPlace({this.city, this.region, this.country});
+  const TracearrPlace({this.city, this.country});
 
   final String? city;
-  final String? region;
   final String? country;
 
-  /// `City, Region, Country` over whatever parts are there; null when none.
+  /// `City, Country` over whatever parts are there; null when none.
   String? get label {
     final parts = [
-      for (final part in [city, region, country])
+      for (final part in [city, country])
         if (part != null && part.isNotEmpty) part,
     ];
     return parts.isEmpty ? null : parts.join(', ');
@@ -188,52 +188,74 @@ final class TracearrViolation {
   /// The "impossible travel" reading of the data, or null for any other rule.
   ///
   /// The public contract types `data` as free-form and does not send the
-  /// rule's type, so we recognise the rule by what the data holds: a distance
-  /// plus at least a place or a time. The key spellings below (snake case and
-  /// camel case) are the ones we expect, not ones the contract promises: it
-  /// does not describe `data`. A spelling we have not met reads as null, which
-  /// the screen shows as the rule's name alone, so a wrong guess costs detail,
-  /// never a crash. Confirm them against a real violation on the lab.
+  /// rule's type, so the rule is recognised by what Tracearr wrote, which we
+  /// read off its server source (v3.1.4, `automations/runRecorder.ts` and
+  /// `evaluators/index.ts`) and not off a guess:
+  ///
+  ///  * a run of Tracearr 3.x keeps what it weighed in `data.evidence`, a list
+  ///    of groups of conditions; impossible travel is the condition whose
+  ///    `field` is `travel_speed_kmh`, which carries in `details` the
+  ///    `distance` (km), the `timeDeltaHours` between the two streams and the
+  ///    `previousLocation` and `currentLocation`, each with a `city` and a
+  ///    `country`;
+  ///  * a violation recorded before Tracearr 3 kept a flat `data` of its own:
+  ///    the speed in `calculatedSpeedKmh`, the distance in `distanceKm` or
+  ///    `distance`, the places as `fromCity` and `toCity` or as objects
+  ///    (`previousLocation`, `currentLocation`, `fromLocation`,
+  ///    `toLocation`), and the time in `timeDiffHours` or `timeWindowMinutes`.
+  ///
+  /// A violation with neither marker is another rule, whatever else it holds,
+  /// and the screen shows its name alone. Needs both the distance and at least
+  /// a place or a time, so a half-written record never reads as a journey.
   TracearrImpossibleTravel? get impossibleTravel {
-    final distance = _number(_data, const [
-      'distance_km',
-      'distanceKm',
-      'distance',
-    ]);
-    if (distance == null) return null;
-    final from = _place(_data, const ['from', 'previous'], 'from');
-    final to = _place(_data, const ['to', 'current'], 'to');
-    final elapsed = _elapsed(_data);
-    if (from == null && to == null && elapsed == null) return null;
-    return TracearrImpossibleTravel(
-      from: from,
-      to: to,
-      distanceKm: distance,
-      elapsed: elapsed,
+    final condition = _matchedCondition(_data, 'travel_speed_kmh');
+    if (condition != null) {
+      final details = condition.object('details');
+      if (details == null) return null;
+      return _travel(
+        distance: details.number('distance'),
+        from: _place(details.object('previousLocation')),
+        to: _place(details.object('currentLocation')),
+        elapsed: _hours(details.number('timeDeltaHours')),
+      );
+    }
+    if (_data.number('calculatedSpeedKmh') == null) return null;
+    return _travel(
+      distance: _data.number('distanceKm') ?? _data.number('distance'),
+      from:
+          _place(_data.object('fromLocation')) ??
+          _place(_data.object('previousLocation')) ??
+          _place({'city': _data.text('fromCity')}),
+      to:
+          _place(_data.object('toLocation')) ??
+          _place(_data.object('currentLocation')) ??
+          _place({'city': _data.text('toCity')}),
+      elapsed:
+          _hours(_data.number('timeDiffHours')) ??
+          _minutes(_data.number('timeWindowMinutes')),
     );
   }
 
   /// The "concurrent streams" reading of the data, or null for any other rule.
   ///
-  /// Needs both the number of streams and the limit, so a rule that merely has
-  /// a `count` is not mistaken for it.
+  /// Recognised by what Tracearr wrote (see [impossibleTravel]): the condition
+  /// whose `field` is `concurrent_streams` and whose operator is `gt`, so its
+  /// `threshold` is the limit and its `actual` the number of streams; or, on a
+  /// violation recorded before Tracearr 3, the flat `streamCount` with
+  /// `maxStreams`. Any other rule that happens to hold a count and a limit is
+  /// not this one.
   TracearrConcurrentStreams? get concurrentStreams {
-    final count = _number(_data, const [
-      'stream_count',
-      'streamCount',
-      'active_streams',
-      'activeStreams',
-      'concurrent_streams',
-      'concurrentStreams',
-      'count',
-    ]);
-    final limit = _number(_data, const [
-      'max_streams',
-      'maxStreams',
-      'max_concurrent',
-      'maxConcurrent',
-      'limit',
-    ]);
+    final condition = _matchedCondition(_data, 'concurrent_streams');
+    final double? count;
+    final double? limit;
+    if (condition != null) {
+      if (condition['operator'] != 'gt') return null;
+      count = condition.number('actual');
+      limit = condition.number('threshold');
+    } else {
+      count = _data.number('streamCount');
+      limit = _data.number('maxStreams');
+    }
     if (count == null || limit == null) return null;
     return TracearrConcurrentStreams(
       count: count.round(),
@@ -245,59 +267,49 @@ final class TracearrViolation {
   String toString() => 'TracearrViolation($id, ${severity.name})';
 }
 
-double? _number(TracearrJson data, List<String> keys) {
-  for (final key in keys) {
-    final value = data.number(key);
-    if (value != null) return value;
-  }
-  return null;
-}
-
-/// The place of one side: an object of `city`, `region` and `country`, or flat
-/// `<side>City` keys. Never a bare string, which could as well be an address.
-TracearrPlace? _place(TracearrJson data, List<String> names, String side) {
-  for (final name in names) {
-    for (final key in [name, '${name}Location', '${name}_location']) {
-      final object = data.object(key);
-      if (object != null) {
-        final place = TracearrPlace(
-          city: object.text('city'),
-          region: object.text('region'),
-          country: object.text('country'),
-        );
-        if (place.label != null) return place;
+/// The condition of [field] that matched, among the groups of
+/// `data.evidence` Tracearr's engine kept, or null: no evidence is not a rule
+/// we know.
+TracearrJson? _matchedCondition(TracearrJson data, String field) {
+  for (final group in data.objects('evidence')) {
+    for (final condition in group.objects('conditions')) {
+      if (condition['field'] == field && condition.flag('matched') == true) {
+        return condition;
       }
     }
-    final flat = TracearrPlace(
-      city: data.text('${name}City') ?? data.text('${name}_city'),
-      region: data.text('${name}Region') ?? data.text('${name}_region'),
-      country: data.text('${name}Country') ?? data.text('${name}_country'),
-    );
-    if (flat.label != null) return flat;
   }
   return null;
 }
 
-Duration? _elapsed(TracearrJson data) {
-  final minutes = _number(data, const [
-    'time_diff_minutes',
-    'timeDiffMinutes',
-    'minutes',
-  ]);
-  if (minutes != null) return Duration(milliseconds: (minutes * 60000).round());
-  final hours = _number(data, const [
-    'time_diff_hours',
-    'timeDiffHours',
-    'time_hours',
-    'timeHours',
-    'hours',
-  ]);
-  if (hours != null) return Duration(milliseconds: (hours * 3600000).round());
-  final seconds = _number(data, const [
-    'time_diff_seconds',
-    'timeDiffSeconds',
-    'seconds',
-  ]);
-  if (seconds != null) return Duration(milliseconds: (seconds * 1000).round());
-  return null;
+TracearrImpossibleTravel? _travel({
+  required double? distance,
+  required TracearrPlace? from,
+  required TracearrPlace? to,
+  required Duration? elapsed,
+}) {
+  if (distance == null) return null;
+  if (from == null && to == null && elapsed == null) return null;
+  return TracearrImpossibleTravel(
+    from: from,
+    to: to,
+    distanceKm: distance,
+    elapsed: elapsed,
+  );
 }
+
+/// The place an object of `city` and `country` names, or null when it names
+/// none. Never a bare string, which could as well be an address.
+TracearrPlace? _place(TracearrJson? object) {
+  if (object == null) return null;
+  final place = TracearrPlace(
+    city: object.text('city'),
+    country: object.text('country'),
+  );
+  return place.label == null ? null : place;
+}
+
+Duration? _hours(double? hours) =>
+    hours == null ? null : Duration(milliseconds: (hours * 3600000).round());
+
+Duration? _minutes(double? minutes) =>
+    minutes == null ? null : Duration(milliseconds: (minutes * 60000).round());

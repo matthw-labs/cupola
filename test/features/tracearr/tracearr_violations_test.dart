@@ -2,13 +2,17 @@
 /// the violation's own page (typed for the rules we know, the name alone for
 /// any other), the owner's two controls, and what Needs you holds.
 ///
-/// **The lab has no violation yet**, so every violation here is invented: the
+/// **The lab has no violation yet**, so every violation here is made up: the
 /// rows of `test/fixtures/tracearr/violations.json` and
-/// `violation_detail.json`, whose places and addresses are made up, and whose
-/// `data` key spellings are the ones the model expects and not ones read off a
-/// real Tracearr. The two typed renders are therefore pinned to the invented
-/// shape. No test name, and no failure text, carries a place or an address.
+/// `violation_detail.json`, whose places and addresses are invented. What is
+/// not invented is the shape of their `data`: its keys are the ones Tracearr
+/// 3.1.4's server writes (`data.evidence`, groups of conditions, each told by
+/// its `field`), read from its source and recorded in the probe notes, though
+/// never yet captured from a live violation. No test name, and no failure
+/// text, carries a place or an address.
 library;
+
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
@@ -30,14 +34,18 @@ import 'package:cupola/features/activity/presentation/widgets/fault_card.dart';
 import 'package:cupola/features/activity/presentation/widgets/violation_rows.dart';
 import 'package:cupola/features/outside/domain/outside_notices.dart';
 import 'package:cupola/features/services/domain/dashboard_decision.dart';
+import 'package:cupola/features/services/presentation/dashboard_retry.dart';
 import 'package:cupola/features/services/presentation/services_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/tracearr/data/tracearr_violation_owner.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_history.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_overview_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_person_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_violations_provider.dart';
@@ -50,6 +58,56 @@ import '../../test_helpers/profiles/profiles.dart';
 const _personId = '7a3e91c4-5d28-4b6f-8e10-2f4a6c8d0b13';
 
 final _household = Profiles.p1.withConnection(WorldConnections.tracearr);
+
+/// The id of the test violation called [name]: a UUID, as every id Tracearr
+/// gives is (the screens refuse any other before asking), the same one every
+/// time. FNV-1a over the name, so two names never share one in practice.
+String _idOf(String name) {
+  var hash = 0x811c9dc5;
+  for (final unit in name.codeUnits) {
+    hash = ((hash ^ unit) * 0x01000193) & 0xffffffff;
+  }
+  return '${hash.toRadixString(16).padLeft(8, '0')}-0000-4000-8000-'
+      '000000000000';
+}
+
+/// The id of the demo world's violation number [n].
+String _demoViolation(int n) => '00000000-0000-4000-8000-00000000000$n';
+
+/// What Tracearr 3.x writes in a violation's `data`: the conditions its engine
+/// weighed, each told by its `field`, with the figure it measured (`actual`)
+/// and the one it was held to (`threshold`). [extra] is what else the run
+/// keeps beside them (an address, a title), which never reaches the screen.
+Map<String, Object?> _evidenceOf(
+  String field,
+  String operator, {
+  required Object threshold,
+  required Object actual,
+  Map<String, Object?>? details,
+  bool matched = true,
+  Map<String, Object?> extra = const {},
+}) => {
+  'evidence': [
+    {
+      'groupIndex': 0,
+      'matched': matched,
+      'match': 'all',
+      'conditions': [
+        {
+          'field': field,
+          'operator': operator,
+          'threshold': threshold,
+          'actual': actual,
+          'matched': matched,
+          'details': ?details,
+        },
+      ],
+    },
+  ],
+  'relatedSessionIds': const <String>[],
+  'matchedGroups': const [0],
+  ...extra,
+};
 
 /// Friday 9 October 2026, 20:53: the evening the world is drawn in.
 final _now = DateTime(2026, 10, 9, 20, 53);
@@ -79,7 +137,7 @@ TracearrViolation _violation(
   String person = 'anna',
   DateTime? at,
 }) => TracearrViolation.fromJson({
-  'id': id,
+  'id': _idOf(id),
   'severity': severity.name,
   'created_at': (at ?? DateTime.utc(2026, 10, 9, 17, 30)).toIso8601String(),
   'acknowledged_at': seen ? '2026-10-09T18:00:00.000Z' : null,
@@ -97,8 +155,14 @@ class _Client extends TracearrClient {
   _Client({this.violations = const [], this.single = const []})
     : super(baseUrl: 'http://tracearr.test', apiKey: 'trr_pub_test');
 
-  final List<TracearrViolation> violations;
+  /// What the server lists now: a test that plays the owner's decision takes a
+  /// violation off it, as Tracearr stops listing one that was acknowledged.
+  List<TracearrViolation> violations;
   final List<TracearrViolation> single;
+
+  /// Whether the read Needs you makes (the unseen of severity high) does not
+  /// answer.
+  bool failFlagged = false;
 
   final filters = <TracearrViolationFilter>[];
   final pageSizes = <int>[];
@@ -111,11 +175,18 @@ class _Client extends TracearrClient {
   }) async {
     filters.add(filter);
     pageSizes.add(pageSize);
+    if (failFlagged && filter.severity == TracearrSeverity.high) {
+      throw StateError('did not answer');
+    }
     return TracearrPage(items: violations);
   }
 
+  /// The ids a single read was made for.
+  final singleReads = <String>[];
+
   @override
   Future<TracearrViolation?> getViolation(String id) async {
+    singleReads.add(id);
     for (final violation in [...single, ...violations]) {
       if (violation.id == id) return violation;
     }
@@ -125,24 +196,65 @@ class _Client extends TracearrClient {
   @override
   Future<TracearrUser?> getUser(String id) async =>
       TracearrUser(id: id, username: 'anna');
+
+  // The person's page reads these two too: nothing to show, nothing failing.
+  @override
+  Future<TracearrUserStats?> getUserStats(String id) async => null;
+
+  @override
+  Future<TracearrPage<TracearrHistoryEntry>> getHistory({
+    String? cursor,
+    int pageSize = 25,
+    TracearrHistoryFilter filter = const TracearrHistoryFilter(),
+  }) async => const TracearrPage(items: []);
+}
+
+/// A Tracearr that lists two pages, the second held until a test lets it go,
+/// so a later page can answer after the filter has moved on.
+class _TwoPages extends _Client {
+  _TwoPages({required this.first, required this.second});
+
+  final TracearrViolation first;
+  final TracearrViolation second;
+  final secondPage = Completer<void>();
+
+  @override
+  Future<TracearrPage<TracearrViolation>> getViolations({
+    String? cursor,
+    int pageSize = 25,
+    TracearrViolationFilter filter = const TracearrViolationFilter(),
+  }) async {
+    filters.add(filter);
+    if (cursor == null) {
+      return TracearrPage(items: [first], nextCursor: 'next');
+    }
+    await secondPage.future;
+    return TracearrPage(items: [second]);
+  }
 }
 
 /// The owner's two writes, answering with [outcome] and keeping what was asked.
 class _Owner implements TracearrViolationOwner {
-  _Owner(this.outcome);
+  _Owner(this.outcome, {this.onDecided});
 
   final TracearrOwnerOutcome outcome;
   final asked = <String>[];
 
+  /// Hears the id of a violation the owner acted on, for a test whose server
+  /// stops listing it.
+  final void Function(String id)? onDecided;
+
   @override
   Future<TracearrOwnerOutcome> acknowledge(String violationId) async {
     asked.add('acknowledge $violationId');
+    onDecided?.call(violationId);
     return outcome;
   }
 
   @override
   Future<TracearrOwnerOutcome> dismiss(String violationId) async {
     asked.add('dismiss $violationId');
+    onDecided?.call(violationId);
     return outcome;
   }
 }
@@ -376,7 +488,7 @@ void main() {
 
       expect(
         router.state.uri.path,
-        ServiceRoutes.tracearrViolation('violation-1'),
+        ServiceRoutes.tracearrViolation(_demoViolation(1)),
       );
       expect(find.byType(TracearrViolationScreen), findsOneWidget);
       // The invented stream counts the demo world's rule carries.
@@ -385,7 +497,7 @@ void main() {
 
       // A cold deep link resolves from the path alone, and a blank id goes
       // back to the tab.
-      router.go(ServiceRoutes.tracearrViolation('violation-2'));
+      router.go(ServiceRoutes.tracearrViolation(_demoViolation(2)));
       await _answer(tester);
       expect(find.byType(TracearrViolationScreen), findsOneWidget);
       expect(
@@ -397,7 +509,7 @@ void main() {
       expect(router.state.uri.path, ServiceRoutes.tracearrViolations);
       expect(find.byType(TracearrViolationsScreen), findsOneWidget);
 
-      // The Users tab leads here with a person.
+      // A link names a person.
       router.go(ServiceRoutes.tracearrViolationsOf(_personId));
       await _answer(tester);
       expect(router.state.uri.queryParameters['user'], _personId);
@@ -405,16 +517,151 @@ void main() {
       await _close(tester, harness, container);
     });
 
-    testWidgets('a violation that is gone says so', (tester) async {
+    testWidgets('a person\'s page leads here with their id, and the real tab '
+        'asks the server for them alone', (tester) async {
+      final client = _Client(violations: _rows());
+      final (harness, router, container) = await _app(
+        tester,
+        overrides: [tracearrClientProvider.overrideWithValue(client)],
+      );
+      router.go('${ServiceRoutes.tracearrUsers}/$_personId');
+      await _answer(tester);
+      expect(find.byType(TracearrPersonScreen), findsOneWidget);
+      expect(client.filters.where((f) => f.userId != null), isEmpty);
+
+      await _tap(tester, find.widgetWithText(OutlinedButton, 'Violations'));
+
+      expect(router.state.uri.path, ServiceRoutes.tracearrViolations);
+      expect(router.state.uri.queryParameters['user'], _personId);
+      expect(find.byType(TracearrViolationsScreen), findsOneWidget);
+      expect(client.filters.last.userId, _personId);
+      expect(find.text("Only anna's violations"), findsOneWidget);
+      await _close(tester, harness, container);
+    });
+
+    testWidgets('a violation that is gone says so, after one read', (
+      tester,
+    ) async {
       final client = _Client();
+      const unknown = '5e1f0a22-93c4-4b7d-a0e8-6d2b9c4f1a77';
       final harness = await _pump(
         tester,
-        const TracearrViolationScreen(violationId: 'gone'),
+        const TracearrViolationScreen(violationId: unknown),
         overrides: [tracearrClientProvider.overrideWithValue(client)],
       );
       expect(find.text('Violation not found'), findsOneWidget);
+      expect(find.byType(AppErrorState), findsNothing);
+      expect(client.singleReads, [unknown]);
       await harness.unmount(tester);
     });
+
+    testWidgets('a Tracearr that is not set up says so on the violation page '
+        'and reads nothing', (tester) async {
+      final client = _Client(single: [_violation('n2')]);
+      final harness = await pumpWithProfile(
+        tester,
+        Profiles.p1,
+        child: Scaffold(
+          body: TracearrViolationScreen(violationId: _idOf('n2')),
+        ),
+        overrides: [tracearrClientProvider.overrideWithValue(client)],
+        surfaceSize: const Size(430, 3000),
+      );
+
+      expect(find.byType(NotConfiguredPlaceholder), findsOneWidget);
+      expect(find.byType(AppErrorState), findsNothing);
+      expect(client.singleReads, isEmpty);
+      await harness.unmount(tester);
+    });
+
+    testWidgets('a link naming a connection that is gone reads the active one '
+        'instead', (tester) async {
+      final shown = _violation('k1', rule: 'Too many streams');
+      final client = _Client(single: [shown]);
+      final harness = await _pump(
+        tester,
+        TracearrViolationScreen(
+          violationId: shown.id,
+          instanceId: 'a-connection-removed-since',
+        ),
+        overrides: [tracearrClientProvider.overrideWithValue(client)],
+      );
+
+      expect(client.singleReads, [shown.id]);
+      expect(find.text('Too many streams'), findsWidgets);
+      expect(find.text('Violation not found'), findsNothing);
+      expect(find.byType(AppErrorState), findsNothing);
+      await harness.unmount(tester);
+    });
+
+    testWidgets('an id that is not a UUID is not found with no request, as an '
+        'old link or a bad payload would send it', (tester) async {
+      final client = _Client();
+      final (harness, router, container) = await _app(
+        tester,
+        overrides: [tracearrClientProvider.overrideWithValue(client)],
+      );
+
+      for (final id in ['abc', '1234', 'not-a-uuid-at-all']) {
+        router.go(ServiceRoutes.tracearrViolation(id));
+        await _answer(tester);
+
+        expect(
+          find.byType(TracearrViolationScreen),
+          findsOneWidget,
+          reason: id,
+        );
+        expect(find.text('Violation not found'), findsOneWidget, reason: id);
+        expect(find.byType(AppErrorState), findsNothing, reason: id);
+      }
+      expect(client.singleReads, isEmpty, reason: 'Tracearr would say 400');
+      await _close(tester, harness, container);
+    });
+  });
+
+  group('the list, paged', () {
+    for (final (what, change) in <(String, void Function(ProviderContainer))>[
+      (
+        'the severity',
+        (c) => c
+            .read(tracearrViolationSeverityProvider.notifier)
+            .choose(TracearrSeverity.high),
+      ),
+      (
+        'the scope',
+        (c) => c
+            .read(tracearrViolationScopeProvider.notifier)
+            .choose(TracearrViolationScope.all),
+      ),
+    ]) {
+      test('a next page that answers after $what changed is dropped', () async {
+        final client = _TwoPages(
+          first: _violation('p1'),
+          second: _violation('p2'),
+        );
+        final container = ProviderContainer(
+          overrides: [tracearrClientProvider.overrideWithValue(client)],
+        );
+        addTearDown(container.dispose);
+        final list = tracearrViolationsListProvider(null);
+        container.listen(list, (_, _) {});
+        await container.read(list.future);
+        final late = container.read(list.notifier).loadMore();
+        await Future<void>.delayed(Duration.zero);
+
+        change(container);
+        final fresh = await container.read(list.future);
+        expect(fresh.items.map((v) => v.id), [_idOf('p1')]);
+
+        client.secondPage.complete();
+        await late;
+
+        final after = container.read(list).requireValue;
+        expect(after.items.map((v) => v.id), [_idOf('p1')]);
+        expect(after.nextCursor, 'next', reason: 'the new list is on page one');
+        expect(after.loadingMore, isFalse);
+      });
+    }
   });
 
   group('the detail', () {
@@ -435,22 +682,22 @@ void main() {
         'time between', (tester) async {
       final harness = await pumpDetail(tester, _detail());
 
-      expect(find.text('Valmora, North Reach, Nordavia'), findsOneWidget);
-      expect(find.text('Port Aster, Eastmark, Eastmark'), findsOneWidget);
+      expect(find.text('Valmora, Nordavia'), findsOneWidget);
+      expect(find.text('Port Aster, Eastmark'), findsOneWidget);
       expect(find.text('First stream'), findsOneWidget);
       expect(find.text('Second stream'), findsOneWidget);
       expect(find.text('${withUnit('5,120', 'km')} apart'), findsOneWidget);
       expect(
         find.text(
-          '${formatTimeSpan(const Duration(minutes: 95))} between the two '
+          '${formatTimeSpan(const Duration(minutes: 90))} between the two '
           'streams',
         ),
         findsOneWidget,
       );
       // The address that came with them is never drawn, nor a raw key.
       expect(find.textContaining('192.0.2.'), findsNothing);
-      expect(find.textContaining('distance_km'), findsNothing);
-      expect(find.textContaining('time_diff'), findsNothing);
+      expect(find.textContaining('travel_speed_kmh'), findsNothing);
+      expect(find.textContaining('timeDeltaHours'), findsNothing);
       await harness.unmount(tester);
     });
 
@@ -460,7 +707,13 @@ void main() {
         _violation(
           'c1',
           rule: 'Too many streams',
-          data: {'stream_count': 4, 'max_streams': 2, 'ip': '192.0.2.45'},
+          data: _evidenceOf(
+            'concurrent_streams',
+            'gt',
+            threshold: 2,
+            actual: 4,
+            extra: {'ipAddress': '192.0.2.45'},
+          ),
         ),
       );
 
@@ -478,12 +731,21 @@ void main() {
         _violation(
           'u1',
           rule: 'Night owl',
-          data: {
-            'city': 'Valmora',
-            'ip_address': '192.0.2.60',
-            'hour': 3,
-            'quiet_hours': [1, 5],
-          },
+          // Two figures that look like a count and a limit, on a rule that is
+          // not the one that reads them.
+          data: _evidenceOf(
+            'unique_ips_in_window',
+            'gt',
+            threshold: 3,
+            actual: 5,
+            details: {
+              'ips': ['192.0.2.60'],
+              'count': 5,
+              'limit': 3,
+              'city': 'Valmora',
+            },
+            extra: {'ipAddress': '192.0.2.60'},
+          ),
         ),
         opener: opener,
       );
@@ -494,7 +756,7 @@ void main() {
         find.text('Only Tracearr shows what this rule saw'),
         findsOneWidget,
       );
-      for (final leak in ['Valmora', '192.0.2.', 'ip_address', 'quiet_hours']) {
+      for (final leak in ['Valmora', '192.0.2.', 'ipAddress', 'unique_ips']) {
         expect(find.textContaining(leak), findsNothing, reason: 'a raw value');
       }
 
@@ -502,7 +764,7 @@ void main() {
       await tester.tap(find.text('Open in Tracearr'));
       await tester.pump();
       expect(opener.opened.single.host, 'tower.home.arpa');
-      expect(opener.opened.single.path, '/violations/u1');
+      expect(opener.opened.single.path, '/violations/${_idOf('u1')}');
       await harness.unmount(tester);
     });
 
@@ -691,11 +953,57 @@ void main() {
 
       await _tap(tester, find.text('Acknowledge'));
 
-      expect(owner.asked, ['acknowledge o1']);
+      expect(owner.asked, ['acknowledge ${_idOf('o1')}']);
       expect(find.text('Acknowledged'), findsOneWidget);
-      expect(router.state.uri.path, ServiceRoutes.tracearrViolation('o1'));
+      expect(
+        router.state.uri.path,
+        ServiceRoutes.tracearrViolation(_idOf('o1')),
+      );
       await _close(tester, harness, container);
     });
+
+    for (final dismiss in [false, true]) {
+      testWidgets('${dismiss ? 'Dismiss' : 'Acknowledge'} reads again what '
+          'listed the violation: the tab, the unseen count and the latest', (
+        tester,
+      ) async {
+        final owner = _Owner(TracearrOwnerOutcome.done);
+        final shown = _violation('o2', rule: 'Too many streams');
+        final client = _Client(single: [shown]);
+        final (harness, router, container) = await _app(
+          tester,
+          overrides: [
+            tracearrClientProvider.overrideWithValue(client),
+            tracearrViolationOwnerProvider.overrideWith((ref, id) => owner),
+          ],
+        );
+        // What the Overview and the tab hold, read once.
+        await container.read(tracearrUnseenViolationsProvider.future);
+        await container.read(tracearrLatestViolationsProvider.future);
+        final before = client.filters.length;
+        router.go(ServiceRoutes.tracearrViolation(shown.id));
+        await _answer(tester);
+
+        await _tap(tester, find.text(dismiss ? 'Dismiss' : 'Acknowledge'));
+        if (dismiss) {
+          await _tap(
+            tester,
+            find.widgetWithText(FilledButton, 'Dismiss violation'),
+          );
+        }
+        expect(owner.asked, hasLength(1));
+        // Each of the two reads is asked once more, for the figures that name
+        // the violation to stop naming it.
+        await container.read(tracearrUnseenViolationsProvider.future);
+        await container.read(tracearrLatestViolationsProvider.future);
+        expect(
+          client.filters.length - before,
+          greaterThanOrEqualTo(2),
+          reason: 'the unseen count and the latest were read again',
+        );
+        await _close(tester, harness, container);
+      });
+    }
 
     testWidgets('Dismiss confirms with a verb, and Keep it does nothing', (
       tester,
@@ -717,7 +1025,7 @@ void main() {
         tester,
         find.widgetWithText(FilledButton, 'Dismiss violation'),
       );
-      expect(owner.asked, ['dismiss o1']);
+      expect(owner.asked, ['dismiss ${_idOf('o1')}']);
       // Gone, so the page leaves to the list.
       expect(router.state.uri.path, ServiceRoutes.tracearrViolations);
       await _close(tester, harness, container);
@@ -737,7 +1045,10 @@ void main() {
         await _tap(tester, find.text('Acknowledge'));
 
         expect(find.text(sentence), findsOneWidget);
-        expect(router.state.uri.path, ServiceRoutes.tracearrViolation('o1'));
+        expect(
+          router.state.uri.path,
+          ServiceRoutes.tracearrViolation(_idOf('o1')),
+        );
         expect(find.text('Acknowledge'), findsOneWidget);
         await _close(tester, harness, container);
       });
@@ -849,7 +1160,7 @@ void main() {
       for (final violation in violations) {
         expect(violation.isFault, isFalse);
         expect(violation.service, ServiceKey.tracearr);
-        expect(violation.route, startsWith('/stack/tracearr/violations/h'));
+        expect(violation.route, startsWith('/stack/tracearr/violations/'));
       }
       final notices = needsYouNotices(decisions, now: _now);
       expect(notices, isNotEmpty);
@@ -945,10 +1256,108 @@ void main() {
 
       await _tap(tester, find.text('Impossible travel'));
 
-      expect(router.state.uri.path, ServiceRoutes.tracearrViolation('h1'));
+      expect(
+        router.state.uri.path,
+        ServiceRoutes.tracearrViolation(_idOf('h1')),
+      );
       expect(router.state.uri.queryParameters['i'], WorldIds.tracearr);
       expect(find.byType(TracearrViolationScreen), findsOneWidget);
       await _close(tester, harness, container);
+    });
+
+    for (final dismiss in [false, true]) {
+      testWidgets('${dismiss ? 'a dismissed' : 'an acknowledged'} violation '
+          'leaves Needs you, which reads it again', (tester) async {
+        final client = _Client(violations: high);
+        final owner = _Owner(
+          TracearrOwnerOutcome.done,
+          onDecided: (id) => client.violations = [
+            for (final v in client.violations)
+              if (v.id != id) v,
+          ],
+        );
+        final (harness, router, container) = await _app(
+          tester,
+          overrides: [
+            tracearrClientProvider.overrideWithValue(client),
+            tracearrViolationOwnerProvider.overrideWith((ref, id) => owner),
+          ],
+        );
+        // What Needs you holds, read the way its page and the Home do.
+        List<String> flagged() => [
+          for (final decision
+              in container.read(dashboardDecisionsProvider).decisions)
+            if (decision.kind == DecisionKind.violation)
+              Uri.parse(decision.route!).path,
+        ];
+        container.read(dashboardDecisionsProvider);
+        await _answer(tester);
+        expect(
+          flagged(),
+          unorderedEquals([
+            ServiceRoutes.tracearrViolation(_idOf('h1')),
+            ServiceRoutes.tracearrViolation(_idOf('h2')),
+          ]),
+        );
+
+        // The first of them, opened by its link, and decided on.
+        router.go(ServiceRoutes.tracearrViolation(_idOf('h1')));
+        await _answer(tester);
+        await _tap(tester, find.text(dismiss ? 'Dismiss' : 'Acknowledge'));
+        if (dismiss) {
+          await _tap(
+            tester,
+            find.widgetWithText(FilledButton, 'Dismiss violation'),
+          );
+        }
+        expect(owner.asked, [
+          '${dismiss ? 'dismiss' : 'acknowledge'} ${_idOf('h1')}',
+        ]);
+
+        container.read(dashboardDecisionsProvider);
+        await _answer(tester);
+        expect(flagged(), [ServiceRoutes.tracearrViolation(_idOf('h2'))]);
+        await _close(tester, harness, container);
+      });
+    }
+
+    testWidgets('a read that failed is made again by a pull, not served from '
+        'the failure', (tester) async {
+      final client = _Client(violations: high)..failFlagged = true;
+      final (harness, router, container) = await _app(
+        tester,
+        overrides: [tracearrClientProvider.overrideWithValue(client)],
+      );
+      router.go(ServiceRoutes.activityNeedsYou);
+      await _answer(tester);
+      expect(find.byType(ViolationDecisionRow), findsNothing);
+      final asked = client.filters
+          .where((f) => f.severity == TracearrSeverity.high)
+          .length;
+
+      client.failFlagged = false;
+      // The page's own pull, asked for the way a drag down would.
+      unawaited(
+        tester
+            .state<RefreshIndicatorState>(find.byType(RefreshIndicator).first)
+            .show(),
+      );
+      await _answer(tester);
+
+      expect(
+        client.filters.where((f) => f.severity == TracearrSeverity.high),
+        hasLength(greaterThan(asked)),
+        reason: 'asked again',
+      );
+      expect(find.byType(ViolationDecisionRow), findsNWidgets(2));
+      await _close(tester, harness, container);
+    });
+
+    test('a pull and a Retry drop the page Needs you reads', () {
+      expect(
+        dashboardSourcesOf(ServiceKey.tracearr),
+        contains(tracearrFlaggedProvider),
+      );
     });
 
     testWidgets('a Tracearr that did not answer is named under the region '

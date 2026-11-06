@@ -19,6 +19,8 @@ import 'package:cupola/features/tracearr/presentation/tracearr_paging.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_person_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_session.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_session_sheet.dart';
 
 const _service = ServiceKey.tracearr;
 
@@ -75,7 +77,15 @@ class TracearrHistoryScreen extends ConsumerWidget {
             ),
       rowBuilder: (item) => switch (item) {
         _Heading(:final label) => _DayHeading(label: label),
-        _Viewing(:final entry) => TracearrHistoryRow(entry: entry),
+        _Viewing(:final entry) => TracearrHistoryRow(
+          entry: entry,
+          // From this screen's own context and ref, which outlast the row.
+          onOpen: () => showTracearrSession(
+            context,
+            ref,
+            TracearrSession.recorded(entry),
+          ),
+        ),
       },
     );
   }
@@ -193,6 +203,10 @@ class _Filters extends ConsumerWidget {
 
   Future<void> _pickPerson(BuildContext context, WidgetRef ref) async {
     final List<TracearrUser> people;
+    // Held while it is read and let go after: the list lives only as long as
+    // this choice, so a read that failed is made again the next time, and a
+    // person added in Tracearr since the last one is in the list.
+    final hold = ref.listenManual(tracearrPeopleProvider, (_, _) {});
     try {
       people = await ref.read(tracearrPeopleProvider.future);
     } catch (error) {
@@ -204,6 +218,8 @@ class _Filters extends ConsumerWidget {
         cause: error,
       );
       return;
+    } finally {
+      hold.close();
     }
     if (!context.mounted) return;
     final filters = ref.read(tracearrHistoryFiltersProvider);

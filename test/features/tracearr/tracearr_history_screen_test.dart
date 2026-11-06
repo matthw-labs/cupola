@@ -49,6 +49,9 @@ class _Client extends TracearrClient {
   final List<List<TracearrHistoryEntry>> _pages;
   bool failHistory;
 
+  /// Whether the people list does not answer.
+  bool failUsers = false;
+
   final reads = <({String? cursor, TracearrHistoryFilter filter})>[];
   final userReads = <bool>[];
 
@@ -79,6 +82,7 @@ class _Client extends TracearrClient {
     bool includeRemoved = false,
   }) async {
     userReads.add(includeRemoved);
+    if (failUsers) throw StateError('did not answer');
     return TracearrPage.fromJson(
       jsonFixture('tracearr/users.json'),
       TracearrUser.fromJson,
@@ -604,6 +608,31 @@ void main() {
       await harness.unmount(tester);
     });
 
+    testWidgets('the person filter reads the people again after a read that '
+        'failed, instead of keeping the failure', (tester) async {
+      final client = _Client()..failUsers = true;
+      final harness = await _pump(
+        tester,
+        const TracearrHistoryScreen(),
+        client,
+      );
+
+      await _tapPill(tester, 'Anyone');
+      expect(
+        find.textContaining('Could not read the people Tracearr knows'),
+        findsOneWidget,
+      );
+      expect(client.userReads, [false]);
+
+      client.failUsers = false;
+      await _tapPill(tester, 'Anyone');
+
+      expect(client.userReads, [false, false], reason: 'asked a second time');
+      expect(find.text('Person'), findsOneWidget, reason: 'the picker opened');
+      expect(find.text('Anna'), findsWidgets);
+      await harness.unmount(tester);
+    });
+
     testWidgets('a row opens the detail with how it ended, and no Stop', (
       tester,
     ) async {
@@ -620,6 +649,42 @@ void main() {
       expect(find.text('Completion'), findsOneWidget);
       expect(find.text('Stopped at 48%'), findsOneWidget);
       expect(find.text('Stop stream'), findsNothing);
+      await harness.unmount(tester);
+    });
+  });
+
+  group('the door to a person from a viewing', () {
+    testWidgets('is there from History, which carries the person\'s id', (
+      tester,
+    ) async {
+      final client = _Client();
+      final harness = await _pump(
+        tester,
+        const TracearrHistoryScreen(),
+        client,
+      );
+
+      await tester.tap(find.text('The Lantern Keeper'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Go to Anna'), findsOneWidget);
+      await harness.unmount(tester);
+    });
+
+    testWidgets('is left out on that person\'s own page, where it would open '
+        'the page it is on', (tester) async {
+      final client = _Client();
+      final harness = await _pump(
+        tester,
+        const TracearrPersonScreen(userId: _annaId),
+        client,
+      );
+
+      await tester.tap(find.text('The Lantern Keeper'));
+      await tester.pumpAndSettle();
+      expect(find.text('Open title'), findsOneWidget, reason: 'the sheet');
+      expect(find.text('Go to Anna'), findsNothing);
+
       await harness.unmount(tester);
     });
   });

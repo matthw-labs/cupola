@@ -255,6 +255,10 @@ class _TracearrViolationScreenState
       ..invalidate(tracearrViolationsListProvider)
       ..invalidate(tracearrUnseenViolationsProvider)
       ..invalidate(tracearrLatestViolationsProvider)
+      // The page Needs you reads: the source re-runs on the invalidation
+      // below, and would otherwise be handed the cached page that still lists
+      // the violation.
+      ..invalidate(tracearrFlaggedProvider)
       ..invalidate(dashboardDecisionSourceProvider(DecisionSource.violations));
   }
 }

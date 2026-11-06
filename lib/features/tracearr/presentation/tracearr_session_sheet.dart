@@ -6,6 +6,7 @@ import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/arr_activity_display.dart';
 import 'package:cupola/core/widgets/widgets.dart';
 import 'package:cupola/features/media/presentation/open_media.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_image.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_navigation.dart';
@@ -26,12 +27,20 @@ import 'package:cupola/features/tracearr/presentation/tracearr_stop.dart';
 ///
 /// [context] is the page's own, and [ref] its: the actions leave the sheet
 /// first and then act from the page, so a title opened from here lands under
-/// the tab the sheet was opened on, and Back returns to it.
+/// the tab the sheet was opened on, and Back returns to it. They must be the
+/// screen's and not the tapped row's: a stream that stops while the sheet is
+/// open, or a list that is read again, unmounts its rows, and an action run
+/// from a row that is gone would close the sheet and do nothing.
+///
+/// [onPersonPage] is the person whose own page the sheet is opened on, if it is
+/// one: the door to that person is left out, since it would open the page it
+/// is on.
 Future<void> showTracearrSession(
   BuildContext context,
   WidgetRef ref,
-  TracearrSession session,
-) {
+  TracearrSession session, {
+  String? onPersonPage,
+}) {
   final client = ref.read(tracearrClientProvider);
   final poster = resolveTracearrImage(session.media.posterUrl, client.baseUri);
   return AppBottomSheet.showScrollable<void>(
@@ -61,6 +70,7 @@ Future<void> showTracearrSession(
         onClose: () => Navigator.of(sheet).pop(),
         host: context,
         hostRef: ref,
+        onPersonPage: onPersonPage,
       ),
     ),
   );
@@ -72,6 +82,7 @@ class _SessionBody extends ConsumerWidget {
     required this.onClose,
     required this.host,
     required this.hostRef,
+    required this.onPersonPage,
   });
 
   final TracearrSession session;
@@ -81,6 +92,9 @@ class _SessionBody extends ConsumerWidget {
   /// from once the sheet has left.
   final BuildContext host;
   final WidgetRef hostRef;
+
+  /// The person whose page this is opened on, or null.
+  final String? onPersonPage;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -94,8 +108,17 @@ class _SessionBody extends ConsumerWidget {
         name: session.person.name,
       )),
     );
-    final personId = person.asData?.value;
-    final key = session.mediaKey;
+    final found = person.asData?.value;
+    final personId = found == onPersonPage ? null : found;
+    // An episode is opened by its series, which Tracearr names by its own id:
+    // one read turns that into the series' TMDB or TheTVDB id.
+    final showId = session.media.type == TracearrMediaType.episode
+        ? session.media.ids.showMediaId
+        : null;
+    final series = showId == null
+        ? null
+        : ref.watch(tracearrSeriesKeyProvider(showId)).asData?.value;
+    final key = session.mediaKey ?? series;
     final canStop = session.isLive && ref.watch(tracearrCanStopProvider);
     final who = tracearrPersonOf(session.person);
 

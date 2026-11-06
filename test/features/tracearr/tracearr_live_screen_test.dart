@@ -17,10 +17,14 @@ import 'package:cupola/core/lifecycle/poll_clock.dart';
 import 'package:cupola/core/widgets/widgets.dart';
 import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/tracearr/data/tracearr_events.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_playback.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
@@ -62,6 +66,21 @@ class _FixtureClient extends TracearrClient {
     jsonFixture('tracearr/users.json'),
     TracearrUser.fromJson,
   );
+
+  /// The series Tracearr names by its own id, by what `media/{id}` says of it.
+  /// The recorded Harbor Lights row names this one.
+  TracearrMediaIdentity? series = const TracearrMediaIdentity(
+    type: TracearrMediaType.show,
+    tmdb: 1399,
+  );
+
+  final mediaAsked = <String>[];
+
+  @override
+  Future<TracearrMediaIdentity?> getMediaIdentity(TracearrMediaRef ref) async {
+    mediaAsked.add(ref.value);
+    return series;
+  }
 
   @override
   Future<TracearrPage<TracearrViolation>> getViolations({
@@ -110,6 +129,20 @@ Future<ProfileHarness> _pump(
     overrides: [tracearrClientProvider.overrideWithValue(client), ...overrides],
     surfaceSize: const Size(430, 3000),
   );
+}
+
+/// Ends every stream in the list the page draws, as an answer that was
+/// already out would, while a sheet is open over the page: every row goes, so
+/// none of them is left standing to act for the sheet.
+void _stopBehindTheSheet(WidgetTester tester) {
+  final live = ProviderScope.containerOf(
+    tester.element(find.byType(TracearrLiveScreen)),
+  ).read(tracearrLiveProvider.notifier);
+  live
+    ..apply(const TracearrStreamStopped(id: _firstId))
+    ..apply(
+      const TracearrStreamStopped(id: 'f0a1b2c3-0002-4aaa-8bbb-000000000002'),
+    );
 }
 
 void main() {
@@ -284,16 +317,77 @@ void main() {
       await harness.unmount(tester);
     });
 
-    testWidgets('never offers an episode as its series: its ids are the '
-        'episode\'s', (tester) async {
+    testWidgets('offers an episode as its series, found by one read of the '
+        'show Tracearr names, and never by the episode\'s own ids', (
+      tester,
+    ) async {
       final client = _FixtureClient();
       final harness = await _pump(tester, const TracearrLiveScreen(), client);
 
       await open(tester, 'Harbor Lights\u00A0· S2 E5');
 
-      expect(find.text('Open title'), findsNothing);
-      // The person is still known by name.
+      expect(find.text('Open title'), findsOneWidget);
+      expect(client.mediaAsked, ['d1d1d1d1-0000-4000-8000-0000000000b3']);
       expect(find.text('Go to Luca'), findsOneWidget);
+      await harness.unmount(tester);
+    });
+
+    testWidgets('a series Tracearr holds no external id for is no door', (
+      tester,
+    ) async {
+      final client = _FixtureClient()
+        ..series = const TracearrMediaIdentity(type: TracearrMediaType.show);
+      final harness = await _pump(tester, const TracearrLiveScreen(), client);
+
+      await open(tester, 'Harbor Lights\u00A0· S2 E5');
+
+      expect(find.text('Open title'), findsNothing);
+      expect(find.text('Go to Luca'), findsOneWidget);
+      await harness.unmount(tester);
+    });
+
+    testWidgets('a series Tracearr does not know is no door, and no failure', (
+      tester,
+    ) async {
+      final client = _FixtureClient()..series = null;
+      final harness = await _pump(tester, const TracearrLiveScreen(), client);
+
+      await open(tester, 'Harbor Lights\u00A0· S2 E5');
+
+      expect(find.text('Open title'), findsNothing);
+      expect(find.byType(AppErrorState), findsNothing);
+      await harness.unmount(tester);
+    });
+
+    testWidgets('a movie asks nothing more: its own ids open it', (
+      tester,
+    ) async {
+      final client = _FixtureClient();
+      final harness = await _pump(tester, const TracearrLiveScreen(), client);
+
+      await open(tester, 'The Lantern Keeper');
+
+      expect(client.mediaAsked, isEmpty);
+      await harness.unmount(tester);
+    });
+
+    testWidgets('the door to a person is found again after the people list '
+        'failed once', (tester) async {
+      final client = _FlakyPeople();
+      final harness = await _pump(tester, const TracearrLiveScreen(), client);
+
+      await open(tester, 'The Lantern Keeper');
+      expect(find.text('Open title'), findsOneWidget, reason: 'the sheet');
+      expect(find.textContaining('Go to'), findsNothing);
+
+      // Closed and opened again: the list is asked for a second time, and
+      // this time it answers.
+      await tester.tapAt(const Offset(5, 5));
+      await tester.pumpAndSettle();
+      await open(tester, 'The Lantern Keeper');
+
+      expect(client.peopleAsked, 2);
+      expect(find.text('Go to Anna'), findsOneWidget);
       await harness.unmount(tester);
     });
 
@@ -377,6 +471,60 @@ void main() {
     });
   });
 
+  group('the doors of a sheet whose row has gone', () {
+    testWidgets('the title still opens when the stream stopped meanwhile', (
+      tester,
+    ) async {
+      recordPictures();
+      final client = _FixtureClient();
+      final harness = await ProfileHarness.start(
+        _household,
+        overrides: [tracearrClientProvider.overrideWithValue(client)],
+      );
+      harness.network.followFakeTime(tester.binding);
+      await tester.binding.setSurfaceSize(const Size(430, 3000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final router = GoRouter(
+        initialLocation: '/stack/tracearr/live',
+        routes: [
+          GoRoute(
+            path: '/stack/tracearr/live',
+            builder: (_, _) => const Scaffold(body: TracearrLiveScreen()),
+            routes: [
+              GoRoute(
+                path: 'media/movie/:id',
+                builder: (_, state) =>
+                    Text('movie ${state.pathParameters['id']}'),
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: harness.overrides,
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await harness.settle(tester);
+
+      await tester.tap(find.text('The Lantern Keeper'));
+      await tester.pumpAndSettle();
+      _stopBehindTheSheet(tester);
+      await tester.pump();
+      await tester.pump();
+      await tester.ensureVisible(find.text('Open title'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Open title'));
+      await tester.pumpAndSettle();
+
+      expect(router.state.uri.path, '/stack/tracearr/live/media/movie/603');
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump(const Duration(milliseconds: 1));
+    });
+  });
+
   group('Stop', () {
     Future<void> toStop(WidgetTester tester) async {
       await tester.tap(find.text('The Lantern Keeper'));
@@ -386,6 +534,34 @@ void main() {
       await tester.tap(find.text('Stop stream'));
       await tester.pumpAndSettle();
     }
+
+    testWidgets('works from a sheet whose row has gone: the stream stopped by '
+        'itself while the sheet was open', (tester) async {
+      final client = _FixtureClient(stops: [const TracearrTerminated()]);
+      final harness = await _pump(tester, const TracearrLiveScreen(), client);
+      await tester.tap(find.text('The Lantern Keeper'));
+      await tester.pumpAndSettle();
+      expect(find.byType(ServiceRecordRow), findsNWidgets(2));
+
+      // The stream ends, and its row leaves the list under the open sheet. The
+      // feed is gated off while a sheet covers the page, so the word reaches
+      // the list the way a read that was already out would bring it.
+      _stopBehindTheSheet(tester);
+      await tester.pump();
+      await tester.pump();
+      expect(find.byType(ServiceRecordRow), findsNothing);
+
+      await tester.ensureVisible(find.text('Stop stream'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Stop stream'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Stop this stream?'), findsOneWidget);
+      await tester.tap(find.widgetWithText(FilledButton, 'Stop stream'));
+      await tester.pumpAndSettle();
+      expect(client.stopped.single.id, _firstId);
+      await harness.unmount(tester);
+    });
 
     testWidgets('asks first, in neutral words, with a word for the viewer', (
       tester,
@@ -553,7 +729,7 @@ void main() {
       await harness.unmount(tester);
     });
 
-    testWidgets('a violation row is a door to the Violations tab', (
+    testWidgets('a violation row is a door to the violation itself', (
       tester,
     ) async {
       final client = _FixtureClient();
@@ -567,7 +743,7 @@ void main() {
         find.widgetWithText(ServiceOverviewRow, 'Impossible travel'),
       );
       expect(row.onTap, isNotNull);
-      expect(row.doorHint, 'opens the Tracearr Violations tab');
+      expect(row.doorHint, 'opens the violation');
       expect(row.spoken, contains('Impossible travel'));
       await harness.unmount(tester);
     });
@@ -583,6 +759,26 @@ class _FailingEvents extends _FixtureClient {
     CancelToken? cancelToken,
     void Function(Duration retry)? onRetry,
   }) => Stream.error(StateError('refused'));
+}
+
+/// A client whose people list fails the first time it is asked, as one read
+/// that did not get through does.
+class _FlakyPeople extends _FixtureClient {
+  int peopleAsked = 0;
+
+  @override
+  Future<TracearrPage<TracearrUser>> getUsers({
+    String? cursor,
+    int pageSize = 25,
+    bool includeRemoved = false,
+  }) {
+    if (peopleAsked++ == 0) throw StateError('did not answer');
+    return super.getUsers(
+      cursor: cursor,
+      pageSize: pageSize,
+      includeRemoved: includeRemoved,
+    );
+  }
 }
 
 /// A client whose two people share a name.

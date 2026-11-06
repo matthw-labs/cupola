@@ -79,7 +79,6 @@ class TracearrOverviewScreen extends StatelessWidget {
 void _refresh(WidgetRef ref) {
   ref.invalidate(tracearrServersProvider);
   ref.invalidate(tracearrLiveProvider);
-  ref.invalidate(tracearrStreamsProvider);
   ref.invalidate(tracearrLatestViolationsProvider);
   ref.invalidate(tracearrTopWeekProvider);
 }
@@ -217,7 +216,16 @@ class _PlayingSection extends ConsumerWidget {
         data: (data) => Column(
           children: [
             for (final stream in data.streams.take(3))
-              _PlayingRow(stream: stream),
+              _PlayingRow(
+                stream: stream,
+                // This section's own context and ref open the sheet: the
+                // row goes when its stream stops, the section does not.
+                onOpen: () => showTracearrSession(
+                  context,
+                  ref,
+                  TracearrSession.live(stream),
+                ),
+              ),
           ],
         ),
       ),
@@ -228,9 +236,10 @@ class _PlayingSection extends ConsumerWidget {
 /// A playing stream, a door to its detail. The title and the person are one
 /// tap further, in the sheet, which knows whether the ids identify them.
 class _PlayingRow extends ConsumerWidget {
-  const _PlayingRow({required this.stream});
+  const _PlayingRow({required this.stream, required this.onOpen});
 
   final TracearrStream stream;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -252,8 +261,7 @@ class _PlayingRow extends ConsumerWidget {
       ),
       title: title,
       detail: detail,
-      onTap: () =>
-          showTracearrSession(context, ref, TracearrSession.live(stream)),
+      onTap: onOpen,
       doorHint: 'opens the details',
     );
   }

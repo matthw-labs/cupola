@@ -5,9 +5,23 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_json.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
 
+/// The event name of [SseFrame.keepAlive]. It holds a character no `event:`
+/// field of ours can spell, since a field name is cut at its first colon.
+const String kSseKeepAliveEvent = ':keep-alive';
+
 /// One event of a server-sent-events stream, as the wire frames it.
 final class SseFrame {
   const SseFrame({required this.event, required this.data, this.id});
+
+  /// The sign of life a comment line (`: ping`) is: no event and no data, only
+  /// the proof that the server is still there. The standard drops comments
+  /// because a browser has no use for them, but a stalled connection can only
+  /// be told from a quiet one by the bytes that keep arriving, and Tracearr's
+  /// only word on a quiet stream is its ping.
+  const SseFrame.keepAlive() : event = kSseKeepAliveEvent, data = '', id = null;
+
+  /// Whether this is [SseFrame.keepAlive].
+  bool get isKeepAlive => event == kSseKeepAliveEvent;
 
   /// The `event:` field, `message` when the frame names none.
   final String event;
@@ -37,9 +51,9 @@ final class SseFrame {
 /// a streaming response and a dependency for forty lines of a stable format is
 /// not worth carrying. It follows the WHATWG rules: lines end in LF, CR or
 /// CRLF (a CRLF split across two chunks is still one break); a line that opens
-/// with `:` is a comment and is dropped; `data:` lines accumulate and a blank
-/// line dispatches them; one space after the colon is not part of the value;
-/// `retry:` takes digits only. A frame with no data is not dispatched.
+/// with `:` is a comment, dropped from the frames and counted in [comments];
+/// `data:` lines accumulate and a blank line dispatches them; one space after
+/// the colon is not part of the value; `retry:` takes digits only. A frame with no data is not dispatched.
 final class SseParser {
   final StringBuffer _line = StringBuffer();
   final StringBuffer _data = StringBuffer();
@@ -51,6 +65,10 @@ final class SseParser {
   /// The last `retry:` the server sent, which is how long it asks a client to
   /// wait before reconnecting. Reconnection itself is the caller's.
   Duration? retry;
+
+  /// How many comment lines the stream has sent so far. A comment dispatches
+  /// nothing, but it is the one thing a server sends to say it is still there.
+  int comments = 0;
 
   /// Feeds [text] and returns the frames it completes.
   List<SseFrame> add(String text) {
@@ -80,7 +98,10 @@ final class SseParser {
 
   SseFrame? _handle(String line) {
     if (line.isEmpty) return _dispatch();
-    if (line.startsWith(':')) return null;
+    if (line.startsWith(':')) {
+      comments++;
+      return null;
+    }
     final colon = line.indexOf(':');
     final field = colon < 0 ? line : line.substring(0, colon);
     var value = colon < 0 ? '' : line.substring(colon + 1);
@@ -121,10 +142,12 @@ final class SseParser {
 /// Decoding is chunked, so a multi-byte character cut by a chunk boundary is
 /// whole when it reaches the parser. [onRetry] hears each `retry:` the server
 /// sends. A frame cut off by the end of the stream is not dispatched, as the
-/// standard says.
+/// standard says. With [withKeepAlives] each chunk that brought a comment line
+/// also yields one [SseFrame.keepAlive], after the frames the chunk completed.
 Stream<SseFrame> sseFrames(
   Stream<List<int>> bytes, {
   void Function(Duration retry)? onRetry,
+  bool withKeepAlives = false,
 }) async* {
   final parser = SseParser();
   // `bind`, not `transform`: a Dio body is a `Stream<Uint8List>`, and
@@ -133,11 +156,15 @@ Stream<SseFrame> sseFrames(
     allowMalformed: true,
   ).bind(bytes)) {
     final before = parser.retry;
+    final comments = parser.comments;
     final frames = parser.add(text);
     final after = parser.retry;
     if (after != null && after != before) onRetry?.call(after);
     for (final frame in frames) {
       yield frame;
+    }
+    if (withKeepAlives && parser.comments != comments) {
+      yield const SseFrame.keepAlive();
     }
   }
 }
@@ -148,6 +175,13 @@ sealed class TracearrEvent {
 
   /// When Tracearr says it happened.
   final DateTime? at;
+}
+
+/// A comment line (`: ping`, about every 25 seconds on Tracearr 3.1.4): the
+/// server is there and has nothing to say. It moves no row; the feed loop
+/// listens for it to know the connection is alive.
+final class TracearrKeepAlive extends TracearrEvent {
+  const TracearrKeepAlive({super.at});
 }
 
 /// The stream is open and the server is talking.
@@ -236,6 +270,7 @@ final class TracearrServerHealth extends TracearrEvent {
 /// Tracearr wraps each payload as `{type, at, data}`. The `event:` field names
 /// the kind too; when a frame leaves it at `message` we fall back to `type`.
 TracearrEvent? tracearrEventFrom(SseFrame frame) {
+  if (frame.isKeepAlive) return const TracearrKeepAlive();
   final payload = asTracearrJson(frame.json);
   if (payload == null) return null;
   final wrapped = payload['type'] is String && payload['data'] != null;

@@ -187,6 +187,41 @@ void main() {
       expect(heard, [const Duration(seconds: 3), const Duration(seconds: 5)]);
     });
 
+    test('a comment is counted by the parser, and dispatches nothing', () {
+      final parser = SseParser();
+
+      expect(parser.add(': ping\n\n: ping\n'), isEmpty);
+      expect(parser.comments, 2);
+    });
+
+    test(
+      'a ping is a keep-alive frame when asked for, one per chunk',
+      () async {
+        final frames = await sseFrames(
+          Stream.fromIterable([
+            utf8.encode(': ping\n\n'),
+            utf8.encode('data: a\n\n'),
+            utf8.encode('data: b\n\n: ping\n\n'),
+          ]),
+          withKeepAlives: true,
+        ).toList();
+
+        expect(frames.map((f) => f.isKeepAlive), [true, false, false, true]);
+        expect(
+          frames.map((f) => tracearrEventFrom(f)).first,
+          isA<TracearrKeepAlive>(),
+        );
+      },
+    );
+
+    test('a ping is dropped unless asked for', () async {
+      final frames = await sseFrames(
+        Stream.value(utf8.encode(': ping\n\ndata: a\n\n')),
+      ).toList();
+
+      expect(frames.map((f) => f.data), ['a']);
+    });
+
     test('an error on the stream reaches the listener', () {
       final stream = Stream<List<int>>.error(const SocketException('reset'));
 

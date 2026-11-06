@@ -1351,7 +1351,7 @@ RouteBase _tracearrRoutes() => _serviceRoutes(
         const TracearrUsersScreen(topPadding: _serviceTabTopPadding),
     ServiceTab.violations: (state) => TracearrViolationsScreen(
       topPadding: _serviceTabTopPadding,
-      // From the Users tab: the person's violations only.
+      // From a person's page: that person's violations only.
       userId: state.uri.queryParameters['user'],
     ),
   },
@@ -1367,6 +1367,7 @@ RouteBase _tracearrRoutes() => _serviceRoutes(
     ServiceTab.live: [_tracearrPerson('person/:id')],
     ServiceTab.history: [_tracearrPerson('person/:id')],
     ServiceTab.violations: [
+      _tracearrPerson('person/:id'),
       _page(
         ':id',
         (state) => TracearrViolationScreen(
@@ -1378,7 +1379,6 @@ RouteBase _tracearrRoutes() => _serviceRoutes(
             ? ServiceRoutes.tracearrViolations
             : null,
       ),
-      _tracearrPerson('person/:id'),
     ],
   },
 );

@@ -10,8 +10,6 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_history.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_image.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
-import 'package:cupola/features/tracearr/presentation/tracearr_session.dart';
-import 'package:cupola/features/tracearr/presentation/tracearr_session_sheet.dart';
 
 /// One viewing as a row, in History and on a person's page: the poster, the
 /// title, who and where, and what it came to. A tap opens its detail.
@@ -19,15 +17,23 @@ import 'package:cupola/features/tracearr/presentation/tracearr_session_sheet.dar
 /// [withDay] says the day as well as the time. History groups its rows under a
 /// day heading and gives the time alone; a person's page lists their latest
 /// across days with no heading, so each row says its own.
+///
+/// The row does not open its own sheet: [onOpen] is the screen's, because a row
+/// is unmounted when the list is read again, and a sheet whose actions ran
+/// from it would find nobody to act (`showTracearrSession`).
 class TracearrHistoryRow extends ConsumerWidget {
   const TracearrHistoryRow({
     super.key,
     required this.entry,
+    required this.onOpen,
     this.withDay = false,
     this.withPerson = true,
   });
 
   final TracearrHistoryEntry entry;
+
+  /// Opens the viewing's detail, from the screen the row is listed on.
+  final VoidCallback onOpen;
   final bool withDay;
 
   /// Whether the row names the person: not on their own page, where every row
@@ -62,8 +68,7 @@ class TracearrHistoryRow extends ConsumerWidget {
         ? 'Stopped'
         : formatPercent(percent);
     return PressableScale(
-      onTap: () =>
-          showTracearrSession(context, ref, TracearrSession.recorded(entry)),
+      onTap: onOpen,
       semanticHint: 'opens the details',
       child: ServiceRecordRow.poster(
         art: ServiceOverviewArt(

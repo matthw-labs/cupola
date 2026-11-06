@@ -1064,7 +1064,6 @@ void main() {
           tab: tab,
           overrides: [
             tracearrClientProvider.overrideWithValue(pending),
-            tracearrStreamsProvider.overrideWith((ref) => _pending()),
             tracearrLiveProvider.overrideWith(_PendingLive.new),
             // The feed would open a stream on a client that never answers.
             tracearrLiveFeedProvider.overrideWith((ref) {}),

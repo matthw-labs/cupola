@@ -16,6 +16,8 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_history_row.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_navigation.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_person_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_session.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_session_sheet.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
 
 const _service = ServiceKey.tracearr;
@@ -148,6 +150,14 @@ class _Page extends ConsumerWidget {
                   padding: const EdgeInsets.only(bottom: AppSpacing.sm),
                   child: TracearrHistoryRow(
                     entry: entry,
+                    // From this page's own context, and told whose page it is:
+                    // the sheet has no door to a person who is already here.
+                    onOpen: () => showTracearrSession(
+                      context,
+                      ref,
+                      TracearrSession.recorded(entry),
+                      onPersonPage: user.id,
+                    ),
                     withDay: true,
                     withPerson: false,
                   ),

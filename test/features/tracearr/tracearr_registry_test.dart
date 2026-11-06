@@ -383,6 +383,40 @@ void main() {
       }
     });
 
+    test('a series is a door by its TMDB id, else its TheTVDB id, and only a '
+        'series with one', () {
+      MediaKey? key(TracearrMediaIdentity series) =>
+          tracearrSeriesKeyOf(series);
+
+      expect(
+        key(
+          const TracearrMediaIdentity(
+            type: TracearrMediaType.show,
+            tmdb: 1399,
+            tvdb: 121361,
+          ),
+        )?.location,
+        const MediaKey.tv(1399).location,
+      );
+      expect(
+        key(
+          const TracearrMediaIdentity(type: TracearrMediaType.show, tvdb: 5),
+        )?.location,
+        const MediaKey.tvdb(5).location,
+      );
+      expect(
+        key(const TracearrMediaIdentity(type: TracearrMediaType.show)),
+        isNull,
+      );
+      expect(
+        key(
+          const TracearrMediaIdentity(type: TracearrMediaType.movie, tmdb: 603),
+        ),
+        isNull,
+        reason: 'a movie is not the series of an episode',
+      );
+    });
+
     test('an episode reads by its show and its code', () {
       expect(
         tracearrMediaTitleOf(

@@ -17,6 +17,7 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_history.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_json.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_playback.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
@@ -370,6 +371,17 @@ class TracearrClient {
     return row == null ? null : TracearrViolation.fromJson(row);
   }
 
+  /// What Tracearr knows of a title by its reference, or null when it does not
+  /// know it. An episode's row names its show by Tracearr's own id
+  /// (`show_media_id`), and this is how that id becomes the show's TMDB or
+  /// TheTVDB id, which Cupola can open a page by.
+  Future<TracearrMediaIdentity?> getMediaIdentity(TracearrMediaRef ref) async {
+    final json = asTracearrJson(
+      await _readOrNull('$_v2/media/${_refPath(ref)}'),
+    );
+    return json == null ? null : TracearrMediaIdentity.fromJson(json);
+  }
+
   /// Who watched a title, or null when Tracearr does not know it.
   ///
   /// A null is an answer only for "unknown to Tracearr"; it says nothing about
@@ -466,10 +478,13 @@ class TracearrClient {
   ///
   /// There is no reconnection here, and no event announces a break: the stream
   /// ends when the connection does, or fails with the transport's error, and
-  /// the caller decides when and how to open another. [types] narrows the
-  /// kinds the server sends (comma separated on the wire). [onRetry] hears the
-  /// `retry:` hint the server sends. Cancelling the subscription, or
-  /// [cancelToken], closes the connection.
+  /// the caller decides when and how to open another. A connection that goes
+  /// quiet without either is the caller's to notice too, which is why each
+  /// comment line the server sends (`: ping`) comes out as a
+  /// [TracearrKeepAlive]: the only proof, between two events, that it is
+  /// there. [types] narrows the kinds the server sends (comma separated on the
+  /// wire). [onRetry] hears the `retry:` hint the server sends. Cancelling
+  /// the subscription, or [cancelToken], closes the connection.
   ///
   /// A 200 that is not an event stream is read for at most
   /// [kTracearrEventsProbeBytes] and failed the way a JSON route fails: a
@@ -506,7 +521,11 @@ class TracearrClient {
       if (contentType != null && !contentType.contains('text/event-stream')) {
         throw await _notAnEventStream(response, body);
       }
-      await for (final frame in sseFrames(body.stream, onRetry: onRetry)) {
+      await for (final frame in sseFrames(
+        body.stream,
+        onRetry: onRetry,
+        withKeepAlives: true,
+      )) {
         final event = tracearrEventFrom(frame);
         if (event != null) yield event;
       }

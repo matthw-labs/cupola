@@ -56,7 +56,13 @@ class TracearrLiveScreen extends ConsumerWidget {
           'Tracearr watches.',
       onRetry: () => ref.invalidate(tracearrLiveProvider),
       banner: _Summary(streams: streams.value),
-      rowBuilder: (stream) => _StreamRow(stream: stream),
+      // This screen's own context and ref open the sheet: a stream that stops
+      // takes its row with it, and the sheet's actions must outlast the row.
+      rowBuilder: (stream) => _StreamRow(
+        stream: stream,
+        onOpen: () =>
+            showTracearrSession(context, ref, TracearrSession.live(stream)),
+      ),
     );
   }
 }
@@ -104,9 +110,10 @@ String tracearrSummaryLine(TracearrStreams data) {
 }
 
 class _StreamRow extends ConsumerWidget {
-  const _StreamRow({required this.stream});
+  const _StreamRow({required this.stream, required this.onOpen});
 
   final TracearrStream stream;
+  final VoidCallback onOpen;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -124,8 +131,7 @@ class _StreamRow extends ConsumerWidget {
     ]);
     final method = tracearrMethodWord(stream.quality) ?? 'Playing';
     return PressableScale(
-      onTap: () =>
-          showTracearrSession(context, ref, TracearrSession.live(stream)),
+      onTap: onOpen,
       semanticHint: 'opens the details',
       child: ServiceRecordRow.poster(
         art: ServiceOverviewArt(

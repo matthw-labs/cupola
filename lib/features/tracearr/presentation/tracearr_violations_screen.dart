@@ -23,8 +23,9 @@ const _service = ServiceKey.tracearr;
 ///
 /// Opens on the ones nobody has looked at, with a pill to see every one and a
 /// row of pills for the severity, both asked of the server. [userId] is the
-/// person a link narrows it to (`?user=`, which the Users tab leads with): a
-/// line above the list says so and takes the filter off. A value that is not
+/// person a link narrows it to (`?user=`, which a person's page leads with, the
+/// page the Users tab opens on a row): a line above the list says so and takes
+/// the filter off. A value that is not
 /// a Tracearr user id is ignored, since the server answers it with a 400.
 ///
 /// Severity is said in words (`Low`, `Warning`, `High`) and the row is blue,

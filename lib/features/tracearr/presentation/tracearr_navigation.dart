@@ -12,7 +12,8 @@ void openTracearrPerson(BuildContext context, String id) {
   router.push(ServiceRoutes.tracearrPerson(id, from: router.state.uri.path));
 }
 
-/// Opens Tracearr's Violations tab narrowed to one person (`?user=`). A tab
-/// that does not read the narrowing shows what it always shows.
+/// Opens Tracearr's Violations tab narrowed to one person (`?user=`), which the
+/// tab reads (`TracearrViolationsScreen`): [userId] is `TracearrUser.id`, the
+/// id the tab's `user_id` filter takes.
 void openTracearrViolationsOf(BuildContext context, String userId) =>
     GoRouter.maybeOf(context)?.go(ServiceRoutes.tracearrViolationsOf(userId));
