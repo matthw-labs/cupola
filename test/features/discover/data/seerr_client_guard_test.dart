@@ -389,7 +389,9 @@ const _apiClientSites = <String, String>{
   'lib/features/services/presentation/services_probe.dart':
       'The probe client of the X-Api-Key services; the Seerr branch builds '
       'its own through seerrClientFactoryProvider first.',
-  'lib/features/jellyfin/data/jellyfin_client.dart': 'Jellyfin.',
+  'lib/features/jellyfin/data/media_browser_client.dart':
+      'Jellyfin, and Emby beside it: the one client of the MediaBrowser '
+      'family, under either dialect.',
   'lib/features/plex/data/plex_client.dart': 'Plex.',
 };
 

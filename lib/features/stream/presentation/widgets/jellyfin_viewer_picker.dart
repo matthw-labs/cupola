@@ -32,7 +32,16 @@ import 'package:cupola/features/stream/domain/stream_server_client.dart';
 /// `/library/*` accepts no impersonation parameter, so a Plex library has exactly
 /// one perspective. The control is absent there rather than showing a list of one.
 class JellyfinViewerPicker extends ConsumerWidget {
-  const JellyfinViewerPicker({super.key, this.instanceId = ''});
+  const JellyfinViewerPicker({
+    super.key,
+    this.instanceId = '',
+    this.service = ServiceKey.jellyfin,
+  });
+
+  /// The server of the MediaBrowser family the viewer is chosen on: Emby's API
+  /// key has no user either, so the same control serves it. It decides which
+  /// providers list the users and which name the messages carry.
+  final ServiceKey service;
 
   /// Which connection this picker fills in for.
   ///
@@ -54,10 +63,12 @@ class JellyfinViewerPicker extends ConsumerWidget {
     final theme = Theme.of(context);
     final selectedId = ref.watch(
       currentSettingsProvider.select(
-        (s) => _instanceOf(s, instanceId)?.viewerId ?? '',
+        (s) => _instanceOf(s, service, instanceId)?.viewerId ?? '',
       ),
     );
-    final viewersAsync = ref.watch(jellyfinViewersForProvider(instanceId));
+    final viewersAsync = ref.watch(
+      mediaBrowserProvidersOf(service).viewersFor(instanceId),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -86,10 +97,10 @@ class JellyfinViewerPicker extends ConsumerWidget {
           // than an exception they cannot act on from here.
           error: (error, _) => Text(
             error is ServiceNotConfigured
-                ? '${Lexicon.setUp(ServiceKey.jellyfin.title)} first, then '
+                ? '${Lexicon.setUp(service.title)} first, then '
                       'come back to choose a viewer.'
                 : sectionFailureMessage(
-                    ServiceKey.jellyfin,
+                    service,
                     error,
                     consequence: 'its viewers are not shown',
                   ),
@@ -116,7 +127,7 @@ class JellyfinViewerPicker extends ConsumerWidget {
 
   Future<void> _select(WidgetRef ref, StreamViewer viewer) async {
     final settings = ref.read(currentSettingsProvider);
-    final instance = _instanceOf(settings, instanceId);
+    final instance = _instanceOf(settings, service, instanceId);
     if (instance == null) return;
     await ref
         .read(settingsProvider.notifier)
@@ -133,8 +144,12 @@ class JellyfinViewerPicker extends ConsumerWidget {
 }
 
 /// The connection [id] names, or the one the lens is on when it names none.
-ServiceInstance? _instanceOf(SettingsModel settings, String id) {
-  if (id.isEmpty) return settings.primaryOf(ServiceKey.jellyfin);
+ServiceInstance? _instanceOf(
+  SettingsModel settings,
+  ServiceKey service,
+  String id,
+) {
+  if (id.isEmpty) return settings.primaryOf(service);
   return settings.instanceById(id);
 }
 
