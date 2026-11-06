@@ -10,6 +10,7 @@ Rendered from `lib/core/widgets/app_dialog.dart` (`showAppConfirmDialog`, `showA
 - **Title row**: an optional 24pt icon in `onSurface`, then `AppSpacing.md`, then the title in `titleLarge` at 600, whole: it names what the action touches, and a cap at two lines hid that name. The dialog is `scrollable`, so the title scrolls with the content and the buttons stay in view at any length; the title is also the dialog's `semanticLabel`.
 - **Message**: `bodyMedium`.
 - **Options**: `AppSpacing.md` above, one `CheckboxListTile` each: leading checkbox, zero content padding, the tile's own `bodyLarge` title and a `bodySmall` subtitle in `on-surface-variant`, the secondary ink.
+- **Field** (`field: AppConfirmField`): `AppSpacing.md` under the message, one text field with a floating label and no counter, limit held at `maxLength` (200). For a word to whoever the action lands on, optional by nature: the dialog confirms with it empty, and the label says so (`Message for Anna · optional`, Tracearr's Stop). The result carries it trimmed in `text`.
 - **Actions**: a `TextButton` Cancel (`cancelLabel`, the theme's `primary` and `labelLarge` 600) and the theme's own `FilledButton` confirm (`confirmLabel`; the ink fill, `primary`, padding 16 × 12, `AppRadius.control` (14)). No style of its own. A label too long to sit beside Cancel makes the pair stack rather than truncate, with the confirm on top and Cancel beneath it, 8 apart (`actionsOverflowDirection: VerticalDirection.up`, Material's stacked order).
 - **Typed variant** (`showAppTypedConfirmDialog`): the same title row and message, then `AppSpacing.md`, the phrase on a `surfaceContainerHighest` plate (`AppRadius.borderRadiusSm`, padding 12 × 8, `bodyMedium` 600, selectable), `AppSpacing.md`, a text field labelled *Type it to confirm*, autofocused. The confirm stays disabled until the field matches the phrase, trimmed and case-insensitive.
 
@@ -34,7 +35,7 @@ It used to have a `destructive` variant (red fill, red title and glyph, a red *T
 
 ## The consumer provides
 
-Title, message, icon, `confirmLabel`, optionally `confirmLabelFor`, `cancelLabel` and the options (`key`, `label`, `subtitle`, `initialValue`). The result is `AppConfirmResult(confirmed, options)`, read with `option(key)`; dismissing returns `AppConfirmResult.cancelled`. The typed variant takes `phrase` and returns whether it was confirmed. A haptic, where a flow wants one, is the caller's, fired before the dialog opens.
+Title, message, icon, `confirmLabel`, optionally `confirmLabelFor`, `cancelLabel` and the options (`key`, `label`, `subtitle`, `initialValue`). The result is `AppConfirmResult(confirmed, options, text)`, read with `option(key)`; dismissing returns `AppConfirmResult.cancelled`. The typed variant takes `phrase` and returns whether it was confirmed. A haptic, where a flow wants one, is the caller's, fired before the dialog opens.
 
 ## Semantics
 
@@ -44,7 +45,7 @@ Material's: a dialog route, checkbox tiles that announce their state, two button
 
 Each sheet is drawn in the dark and the light room; the delete dialog also on the desktop.
 
-- Standard, with an icon, Enter confirms with the confirm focused, a delete with its options ticked and unticked, a delete with no options, a long title, the typed confirmation.
+- Standard, with an icon, with a field for a word to the viewer (Stop this stream?), Enter confirms with the confirm focused, a delete with its options ticked and unticked, a delete with no options, a long title, the typed confirmation.
 - Text at 200%: the grab confirmation, the delete with two options, the typed confirmation.
 
 ## Keyboard

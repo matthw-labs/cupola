@@ -21,6 +21,7 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
@@ -113,6 +114,16 @@ TracearrViolation _violation(String id, TracearrSeverity severity) =>
       severity: severity,
       rule: TracearrRuleRef(name: 'Rule $id'),
     );
+
+/// The live list, fixed: nothing of it reaches a socket.
+class _LiveOf extends TracearrLiveNotifier {
+  _LiveOf(this.streams);
+
+  final TracearrStreams streams;
+
+  @override
+  Future<TracearrStreams> build() async => streams;
+}
 
 class _Opener implements BrowserOpener {
   final opened = <Uri>[];
@@ -263,9 +274,11 @@ void main() {
           tracearrServersProvider.overrideWith(
             (ref) async => const TracearrServers(servers: []),
           ),
-          tracearrStreamsProvider.overrideWith(
-            (ref) async => const TracearrStreams(streams: []),
+          tracearrLiveProvider.overrideWith(
+            () => _LiveOf(const TracearrStreams(streams: [])),
           ),
+          // The feed would read the demo's streams over the fixed ones.
+          tracearrLiveFeedProvider.overrideWith((ref) {}),
           tracearrLatestViolationsProvider.overrideWith(
             (ref) async => const TracearrPage(items: []),
           ),
@@ -342,9 +355,11 @@ void main() {
         tester,
         const TracearrLiveScreen(),
         overrides: [
-          tracearrStreamsProvider.overrideWith(
-            (ref) async => const TracearrStreams(streams: []),
+          tracearrLiveProvider.overrideWith(
+            () => _LiveOf(const TracearrStreams(streams: [])),
           ),
+          // The feed would read the demo's streams over the fixed ones.
+          tracearrLiveFeedProvider.overrideWith((ref) {}),
         ],
       );
 
@@ -369,12 +384,10 @@ void main() {
       await harness.unmount(tester);
     });
 
-    testWidgets('a stream whose movie has a TMDB id is a door to its title', (
-      tester,
-    ) async {
+    testWidgets('a stream is a door to its detail', (tester) async {
       final harness = await _pump(tester, const TracearrLiveScreen());
 
-      // The demo's movies carry their TMDB ids, so each is a door.
+      // Each row opens the detail, where the title and the person are.
       expect(find.byType(PressableScale), findsNWidgets(3));
       await harness.unmount(tester);
     });
@@ -482,7 +495,10 @@ void main() {
 
       expect(find.byType(ServiceRecordRow), findsNWidgets(2));
       expect(find.text('Anna'), findsOneWidget);
-      expect(find.text('Jellyfin, Plex, Emby'), findsNWidgets(2));
+      // One chip a kind of server, each kind once.
+      expect(find.widgetWithText(GenreChip, 'Jellyfin'), findsNWidgets(2));
+      expect(find.widgetWithText(GenreChip, 'Plex'), findsNWidgets(2));
+      expect(find.widgetWithText(GenreChip, 'Emby'), findsNWidgets(2));
       expect(find.text('3 accounts'), findsNWidgets(2));
       await harness.unmount(tester);
     });
@@ -519,7 +535,8 @@ void main() {
 
       expect(find.text('Sara'), findsOneWidget);
       expect(find.text('1 account'), findsOneWidget);
-      expect(find.text('Plex'), findsOneWidget);
+      expect(find.widgetWithText(GenreChip, 'Plex'), findsOneWidget);
+      expect(find.widgetWithText(GenreChip, 'Emby'), findsNothing);
       await harness.unmount(tester);
     });
 

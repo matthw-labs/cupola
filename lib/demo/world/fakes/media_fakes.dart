@@ -1,6 +1,8 @@
 /// Seerr, Jellyfin and Plex on the fake network.
 library;
 
+import 'dart:convert';
+
 import 'package:cupola/core/utils/unit_space.dart';
 import 'package:cupola/features/discover/domain/seerr_permission.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
@@ -2962,6 +2964,47 @@ class TracearrFake extends ServiceFake {
     'meta': {'nextCursor': null, 'pageSize': 100},
   };
 
+  /// The event stream, as the recorded 3.1.4 one starts: a `retry` hint, `ready`,
+  /// then each playing stream's full row. A fake answers once and ends, so the
+  /// hint is long: a client that reconnects at the end of it does so rarely.
+  static NetworkReply _events(ServerContext c) {
+    final frames = StringBuffer('retry: 30000\n\n')
+      ..write(
+        'event: ready\ndata: ${jsonEncode({'type': 'ready', 'at': c.ago(Duration.zero), 'data': {}})}\n\n',
+      );
+    for (final row in _streams(c, null)['data'] as List) {
+      frames.write(
+        'event: stream.updated\ndata: ${jsonEncode({'type': 'stream.updated', 'at': c.ago(Duration.zero), 'data': row})}\n\n',
+      );
+    }
+    return NetworkReply(
+      200,
+      body: frames.toString(),
+      contentType: 'text/event-stream; charset=utf-8',
+    );
+  }
+
+  /// A person's figures: a few days of watching, two genres they like.
+  static JsonMap _stats(String id) {
+    final anna = id == annaId;
+    JsonMap window(int plays, Duration time) => {
+      'plays': plays,
+      'watch_time_ms': time.inMilliseconds,
+    };
+    return {
+      'user_id': id,
+      'windows': {
+        'last_7': window(anna ? 4 : 2, Duration(minutes: anna ? 190 : 75)),
+        'last_30': window(anna ? 11 : 6, Duration(minutes: anna ? 520 : 240)),
+        'all_time': window(anna ? 38 : 19, Duration(hours: anna ? 41 : 20)),
+      },
+      'top_genres': [
+        {'genre': 'Animation', 'plays': anna ? 14 : 9},
+        {'genre': 'Science Fiction', 'plays': anna ? 8 : 4},
+      ],
+    };
+  }
+
   @override
   NetworkReply? answer(NetworkRequest r, ServerContext c) {
     if (r.method != 'GET') return null;
@@ -3012,6 +3055,8 @@ class TracearrFake extends ServiceFake {
         });
       case '/api/v2/public/streams':
         return NetworkReply.json(_streams(c, r.query['server_id']));
+      case '/api/v2/public/events':
+        return _events(c);
       case '/api/v1/public/stats/today':
         return NetworkReply.json({
           ...jsonFixtureMap('tracearr/real_today.json'),
@@ -3036,6 +3081,22 @@ class TracearrFake extends ServiceFake {
         );
       case '/api/v2/public/top-media':
         return NetworkReply.json(_top(r, c));
+    }
+    // A person, and their figures: `users/:id` and `users/:id/stats`.
+    final person = RegExp(
+      r'^/api/v2/public/users/([^/]+)(/stats)?$',
+    ).firstMatch(r.path);
+    if (person != null) {
+      final id = Uri.decodeComponent(person.group(1)!);
+      final user = _users().where((u) => u['id'] == id).firstOrNull;
+      if (user == null) {
+        return NetworkReply.json({
+          'statusCode': 404,
+          'error': 'NotFoundError',
+          'message': 'User not found',
+        }, status: 404);
+      }
+      return NetworkReply.json(person.group(2) == null ? user : _stats(id));
     }
     return null;
   }

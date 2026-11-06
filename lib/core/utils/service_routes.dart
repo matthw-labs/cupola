@@ -154,6 +154,35 @@ class ServiceRoutes {
   static const tracearrUsers = '$tracearr/users';
   static const tracearrViolations = '$tracearr/violations';
 
+  /// A person's page, opened from the page at [from], under the tab [from] is
+  /// in so Back returns to the row it was opened from, as a title's page does
+  /// (`mediaMountFor`): `/stack/tracearr/users/:id` from the Users tab (the
+  /// spelling a deep link uses), `/stack/tracearr/<tab>/person/:id` from any
+  /// other tab of Tracearr, and the Users spelling from anywhere else.
+  ///
+  /// The id is Tracearr's own, one segment, so a link resolves from the path
+  /// alone.
+  static String tracearrPerson(String id, {required String from}) {
+    final encoded = Uri.encodeComponent(id);
+    return switch (Uri.parse(from).pathSegments) {
+      ['stack', 'tracearr', final tab, ...]
+          when const {
+            'overview',
+            'live',
+            'history',
+            'violations',
+          }.contains(tab) =>
+        '$tracearr/$tab/person/$encoded',
+      _ => '$tracearrUsers/$encoded',
+    };
+  }
+
+  /// Tracearr's Violations tab narrowed to one person, by `?user=` (their
+  /// Tracearr id). A tab that does not read the narrowing opens unnarrowed,
+  /// which is the whole of what it would have shown.
+  static String tracearrViolationsOf(String userId) =>
+      '$tracearrViolations?user=${Uri.encodeQueryComponent(userId)}';
+
   static const plexOverview = '$plex/overview';
 
   /// The same two roles [jellyfinLibraries] carries, and the same move: the

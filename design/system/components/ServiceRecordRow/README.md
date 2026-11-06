@@ -7,13 +7,13 @@ Rendered from `lib/core/widgets/service_record_row.dart` by `test/design_catalog
 ## Values
 
 - A `Row` centred on the cross axis.
-- Leading icon at the theme's default 24pt, in the tone colour (`statusToneColor` against `surface`), then `AppSpacing.md` (12).
-- Body (`Expanded`): the title in `AppTheme.rowTitle` (15, w600, 20 leading), up to two lines; `AppSpacing.xs` (4); the detail in `bodySmall` in `CupolaThemeColors.dimText`, up to three lines. Both ellipsise.
+- Leading icon at the theme's default 24pt, in the tone colour (`statusToneColor` against `surface`), then `AppSpacing.md` (12). `ServiceRecordRow.poster` puts a picture there instead (`ServiceOverviewArt`, 36 by 54: the poster with its light, or the initials plate when there is none); the tone still colours the trailing figure.
+- Body (`Expanded`): the title in `AppTheme.rowTitle` (15, w600, 20 leading), up to two lines; `AppSpacing.xs` (4); the detail in `bodySmall` in `CupolaThemeColors.dimText`, up to three lines. Both ellipsise. An empty detail leaves its line out, gap included. An optional `footer` (a `Wrap` of `GenreChip`s, the kinds of server a person has an account on) sits under the detail after `AppSpacing.sm` (8).
 - `AppSpacing.sm` (8), then the trailing figure in `AppTheme.data` (13, w500, 18 leading) in the tone colour, `TextAlign.end`, up to two lines, ellipsised. It takes its natural width on the trailing edge, capped at `ServiceRecordRow.trailingMaxFraction` (40%) of the row's content width; the `Expanded` body gets everything else. A long figure wraps and then ellipsises within its cap rather than pushing the title out. (It was once `Flexible` beside the body, which handed a short figure half the row and floated it mid-card.)
 
 ## Consumer provides
 
-`icon`, `tone`, `title`, `detail`, `trailing` and one composed `semanticLabel`. All six are required; a figure the source did not report is passed as `—`.
+`icon` (or `art`, through `.poster`), `tone`, `title`, `detail`, `trailing`, an optional `footer` and one composed `semanticLabel` that carries the footer's words. All six are required; a figure the source did not report is passed as `—`.
 
 ## Semantics
 
@@ -25,6 +25,7 @@ Each sheet is drawn in the dark and the light room.
 
 - Tasks in each tone: running (blue), failed (amber), completed (green), idle (neutral).
 - Users and playlists: administrator (primary), disabled (neutral), smart playlist (blue).
+- Poster rows (Tracearr Live and History) and footer rows (Tracearr Users), also at 200%.
 - Long text: a title on two lines, a detail on three, a trailing figure that yields.
 - Text at 200%: the four task rows.
 - The desktop: the same row across a wider list.

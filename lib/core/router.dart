@@ -127,6 +127,7 @@ import 'package:cupola/features/nzbget/presentation/nzbget_tab_screens.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_person_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_libraries_screen.dart';
@@ -1350,6 +1351,29 @@ RouteBase _tracearrRoutes() => _serviceRoutes(
     ServiceTab.violations: (state) =>
         const TracearrViolationsScreen(topPadding: _serviceTabTopPadding),
   },
+  // A person's page, under the tab it was opened from so Back returns to the
+  // row (`ServiceRoutes.tracearrPerson`). Under Users it is `users/:id`, the
+  // spelling a deep link uses; under the others `person/:id`. The id is
+  // Tracearr's own and the page resolves from it alone.
+  inside: {
+    ServiceTab.users: [_tracearrPerson(':id')],
+    for (final tab in const [
+      ServiceTab.overview,
+      ServiceTab.live,
+      ServiceTab.history,
+      ServiceTab.violations,
+    ])
+      tab: [_tracearrPerson('person/:id')],
+  },
+);
+
+GoRoute _tracearrPerson(String path) => _page(
+  path,
+  (state) => TracearrPersonScreen(userId: state.pathParameters['id']!),
+  redirect: (context, state) =>
+      (state.pathParameters['id']?.trim().isEmpty ?? true)
+      ? ServiceRoutes.tracearrUsers
+      : null,
 );
 
 /// The route spellings of one media server, by key.

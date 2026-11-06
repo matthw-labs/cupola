@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:isolate';
 
@@ -36,6 +37,11 @@ const int kTracearrIsolateMapThreshold = 100;
 /// How much of a 200 that is not an event stream is read to recognise what
 /// answered. A sign-in page shows its form well inside it.
 const int kTracearrEventsProbeBytes = 8 * 1024;
+
+/// How long that read waits for the page to say enough. A page that stalls
+/// under [kTracearrEventsProbeBytes] and keeps the connection open must not
+/// hold the caller: what arrived by then is what is read.
+const Duration kTracearrEventsProbeTimeout = Duration(seconds: 3);
 
 const String _v1 = '/api/v1/public';
 const String _v2 = '/api/v2/public';
@@ -476,24 +482,36 @@ class TracearrClient {
     CancelToken? cancelToken,
     void Function(Duration retry)? onRetry,
   }) async* {
-    final response = await _api.getStream(
-      '$_v2/events',
-      queryParameters: {
-        if (types != null && types.isNotEmpty) 'types': types.join(','),
-        'server_id': ?serverId,
-      },
-      headers: {'Accept': 'text/event-stream'},
-      cancelToken: cancelToken,
-    );
-    final body = response.data;
-    if (body == null) return;
-    final contentType = response.headers.value(Headers.contentTypeHeader);
-    if (contentType != null && !contentType.contains('text/event-stream')) {
-      throw await _notAnEventStream(response, body);
+    // Dio's response stream does not pass a cancelled listener on to the
+    // socket: only a cancel token closes the connection (measured on a real
+    // socket, `tracearr_events_transport_test.dart`). So the connection is
+    // ours to close whenever this generator ends, however it ends.
+    final token = CancelToken();
+    if (cancelToken != null) {
+      unawaited(cancelToken.whenCancel.then((e) => token.cancel(e.error)));
     }
-    await for (final frame in sseFrames(body.stream, onRetry: onRetry)) {
-      final event = tracearrEventFrom(frame);
-      if (event != null) yield event;
+    try {
+      final response = await _api.getStream(
+        '$_v2/events',
+        queryParameters: {
+          if (types != null && types.isNotEmpty) 'types': types.join(','),
+          'server_id': ?serverId,
+        },
+        headers: {'Accept': 'text/event-stream'},
+        cancelToken: token,
+      );
+      final body = response.data;
+      if (body == null) return;
+      final contentType = response.headers.value(Headers.contentTypeHeader);
+      if (contentType != null && !contentType.contains('text/event-stream')) {
+        throw await _notAnEventStream(response, body);
+      }
+      await for (final frame in sseFrames(body.stream, onRetry: onRetry)) {
+        final event = tracearrEventFrom(frame);
+        if (event != null) yield event;
+      }
+    } finally {
+      if (!token.isCancelled) token.cancel('The event stream was closed.');
     }
   }
 
@@ -505,10 +523,26 @@ class TracearrClient {
     ResponseBody body,
   ) async {
     final prefix = <int>[];
-    await for (final chunk in body.stream) {
-      prefix.addAll(chunk);
-      if (prefix.length >= kTracearrEventsProbeBytes) break;
+    // Bounded in bytes and in time: a page that dribbles a byte every few
+    // milliseconds never goes quiet, so no idle timeout would end this read.
+    final enough = Completer<void>();
+    void finish() {
+      if (!enough.isCompleted) enough.complete();
     }
+
+    final deadline = Timer(kTracearrEventsProbeTimeout, finish);
+    final subscription = body.stream.listen(
+      (chunk) {
+        prefix.addAll(chunk);
+        if (prefix.length >= kTracearrEventsProbeBytes) finish();
+      },
+      onError: (Object _) => finish(),
+      onDone: finish,
+      cancelOnError: true,
+    );
+    await enough.future;
+    deadline.cancel();
+    await subscription.cancel();
     final bytes = prefix.length > kTracearrEventsProbeBytes
         ? prefix.sublist(0, kTracearrEventsProbeBytes)
         : prefix;

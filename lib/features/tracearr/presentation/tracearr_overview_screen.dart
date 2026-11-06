@@ -7,7 +7,7 @@ import 'package:cupola/core/utils/arr_activity_display.dart';
 import 'package:cupola/core/utils/date_format.dart';
 import 'package:cupola/core/utils/string_utils.dart';
 import 'package:cupola/core/widgets/widgets.dart';
-import 'package:cupola/features/media/presentation/open_media.dart';
+import 'package:cupola/core/lifecycle/page_activity.dart';
 import 'package:cupola/features/services/domain/service_tab.dart';
 import 'package:cupola/features/services/domain/services_semantics.dart';
 import 'package:cupola/features/settings/data/connection_reach_provider.dart';
@@ -20,9 +20,12 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_overview_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_session.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_session_sheet.dart';
 
 /// The first tab of Tracearr's room: what the guardian sees at a glance.
 ///
@@ -35,16 +38,17 @@ import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 ///    `unknown` is a dash, never a state, and a server whose token Tracearr
 ///    holds was refused is amber with the remedy that only the owner can do,
 ///    in Tracearr;
-///  * **Playing now**, the first three streams of Live;
-///  * **Violations**, the newest, in words and blue;
+///  * **Playing now**, the first three streams of Live, from the same list and
+///    kept moving the same way while this page is on screen; each is a door to
+///    the stream's detail;
+///  * **Violations**, the newest, in words and blue; each is a door to the
+///    Violations tab;
 ///  * **Most watched this week**, left out altogether on a Tracearr older than
 ///    3.1.4, which has no such read.
 ///
 /// **It draws neither the app bar nor the tab bar**: the service home owns
 /// them and floats them above this page, which reserves their room with
-/// [topPadding]. Later lots deepen the regions in place: Live's rows grow
-/// into the Live tab's, the violation rows open their detail, and a server
-/// row opens its filters.
+/// [topPadding].
 class TracearrOverviewScreen extends StatelessWidget {
   const TracearrOverviewScreen({
     super.key,
@@ -74,6 +78,7 @@ class TracearrOverviewScreen extends StatelessWidget {
 /// What a pull re-reads besides the readout (`ServiceOverviewPage`).
 void _refresh(WidgetRef ref) {
   ref.invalidate(tracearrServersProvider);
+  ref.invalidate(tracearrLiveProvider);
   ref.invalidate(tracearrStreamsProvider);
   ref.invalidate(tracearrLatestViolationsProvider);
   ref.invalidate(tracearrTopWeekProvider);
@@ -202,11 +207,13 @@ class _PlayingSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final streams = ref.watch(tracearrStreamsProvider);
+    // The same rows as Live, kept moving while this page is the one on screen.
+    ref.watchWhileLive(context, tracearrLiveFeedProvider);
+    final streams = ref.watch(tracearrLiveProvider);
     return ServiceOverviewSection(
       service: _service,
       title: 'Playing now',
-      subtitle: switch (streams.asData?.value) {
+      subtitle: switch (streams.value) {
         final value? => countLabel(value.streams.length, 'stream'),
         null => null,
       },
@@ -216,7 +223,7 @@ class _PlayingSection extends ConsumerWidget {
         service: _service,
         consequence: 'what is playing is not shown',
         loadingLabel: 'Loading what is playing',
-        onRetry: () => ref.invalidate(tracearrStreamsProvider),
+        onRetry: () => ref.invalidate(tracearrLiveProvider),
         skeleton: const ServiceOverviewRowsSkeleton(rows: 2),
         isEmpty: (data) => data.streams.isEmpty,
         emptyBuilder: const ServiceOverviewEmpty(
@@ -234,6 +241,8 @@ class _PlayingSection extends ConsumerWidget {
   }
 }
 
+/// A playing stream, a door to its detail. The title and the person are one
+/// tap further, in the sheet, which knows whether the ids identify them.
 class _PlayingRow extends ConsumerWidget {
   const _PlayingRow({required this.stream});
 
@@ -250,7 +259,6 @@ class _PlayingRow extends ConsumerWidget {
       stream.isPaused ? StateWord.paused.label : null,
       tracearrMethodWord(stream.quality),
     ]);
-    final key = tracearrMediaKeyOf(stream.media);
     return ServiceOverviewRow(
       spoken: joinSpokenParts([title, detail]),
       leading: ServiceOverviewArt(
@@ -260,8 +268,9 @@ class _PlayingRow extends ConsumerWidget {
       ),
       title: title,
       detail: detail,
-      onTap: key == null ? null : () => context.openMedia(key),
-      doorHint: key == null ? null : 'opens the title',
+      onTap: () =>
+          showTracearrSession(context, ref, TracearrSession.live(stream)),
+      doorHint: 'opens the details',
     );
   }
 }
@@ -344,6 +353,11 @@ class _ViolationRow extends StatelessWidget {
       titleColor: tone,
       detail: detail,
       trailing: severity,
+      // The violation's own detail is the Violations tab's; the row leads to
+      // the list it is in.
+      onTap: () =>
+          goToServiceTab(context, ServiceKey.tracearr, ServiceTab.violations),
+      doorHint: 'opens the ${ServiceKey.tracearr.title} Violations tab',
     );
   }
 }

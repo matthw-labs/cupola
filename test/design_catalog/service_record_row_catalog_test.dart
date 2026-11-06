@@ -4,7 +4,9 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cupola/core/widgets/service_overview.dart';
 import 'package:cupola/core/widgets/service_record_row.dart';
+import 'package:cupola/core/widgets/tag_chip.dart';
 import 'package:cupola/core/widgets/status_badge.dart';
 
 import 'catalog.dart';
@@ -53,6 +55,80 @@ const _tasks = [
     detail: 'Started 2 days ago · 1 s',
     trailing: 'Idle',
     semanticLabel: 'Clean transcode directory, Idle, Started 2 days ago, 1 s',
+  ),
+];
+
+/// Tracearr's Live, History and Users rows: a poster leads the first two, and
+/// a footer of chips sits under a person.
+final _titles = [
+  ServiceRecordRow.poster(
+    art: ServiceOverviewArt(posterUrl: CatalogArt.poster, title: 'Nosferatu'),
+    tone: StatusTone.info,
+    title: 'Nosferatu',
+    detail:
+        'Anna\u00A0· Living room TV\u00A0· nas\u00A0· 42%\u00A0· Video codec not '
+        'supported',
+    trailing: 'Transcode',
+    semanticLabel:
+        'Nosferatu, Anna, Living room TV, nas, 42 percent, Video codec not '
+        'supported, Transcode',
+  ),
+  ServiceRecordRow.poster(
+    art: ServiceOverviewArt(posterUrl: CatalogArt.poster, title: 'Metropolis'),
+    tone: StatusTone.neutral,
+    title: 'Metropolis',
+    detail:
+        'Luca\u00A0· Luca\'s iPad\u00A0· basement-nas\u00A0· Paused\u00A0· 8%',
+    trailing: 'Direct play',
+    semanticLabel:
+        'Metropolis, Luca, Luca\'s iPad, basement-nas, Paused, 8 percent, '
+        'Direct play',
+  ),
+  const ServiceRecordRow.poster(
+    art: ServiceOverviewArt(
+      posterUrl: null,
+      title: 'The Cabinet of Dr. Caligari',
+    ),
+    tone: StatusTone.neutral,
+    title: 'The Cabinet of Dr. Caligari',
+    detail: 'Anna\u00A0· Living room TV\u00A0· nas\u00A0· 21:04',
+    trailing: 'Watched',
+    semanticLabel:
+        'The Cabinet of Dr. Caligari, Anna, Living room TV, nas, 21:04, '
+        'Watched',
+  ),
+];
+
+final _people = [
+  ServiceRecordRow(
+    icon: Icons.person_outline_rounded,
+    tone: StatusTone.neutral,
+    title: 'Anna',
+    detail: '',
+    trailing: '3 accounts',
+    footer: const Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        GenreChip(genre: 'Plex'),
+        GenreChip(genre: 'Jellyfin'),
+        GenreChip(genre: 'Emby'),
+      ],
+    ),
+    semanticLabel: 'Anna, Plex, Jellyfin, Emby, 3 accounts',
+  ),
+  ServiceRecordRow(
+    icon: Icons.person_outline_rounded,
+    tone: StatusTone.neutral,
+    title: 'Sara',
+    detail: 'Removed from every server',
+    trailing: 'No account',
+    footer: const Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [GenreChip(genre: 'Plex')],
+    ),
+    semanticLabel: 'Sara, Plex, No account, Removed from every server',
   ),
 ];
 
@@ -129,6 +205,26 @@ void main() {
               'player, pubsub-player, Last seen 4 h ago',
         ),
         width: 390,
+      ),
+      CatalogScene(
+        'Poster rows · Tracearr Live and History: the poster leads where the '
+        'glyph does, the tone still colours the figure, a row with no poster '
+        'wears the initials plate',
+        (_) => _list(_titles),
+        width: 390,
+      ),
+      CatalogScene(
+        'Rows with a footer · Tracearr Users: a chip for each kind of server '
+        'under the name, and no empty line where there is no detail',
+        (_) => _list(_people),
+        width: 390,
+      ),
+      CatalogScene(
+        'Text at 200% · the poster rows and the footer rows: the poster keeps '
+        'its size, the words wrap beside it, the chips wrap under the name',
+        (_) => _list([..._titles.take(2), ..._people]),
+        width: 390,
+        textScale: catalogTextScale,
       ),
       CatalogScene(
         'Text at 200% · the four task rows at twice the reading size, the '

@@ -50,6 +50,65 @@ String? tracearrMethodWord(TracearrQuality quality) {
   return null;
 }
 
+/// The history types a person can filter by, in the order they are offered.
+/// `unknown` is the server's word for what it could not tell and is not a
+/// thing to ask for.
+const List<TracearrHistoryMediaType> tracearrHistoryTypes = [
+  TracearrHistoryMediaType.movie,
+  TracearrHistoryMediaType.episode,
+  TracearrHistoryMediaType.track,
+  TracearrHistoryMediaType.live,
+  TracearrHistoryMediaType.photo,
+  TracearrHistoryMediaType.trailer,
+];
+
+/// A history type as the person says it: `Movies`, `Episodes`, `TV`.
+String tracearrHistoryTypeWord(TracearrHistoryMediaType type) => switch (type) {
+  TracearrHistoryMediaType.movie => 'Movies',
+  TracearrHistoryMediaType.episode => 'Episodes',
+  TracearrHistoryMediaType.track => 'Tracks',
+  TracearrHistoryMediaType.live => 'TV',
+  TracearrHistoryMediaType.photo => 'Photos',
+  TracearrHistoryMediaType.trailer => 'Trailers',
+  TracearrHistoryMediaType.unknown => 'Other',
+};
+
+/// A server as a list of servers names it: its own name, else its kind.
+String tracearrServerLabel(TracearrServer server) {
+  final name = server.name.trim();
+  return name.isNotEmpty
+      ? name
+      : tracearrServerTypeWord(server.type) ?? 'Unnamed server';
+}
+
+/// A reason the server gives for transcoding, in words. Some servers name it
+/// as an identifier (`VideoCodecNotSupported`); that is split into
+/// `Video codec not supported`. Anything else is the server's own sentence,
+/// kept as it came.
+String tracearrReasonWords(String reason) {
+  final text = reason.trim();
+  if (!RegExp(r'^[A-Za-z]+$').hasMatch(text) ||
+      !RegExp(r'[a-z][A-Z]').hasMatch(text)) {
+    return text;
+  }
+  final words = text
+      .replaceAllMapped(RegExp(r'(?<=[a-z])(?=[A-Z])'), (_) => ' ')
+      .split(' ');
+  return [
+    words.first,
+    for (final word in words.skip(1)) word.toLowerCase(),
+  ].join(' ');
+}
+
+/// The first reason a stream transcodes, in words, or null when it does not
+/// or the server named none. A row speaks one sentence, so it gives one; the
+/// detail lists them all.
+String? tracearrTranscodeReason(TracearrQuality quality) {
+  if (!quality.isTranscode) return null;
+  final reasons = quality.transcode?.reasons ?? const <String>[];
+  return reasons.isEmpty ? null : tracearrReasonWords(reasons.first);
+}
+
 /// What is playing, as a row's title: a movie by its title, an episode by its
 /// show and its code (`Night Shift · S1 E2`), a track by its artist.
 String tracearrMediaTitleOf(TracearrMedia media) {
@@ -72,16 +131,23 @@ String tracearrMediaTitleOf(TracearrMedia media) {
   }
 }
 
-/// The page a row opens: a movie by its TMDB id. Null for everything else.
+/// The page a row opens, when the ids on it identify the title: a movie by its
+/// TMDB id, a series by its own ids (TMDB's, else TheTVDB's). Null for
+/// everything else.
 ///
-/// An episode's TMDB id on a Tracearr row is not the series': the row names
-/// the series by Tracearr's own id, which Cupola cannot open a page by, so an
-/// episode, a track or a title with no external id is a row that is only read,
-/// never a door that leads nowhere.
+/// An episode's ids on a Tracearr row are the episode's, not the series':
+/// the row names the series by Tracearr's own id, which Cupola cannot open a
+/// page by. So an episode, a track or a title with no external id is a row
+/// that is only read, never a door that leads to the wrong title or nowhere.
 MediaKey? tracearrMediaKeyOf(TracearrMedia media) {
   final tmdb = media.ids.tmdb;
-  if (media.type != TracearrMediaType.movie || tmdb == null || tmdb <= 0) {
-    return null;
-  }
-  return MediaKey.movie(tmdb);
+  final tvdb = media.ids.tvdb;
+  return switch (media.type) {
+    TracearrMediaType.movie when tmdb != null && tmdb > 0 => MediaKey.movie(
+      tmdb,
+    ),
+    TracearrMediaType.show when tmdb != null && tmdb > 0 => MediaKey.tv(tmdb),
+    TracearrMediaType.show when tvdb != null && tvdb > 0 => MediaKey.tvdb(tvdb),
+    _ => null,
+  };
 }

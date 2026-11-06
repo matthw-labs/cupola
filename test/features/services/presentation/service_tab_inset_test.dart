@@ -80,9 +80,11 @@ import 'package:cupola/features/stream/presentation/stream_libraries_screen.dart
 import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_history.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
@@ -1063,6 +1065,9 @@ void main() {
           overrides: [
             tracearrClientProvider.overrideWithValue(pending),
             tracearrStreamsProvider.overrideWith((ref) => _pending()),
+            tracearrLiveProvider.overrideWith(_PendingLive.new),
+            // The feed would open a stream on a client that never answers.
+            tracearrLiveFeedProvider.overrideWith((ref) {}),
           ],
           child: screen,
         );
@@ -1273,4 +1278,10 @@ class _PendingTracearr extends TracearrClient {
     int pageSize = 25,
     TracearrViolationFilter filter = const TracearrViolationFilter(),
   }) => _pending();
+}
+
+/// Tracearr's live list that never answers, so Live shows its skeleton.
+class _PendingLive extends TracearrLiveNotifier {
+  @override
+  Future<TracearrStreams> build() => Completer<TracearrStreams>().future;
 }
