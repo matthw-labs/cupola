@@ -27,6 +27,7 @@ final Map<ServiceKey, Object?> _genuine = {
   ServiceKey.jellyfin: _fixture('jellyfin/system_info_public.json'),
   ServiceKey.plex: _fixture('plex/identity.json'),
   ServiceKey.emby: _fixture('emby/system_info_public.json'),
+  ServiceKey.tracearr: _fixture('tracearr/real_health.json'),
   ServiceKey.sabnzbd: _fixture('sabnzbd/version.json'),
   ServiceKey.qbittorrent: 'v5.1.2',
   ServiceKey.nginxProxyManager: {
@@ -325,6 +326,57 @@ void main() {
 
     test('Emby\'s /emby is the API\'s prefix, not a path to suggest', () {
       expect(conventionalBasePath(ServiceKey.emby), isNull);
+    });
+  });
+
+  group('Tracearr health, whatever state it is in', () {
+    test('a maintenance or degraded answer is still Tracearr', () {
+      for (final body in <Object?>[
+        {
+          'status': 'maintenance',
+          'mode': 'maintenance',
+          'db': true,
+          'redis': false,
+        },
+        {'status': 'degraded', 'db': false, 'redis': true, 'timescale': {}},
+      ]) {
+        expect(
+          identifyProbeAnswer(ServiceKey.tracearr, body),
+          ProbeIdentity.matches,
+          reason: '$body',
+        );
+      }
+    });
+
+    test('a bare status, ok or not, is not Tracearr', () {
+      for (final body in <Object?>[
+        {'status': 'ok'},
+        {'status': 'degraded'},
+        {'status': 'maintenance', 'mode': 'maintenance'},
+      ]) {
+        expect(
+          identifyProbeAnswer(ServiceKey.tracearr, body),
+          ProbeIdentity.notThisService,
+          reason: '$body',
+        );
+      }
+    });
+
+    test('the authenticated shape still needs ok and a version', () {
+      expect(
+        identifyProbeAnswer(ServiceKey.tracearr, {
+          'status': 'ok',
+          'version': '1.4.0',
+        }),
+        ProbeIdentity.matches,
+      );
+      expect(
+        identifyProbeAnswer(ServiceKey.tracearr, {
+          'status': 'degraded',
+          'version': '1.4.0',
+        }),
+        ProbeIdentity.notThisService,
+      );
     });
   });
 

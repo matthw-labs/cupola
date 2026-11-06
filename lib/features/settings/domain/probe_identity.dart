@@ -66,6 +66,11 @@ final class ProbeNotThisService extends ProbeIdentity {
 ///    not share. Jellyfin sends `ProductName` (`Jellyfin Server`) and a single
 ///    `LocalAddress`; Emby 4.10 sends no `ProductName` and a `LocalAddresses`
 ///    list (and `HardwareAccelerationRequiresPremiere` on `/System/Info`).
+///  * Tracearr: `/health` answers with the health of its own parts (`db`,
+///    `redis`, and a `timescale` object on a recent one) and a `status` that
+///    is `ok`, `degraded` or `maintenance`, and `/api/v1/public/health` with
+///    `status: ok` and a `version`. Either shape is Tracearr; a `status`
+///    alone is not, since half the services of the stack answer one.
 ///  * Plex: `/identity` and `/` are a `MediaContainer`.
 ///  * SABnzbd: `mode=version` answers `{"version": …}`.
 ///  * qBittorrent: `/api/v2/app/version` is text, `v` and a digit.
@@ -93,6 +98,7 @@ ProbeIdentity identifyProbeAnswer(ServiceKey service, Object? body) {
     ServiceKey.bazarr => _bazarr(body),
     ServiceKey.jellyfin => _jellyfin(body),
     ServiceKey.emby => _emby(body),
+    ServiceKey.tracearr => _tracearr(body),
     ServiceKey.plex => _hasMap(body, 'MediaContainer'),
     ServiceKey.sabnzbd => _hasAny(body, const ['version']),
     ServiceKey.qbittorrent => _qbittorrent(body),
@@ -119,6 +125,7 @@ String? conventionalBasePath(ServiceKey service) => switch (service) {
   ServiceKey.qbittorrent => 'qbittorrent',
   ServiceKey.sabnzbd => 'sabnzbd',
   ServiceKey.nzbget => 'nzbget',
+  ServiceKey.tracearr => 'tracearr',
   // Emby's `/emby` is the API's own prefix, which its client adds, and not a
   // path to put in front of the address. Plex and Nginx Proxy Manager do not
   // run under a path; Transmission's
@@ -320,6 +327,28 @@ ProbeIdentity _emby(Object? body) {
     return ProbeIdentity.otherService(ServiceKey.jellyfin);
   }
   return _hasAny(body, const ['Version', 'Id', 'ServerName']);
+}
+
+/// Tracearr's two health answers, the keyless `/health` and the public API's.
+///
+/// A `status` alone proves nothing (Nginx Proxy Manager and the arrs say
+/// `OK`). What does is the health of Tracearr's own parts. The keyless route
+/// answers HTTP 200 with `degraded` when the database or Redis is down and
+/// `maintenance` (no `timescale`) while it starts or restores, so there any
+/// string status counts: a down Tracearr is still Tracearr. The authenticated
+/// public shape carries no parts, so it keeps `ok` and a `version` as proof.
+ProbeIdentity _tracearr(Object? body) {
+  if (body is! Map) return ProbeIdentity.notThisService;
+  final ownParts =
+      body['timescale'] is Map || (body['db'] is bool && body['redis'] is bool);
+  if (ownParts) {
+    return body['status'] is String
+        ? ProbeIdentity.matches
+        : ProbeIdentity.notThisService;
+  }
+  return body['status'] == 'ok' && body['version'] is String
+      ? ProbeIdentity.matches
+      : ProbeIdentity.notThisService;
 }
 
 bool _looksLikeEmby(Map<Object?, Object?> body) =>

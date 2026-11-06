@@ -2,7 +2,7 @@
 
 One record in a service tab's list (a scheduled task, a user, a device, a playlist) that speaks as a single sentence.
 
-Rendered from `lib/core/widgets/service_record_row.dart` by `test/design_catalog/service_record_row_catalog_test.dart`. Used by the Plex, Jellyfin and Emby tab screens. Built on `AppCard.outlined` (transparent fill, 1px `outline`, `AppRadius.md`) with padding `AppSpacing.md` (12).
+Rendered from `lib/core/widgets/service_record_row.dart` by `test/design_catalog/service_record_row_catalog_test.dart`. Used by the Plex, Jellyfin and Emby tab screens and by the Live, History, Users and Violations tabs of Tracearr. Built on `AppCard.outlined` (transparent fill, 1px `outline`, `AppRadius.md`) with padding `AppSpacing.md` (12).
 
 ## Values
 

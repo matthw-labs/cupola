@@ -242,7 +242,8 @@ final class RoleGate {
       ServiceKey.sabnzbd ||
       ServiceKey.nzbget ||
       ServiceKey.unraid ||
-      ServiceKey.nginxProxyManager => false,
+      ServiceKey.nginxProxyManager ||
+      ServiceKey.tracearr => false,
     };
   }
 

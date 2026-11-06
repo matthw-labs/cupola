@@ -116,7 +116,7 @@ class StackScreen extends ConsumerWidget {
       ),
       child: AmbientScaffold(
         // No accent passed: the room on this screen is lit by the neutral lamp,
-        // like every room with no artwork. The fleet below is eighteen
+        // like every room with no artwork. The fleet below is nineteen
         // services, and each is named by its mark and its title, never a hue.
         body: allUnconfigured
             ? NothingSetUpView(bottomPadding: bottomPadding)

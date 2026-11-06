@@ -1,3 +1,16 @@
+/// The first Tracearr whose public API v2 holds what Cupola reads: servers,
+/// violations and live events arrived in 2.7.0 (its release notes: "v2 also
+/// gains violations and server status"). Streams, history, users and the
+/// per-title reads came with v2 itself in 2.0.0, and top-media only in 3.1.4,
+/// which the Overview tolerates by leaving its section out.
+///
+/// A string so the registry's notes and the website, which reads them from
+/// source, can say it.
+const String kTracearrMinVersion = '2.7.0';
+
+/// [kTracearrMinVersion] as a comparable value.
+const TracearrVersion kTracearrMin = TracearrVersion(2, 7, 0);
+
 /// A Tracearr version, comparable.
 ///
 /// Tracearr spells it with a leading `v` (`v3.1.4`) while the rest of the

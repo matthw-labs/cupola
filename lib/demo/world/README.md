@@ -157,7 +157,11 @@ test's description. Seerr's own states are `SeerrBehaviour`s
 
 `WorldConnections` also holds connections no profile configures, for a
 test that adds one with `withConnection`: World B's Readarr, NZBGet, Unraid,
-NPM and Emby (`emby` on `tower:8096`, the household's titles again behind
+NPM, Tracearr (`tracearr` on `tower:3000`, watching the Jellyfin, the Plex and the Emby: its streams,
+history, people and violations are the household's own, Anna's Sintel on the Jellyfin and on the Emby and
+Luca's Elephants Dream on the Plex, each with the item id the server itself gives it, from the recorded
+3.1.4 rows in `test/fixtures/tracearr/real_*.json`; `TracearrFake`) and Emby (`emby` on `tower:8096`, the
+household's titles again behind
 Emby's own routes: `/emby` prefix, `/Users/Query`, numeric item ids, and the
 public info with no `ProductName`; `EmbyFake`), a second Jellyfin, a second Plex and a second Seerr at the cabin
 (`jellyfinCabin`, `plexCabin`, `seerrCabin`, all labelled `Cabin`) beside the

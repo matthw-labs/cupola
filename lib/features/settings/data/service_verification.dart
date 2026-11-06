@@ -34,6 +34,7 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/unread_secret.dart'
     show secureStoreName;
 import 'package:cupola/features/settings/domain/settings_model.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/transmission/data/transmission_client.dart';
 import 'package:cupola/features/truenas/data/truenas_ws_client.dart';
 import 'package:cupola/features/unraid/data/unraid_client.dart';
@@ -409,6 +410,33 @@ Future<ServiceDiagnosis> diagnoseCredentials(
       ),
       reach: (url: urlTrimmed, access: access, pin: pin),
     );
+  }
+
+  if (service == ServiceKey.tracearr) {
+    final client = TracearrClient(
+      baseUrl: urlTrimmed,
+      apiKey: apiKey.trim(),
+      pinnedCertFingerprint: pin,
+      accessHeaders: accessHeaders,
+    );
+    try {
+      // The authenticated health read: its `/health` twin is anonymous and
+      // would read any key as answering. A refused key is a 401 here, a web
+      // page or another service's answer is a wrong address, and a Tracearr
+      // older than the API v2 Cupola reads says which version to install.
+      final health = await client.checkCredentialAndVersion().timeout(
+        const Duration(seconds: 6),
+      );
+      final named = (health.parsedVersion?.toString() ?? health.version)
+          ?.trim();
+      return named == null || named.isEmpty
+          ? const ServiceDiagnosis.connected()
+          : ServiceDiagnosis.connectedAs(named);
+    } catch (e) {
+      return ServiceDiagnosis.failed(e);
+    } finally {
+      client.close();
+    }
   }
 
   if (service == ServiceKey.sabnzbd) {

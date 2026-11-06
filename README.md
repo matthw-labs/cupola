@@ -7,7 +7,7 @@
 **A Cupola over your server.**
 
 One native app for your entire self-hosted media stack, and the box it runs on.<br/>
-**18 services. iOS, Android, macOS. No cloud, no account, no middleman.**<br/>
+**19 services. iOS, Android, macOS. No cloud, no account, no middleman.**<br/>
 [**Install**](#install) · [Supported services](#supported-services) · [Security & privacy](#security--privacy)
 
 [![CI](https://github.com/matthw-labs/cupola/actions/workflows/ci.yml/badge.svg)](https://github.com/matthw-labs/cupola/actions/workflows/ci.yml)
@@ -108,7 +108,7 @@ about all of them.
 > No toolchain needed. The App Store and Google Play come later.
 
 > **No server at hand?** On the first screen, **Explore a demo home** opens an invented
-> household with all eighteen services. It runs entirely inside the app: nothing is
+> household with all nineteen services. It runs entirely inside the app: nothing is
 > saved and nothing goes out to the network. **Settings → Leave demo** takes you back.
 
 | Platform | Status | Get it |
@@ -226,8 +226,13 @@ Two columns say how far each integration goes:
 | **Plex** | The same session-first board, driven by Plex's own semantics: libraries, on deck, devices, playlists; stop a session | Token | Read + stop | ◐ |
 | **Emby** | The same session-first board as Jellyfin, from Emby's own API: who is watching right now, resume points, libraries, users, devices and tasks; pause, stop or message a session | API key + viewer | Read + sessions | ○ ² |
 
+| **Tracearr** | Watches the media servers for you: every stream playing now across Plex, Jellyfin and Emby with how it reaches the viewer, who watched what and when, the people it knows, and the rules that were broken, by severity | API key | Read | ○ ³ |
+
 ² Emby is new: its client is written against answers recorded from a real Emby 4.10
 server, and we have not yet run the app against one.
+
+³ Tracearr is new: its client is written against answers recorded from a real Tracearr
+3.1.4, and we have not yet run Cupola against one. It needs Tracearr 2.7.0 or newer.
 
 ### Infrastructure
 
@@ -397,7 +402,7 @@ Good to know:
 
 - **A guided first run.** On first launch Cupola helps you set up one service, then
   offers the ones your Seerr or Prowlarr already knows about.
-- **Everything is optional.** Configure one service or all eighteen. Unconfigured
+- **Everything is optional.** Configure one service or all nineteen. Unconfigured
   services show a placeholder and never block a screen.
 - **More than one of each.** Two Radarrs (say, one for 4K) are two connections; the
   app shows them together and lets you look at one at a time.
@@ -562,8 +567,8 @@ page is in the app today. The badge at the top points at the
 latest published release, which trails `main` between tags. 1.0.0 is the first release
 of the Cupola line, and everything before it was published as Seekarr.
 
-- **18 services integrated.** **11 we have verified against real instances**, 5
-  partially, and Unraid and Emby against recorded answers only. The
+- **19 services integrated.** **11 we have verified against real instances**, 5
+  partially, and Unraid, Emby and Tracearr against recorded answers only. The
   [tables above](#supported-services) say which is which, per service.
 - **Nearly 1,000 test files** covering models, services, providers and widgets, offline
   by default, with an opt-in Docker-backed end-to-end tier against real services
@@ -603,7 +608,7 @@ see [Security & privacy](#security--privacy).
 <summary><b>Can I try it without a server?</b></summary>
 <br/>
 Yes. With no connections set up, the first screen offers <b>Explore a demo home</b>: an
-invented household running all eighteen services, answered from inside the app. It
+invented household running all nineteen services, answered from inside the app. It
 keeps nothing and sends nothing over the network, and widgets, notifications and
 background work stay off while it runs. <b>Settings → Leave demo</b> brings you back to
 the start.

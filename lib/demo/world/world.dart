@@ -64,6 +64,7 @@ abstract final class WorldHosts {
   // World B.
   static const readarr = 'http://tower.home.arpa:8787';
   static const emby = 'http://tower.home.arpa:8096';
+  static const tracearr = 'http://tower.home.arpa:3000';
   static const nzbget = 'http://tower.home.arpa:6789';
   static const unraid = 'https://tower.home.arpa';
   static const npm = 'http://tower.home.arpa:81';
@@ -119,6 +120,7 @@ abstract final class WorldIds {
   static const truenas = 'truenas';
   static const plex = 'plex';
   static const emby = 'emby';
+  static const tracearr = 'tracearr';
   static const transmission = 'transmission';
   static const jellyfinCabin = 'jellyfin-cabin01';
   static const seerrCabin = 'seerr-cabin001';

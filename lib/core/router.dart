@@ -124,6 +124,11 @@ import 'package:cupola/features/transmission/presentation/transmission_tab_scree
 import 'package:cupola/features/nzbget/presentation/nzbget_overview_screen.dart';
 import 'package:cupola/features/nzbget/presentation/nzbget_screen.dart';
 import 'package:cupola/features/nzbget/presentation/nzbget_tab_screens.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_libraries_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_item_screen.dart';
@@ -1317,6 +1322,36 @@ RouteBase _npmRoutes() => _serviceRoutes(
   },
 );
 
+/// Tracearr: the guardian of the media servers, in the Stream band and not one
+/// of them, so it is not [_streamRoutes]: it has no libraries and no item tree,
+/// and five tabs of its own.
+///
+/// Its shell mounts `ConnectionInViewScope` like the Stream band's (the page
+/// header names the connection the visit has in view). Live and History rows
+/// open a title, which is why Tracearr is in
+/// `ServiceRoutes.mediaMountServices`: the title's page lands under the tab it
+/// was opened from, and Back returns to the row.
+RouteBase _tracearrRoutes() => _serviceRoutes(
+  ServiceKey.tracearr,
+  scope: (state, shell) => ConnectionInViewScope(
+    service: ServiceKey.tracearr,
+    location: state.uri,
+    child: shell,
+  ),
+  roots: {
+    ServiceTab.overview: (state) =>
+        const TracearrOverviewScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.live: (state) =>
+        const TracearrLiveScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.history: (state) =>
+        const TracearrHistoryScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.users: (state) =>
+        const TracearrUsersScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.violations: (state) =>
+        const TracearrViolationsScreen(topPadding: _serviceTabTopPadding),
+  },
+);
+
 /// The route spellings of one media server, by key.
 ///
 /// A switch returning the four constants rather than interpolating them from
@@ -1769,6 +1804,7 @@ RouteBase _branchRootFor(NavTab tab) => switch (tab) {
       _streamRoutes(ServiceKey.jellyfin),
       _streamRoutes(ServiceKey.plex),
       _streamRoutes(ServiceKey.emby),
+      _tracearrRoutes(),
     ],
   ),
   NavTab.activity => GoRoute(

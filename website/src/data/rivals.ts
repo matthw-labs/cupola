@@ -65,13 +65,13 @@ export const rivals: Rival[] = [
       {
         label: 'Server and streaming',
         them: 'Unraid, Docker containers, Tautulli, Tracearr',
-        cupola: 'Unraid, TrueNAS, Dockge, Nginx Proxy Manager, Jellyfin, Plex and Emby sessions',
+        cupola: 'Unraid, TrueNAS, Dockge, Nginx Proxy Manager, Jellyfin, Plex and Emby sessions, Tracearr',
       },
     ],
     ahead: [
       'Around since 2012, with more than 800,000 downloads on Google Play.',
       'More download clients and indexers: Deluge, µTorrent, rTorrent, NZBHydra2, Jackett and Newznab.',
-      'Wake-on-LAN, Tautulli and Tracearr.',
+      'Wake-on-LAN and Tautulli.',
     ],
     differs: [
       'On iPhone, iPad and Mac, as well as Android.',
@@ -124,7 +124,7 @@ export const rivals: Rival[] = [
       {
         label: 'Streaming and server',
         them: 'Plex, Emby, Tautulli, Jellystat, Tracearr, Tdarr, Unraid, SSH',
-        cupola: 'Jellyfin, Plex, Emby, Unraid, TrueNAS, Dockge, Nginx Proxy Manager',
+        cupola: 'Jellyfin, Plex, Emby, Tracearr, Unraid, TrueNAS, Dockge, Nginx Proxy Manager',
       },
     ],
     ahead: [
@@ -180,8 +180,8 @@ export const rivals: Rival[] = [
     title: 'A Ruddarr alternative, also on Android · Cupola',
     heading: 'Comparing Ruddarr and Cupola.',
     description:
-      'Ruddarr covers Radarr and Sonarr on iOS 26. Cupola covers eighteen services, runs on Android and iOS 17, and is free with no subscription.',
-    lede: 'Ruddarr is a polished, open-source app for Radarr and Sonarr on iPhone and iPad, from iOS 26. Cupola covers sixteen more services, runs on Android and older iPhones, and is free with nothing to subscribe to.',
+      'Ruddarr covers Radarr and Sonarr on iOS 26. Cupola covers nineteen services, runs on Android and iOS 17, and is free with no subscription.',
+    lede: 'Ruddarr is a polished, open-source app for Radarr and Sonarr on iPhone and iPad, from iOS 26. Cupola covers seventeen more services, runs on Android and older iPhones, and is free with nothing to subscribe to.',
     checked: '30 October 2026',
     facts: [
       {
@@ -196,7 +196,7 @@ export const rivals: Rival[] = [
       {
         label: 'Services',
         them: 'Radarr and Sonarr',
-        cupola: 'Eighteen: Radarr, Sonarr, Lidarr, Readarr, Bazarr, Seerr, Prowlarr, four download clients, Jellyfin, Plex, Emby and the server underneath',
+        cupola: 'Nineteen: Radarr, Sonarr, Lidarr, Readarr, Bazarr, Seerr, Prowlarr, four download clients, Jellyfin, Plex, Emby, Tracearr and the server underneath',
       },
       { label: 'Languages', them: 'English and seven more', cupola: 'English only' },
     ],
@@ -206,7 +206,7 @@ export const rivals: Rival[] = [
       'A long App Store record: 4.9 out of 5 from 767 ratings when we checked.',
     ],
     differs: [
-      'Eighteen services instead of two: Seerr, Lidarr, Bazarr, Prowlarr, download clients, Jellyfin, Plex, Emby and your server.',
+      'Nineteen services instead of two: Seerr, Lidarr, Bazarr, Prowlarr, download clients, Jellyfin, Plex, Emby, Tracearr and your server.',
       'On Android too, and on iPhones back to iOS 17.',
       'Notifications are free: your phone checks your services itself.',
       'Family members can request with their own Seerr account.',
@@ -248,11 +248,11 @@ export const rivals: Rival[] = [
       {
         label: 'Streaming and server',
         them: 'Tracearr',
-        cupola: 'Jellyfin, Plex and Emby sessions, TrueNAS, Unraid, Dockge, Nginx Proxy Manager',
+        cupola: 'Jellyfin, Plex and Emby sessions, Tracearr, TrueNAS, Unraid, Dockge, Nginx Proxy Manager',
       },
     ],
     ahead: [
-      'Book and audiobook apps, Bookshelf and Listenarr, plus Deluge and Tracearr.',
+      'Book and audiobook apps, Bookshelf and Listenarr, plus Deluge.',
       'A dashboard you arrange yourself, and import and export of settings.',
     ],
     differs: [

@@ -191,7 +191,7 @@ class ConnectionsSummaryCard extends ConsumerWidget {
   const ConnectionsSummaryCard({super.key});
 
   /// The most not-yet-configured services to name before the count carries it
-  /// alone. On a fresh install every service is unset, and eighteen names is
+  /// alone. On a fresh install every service is unset, and nineteen names is
   /// not a to-do list, it is wallpaper.
   static const int _maxNamedUnset = 3;
 

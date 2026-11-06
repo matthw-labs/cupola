@@ -281,6 +281,14 @@ class SettingsService {
       secureApiKey: 'secure_emby_api_key',
       userId: 'emby_user_id',
     ),
+    // The public `trr_pub_` key alone: it reads everything, and has no user
+    // behind it to pick. Without this entry the enum walks at startup would
+    // dereference a missing one.
+    ServiceKey.tracearr: _ServiceStorageKeys(
+      url: 'tracearr_url',
+      legacyApiKey: '',
+      secureApiKey: 'secure_tracearr_api_key',
+    ),
   };
 
   final SharedPreferences _prefs;
@@ -526,7 +534,7 @@ class SettingsService {
 
     // Only the values with no `ServiceKey` to hang them on are named here;
     // everything per-service is folded in below, through the same registry that
-    // produced it. Naming all 18 services a third time in a constructor literal
+    // produced it. Naming all 19 services a third time in a constructor literal
     // is the hazard `copyWithCredentials` was written to kill; see its doc.
     var model = SettingsModel(
       plexClientId: plexClientId,

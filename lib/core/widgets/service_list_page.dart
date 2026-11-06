@@ -40,6 +40,7 @@ class ServiceListPage<T> extends StatelessWidget {
     required this.rowBuilder,
     this.header,
     this.banner,
+    this.footer,
     this.topPadding = 0,
     this.skeletonRowHeight = 72,
     this.instanceId,
@@ -59,6 +60,7 @@ class ServiceListPage<T> extends StatelessWidget {
     required this.rowBuilder,
     this.header,
     this.banner,
+    this.footer,
     this.topPadding = 0,
     this.skeletonRowHeight = 72,
     this.instanceId,
@@ -103,6 +105,12 @@ class ServiceListPage<T> extends StatelessWidget {
   /// qualifies them; [header] does not, because it acts on them.
   final Widget? banner;
 
+  /// What follows the last row, inside the list, in the data state only: the
+  /// `Load more` of a list the service answers a page at a time. It scrolls
+  /// with the rows because it is the end of them, and it is under the same
+  /// bar clearance, so it is never covered.
+  final Widget? footer;
+
   /// Room the host's floating bands take above this page, since they hover
   /// over it rather than pushing it down: the service band and the tab bar.
   ///
@@ -121,6 +129,7 @@ class ServiceListPage<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final summary = _summary;
     final leading = (banner == null ? 0 : 1) + (summary == null ? 0 : 1);
+    final trailing = footer == null ? 0 : 1;
 
     final page = AsyncValueWidget<List<T>>(
       value: value,
@@ -153,10 +162,11 @@ class ServiceListPage<T> extends StatelessWidget {
             // needs its measured height cleared or it sits underneath.
             FloatingNavBarMetrics.getScrollViewBottomPadding(context),
           ),
-          itemCount: items.length + leading,
+          itemCount: items.length + leading + trailing,
           separatorBuilder: (_, index) =>
               SizedBox(height: index < leading ? AppSpacing.md : AppSpacing.sm),
           itemBuilder: (context, index) {
+            if (index == items.length + leading) return footer!;
             var offset = index;
             if (banner != null) {
               if (offset == 0) return banner!;

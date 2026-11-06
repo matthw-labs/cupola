@@ -10,7 +10,10 @@ import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/core/providers/provider_retry.dart';
 import 'package:cupola/core/status/arr_queue_snapshot.dart';
 import 'package:cupola/core/status/lexicon.dart';
+import 'package:cupola/core/utils/dot_separator.dart';
+import 'package:cupola/core/utils/duration_format.dart';
 import 'package:cupola/core/utils/percent_format.dart';
+import 'package:cupola/core/utils/string_utils.dart';
 import 'package:cupola/features/settings/domain/connection_presentation.dart';
 import 'package:cupola/features/bazarr/presentation/bazarr_provider.dart';
 import 'package:cupola/features/bazarr/domain/models/bazarr_models.dart';
@@ -55,6 +58,13 @@ import 'package:cupola/features/npm/domain/models/npm_models.dart';
 import 'package:cupola/features/npm/presentation/npm_provider.dart';
 import 'package:cupola/features/transmission/domain/models/transmission_models.dart';
 import 'package:cupola/features/transmission/presentation/transmission_provider.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 import 'package:cupola/features/truenas/presentation/truenas_provider.dart';
 import 'package:cupola/features/truenas/domain/models/dashboard.dart';
 import 'package:cupola/features/unraid/domain/models/unraid_models.dart';
@@ -113,6 +123,8 @@ final serviceKpiProvider = FutureProvider.autoDispose
           return _transmissionKpis(ref);
         case ServiceKey.nginxProxyManager:
           return _npmKpis(ref);
+        case ServiceKey.tracearr:
+          return _tracearrKpis(ref);
         // Providers, not the clients directly: the figures need a failure that
         // survives the fetch, and the provider layer is what makes that
         // shareable with the Overview, invalidatable with the rest and
@@ -212,6 +224,12 @@ List<ProviderOrFamily> serviceKpiSources(ServiceKey service) =>
         jellyfinStrictLibrariesProvider,
       ],
       ServiceKey.emby => [embySessionsProvider, embyStrictLibrariesProvider],
+      ServiceKey.tracearr => [
+        tracearrStreamsProvider,
+        tracearrTodayProvider,
+        tracearrUnseenViolationsProvider,
+        tracearrServersProvider,
+      ],
       ServiceKey.plex => [plexSessionsProvider, plexStrictLibrariesProvider],
     };
 
@@ -313,6 +331,7 @@ final serviceKpiForProvider = FutureProvider.autoDispose
           key.instanceId,
         ),
         ServiceKey.plex => await _plexKpisFor(ref, key.instanceId),
+        ServiceKey.tracearr => await _tracearrKpisFor(ref, key.instanceId),
       };
       // `noProviderRetry`, like the provider above it. The lens path awaits
       // `serviceKpiProvider(...).future`, which settles into a stable error
@@ -1800,6 +1819,120 @@ List<ServiceKpi> _npmKpisFrom(
     ),
   ];
 }
+
+/// Tracearr's rail: what is playing, what was played today, what broke a rule
+/// and has not been looked at, and how many of its servers it reaches.
+///
+/// **Each figure is its own read.** Tracearr answers four routes and a rail
+/// that went to an em dash whole because one of them failed would lose the
+/// three it could still say; a figure whose source did not answer reads `—`,
+/// never `0`. When none answered the failure takes the rail, as every other
+/// rail's does, so the page says the server did not answer once, not four
+/// times. The unseen figure is a **floor** (`25+`) when more follow the first
+/// page, since the API gives no total.
+Future<List<ServiceKpi>> _tracearrKpis(Ref ref) => _tracearrKpisFrom(
+  ref.watch(tracearrStreamsProvider.future),
+  ref.watch(tracearrTodayProvider.future),
+  ref.watch(tracearrUnseenViolationsProvider.future),
+  ref.watch(tracearrServersProvider.future),
+);
+
+Future<List<ServiceKpi>> _tracearrKpisFor(Ref ref, String instanceId) {
+  final client = ref.watch(tracearrClientForProvider(instanceId));
+  return _tracearrKpisFrom(
+    client.getStreams(),
+    client.getToday(),
+    client.getViolations(
+      pageSize: kTracearrCountPage,
+      filter: const TracearrViolationFilter.unseen(),
+    ),
+    client.getServers(),
+  );
+}
+
+Future<List<ServiceKpi>> _tracearrKpisFrom(
+  Future<TracearrStreams> streams,
+  Future<TracearrToday> today,
+  Future<TracearrPage<TracearrViolation>> unseen,
+  Future<TracearrServers> servers,
+) async {
+  final results = await Future.wait<Object?>([
+    _failureOr(streams),
+    _failureOr(today),
+    _failureOr(unseen),
+    _failureOr(servers),
+  ]);
+  final failures = results.whereType<_ReadFailed>().toList();
+  if (failures.length == results.length) throw failures.first.error;
+  T? read<T>(int index) => switch (results[index]) {
+    final T value => value,
+    _ => null,
+  };
+
+  final playing = read<TracearrStreams>(0);
+  final day = read<TracearrToday>(1);
+  final unseenPage = read<TracearrPage<TracearrViolation>>(2);
+  final watched = read<TracearrServers>(3);
+  final unseenCount = unseenPage == null
+      ? null
+      : tracearrUnseenCount(unseenPage);
+  // Servers kept for their history are not watched any more, so they are
+  // neither of the two numbers.
+  final polled = watched?.servers.where((s) => !s.historical).toList();
+  final reached = polled?.where((s) => s.isUp).length;
+
+  return [
+    _figure(
+      label: 'Streams now',
+      value: playing == null ? null : '${playing.summary.total}',
+      icon: Icons.play_circle_outline_rounded,
+      tone: playing == null ? null : _activityIf(playing.summary.total > 0),
+    ),
+    // Plays and the time they took, as the spec has it. The day is cut at UTC
+    // midnight: Tracearr wants an IANA zone name for its own cut and the app
+    // has no source of one (no plugin in the tree gives the device's), so for
+    // a household away from UTC this is not their calendar day until a zone
+    // can be asked for.
+    _figure(
+      label: 'Today',
+      value: day == null
+          ? null
+          : day.watchTime == Duration.zero
+          ? countLabel(day.todayPlays, 'play')
+          : '${countLabel(day.todayPlays, 'play')}$dotSeparator'
+                '${formatTimeSpan(day.watchTime)}',
+      icon: Icons.today_rounded,
+    ),
+    _figure(
+      label: 'Unseen',
+      value: unseenCount == null
+          ? null
+          : unseenCount.isFloor
+          ? Lexicon.floor(unseenCount.count)
+          : '${unseenCount.count}',
+      icon: Icons.flag_outlined,
+      // Information, never a fault: a rule was broken and nobody looked, which
+      // is the person's to read and not something that stopped working.
+      tone: unseenCount == null ? null : _activityIf(unseenCount.count > 0),
+    ),
+    _figure(
+      label: 'Servers',
+      value: polled == null ? null : '$reached of ${polled.length}',
+      icon: Icons.dns_outlined,
+      tone: polled == null ? null : _faultIf(reached! < polled.length),
+    ),
+  ];
+}
+
+/// A read that failed, carried as a value so its siblings are still awaited.
+final class _ReadFailed {
+  const _ReadFailed(this.error);
+
+  final Object error;
+}
+
+Future<Object?> _failureOr(Future<Object?> read) =>
+    read.then<Object?>((value) => value, onError: (Object e) => _ReadFailed(e));
 
 Future<List<ServiceKpi>> _unraidKpis(Ref ref) async {
   final results = await Future.wait([

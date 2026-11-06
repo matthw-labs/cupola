@@ -71,6 +71,7 @@ class ServiceRoutes {
   static const jellyfin = '$stack/jellyfin';
   static const plex = '$stack/plex';
   static const emby = '$stack/emby';
+  static const tracearr = '$stack/tracearr';
 
   /// The two the file was missing. Both services shipped with their callers
   /// building `'/services/transmission'` and `'/services/npm'` by hand, which
@@ -143,6 +144,15 @@ class ServiceRoutes {
   static const embyDevices = '$emby/devices';
   static const embyTasks = '$emby/tasks';
   static const embyActivity = '$emby/activity';
+
+  // Tracearr watches the media servers and is not one: no libraries, no item
+  // tree, five tabs of its own. A literal each, tied to the tab segments by a
+  // test, for the reason the blocks above are.
+  static const tracearrOverview = '$tracearr/overview';
+  static const tracearrLive = '$tracearr/live';
+  static const tracearrHistory = '$tracearr/history';
+  static const tracearrUsers = '$tracearr/users';
+  static const tracearrViolations = '$tracearr/violations';
 
   static const plexOverview = '$plex/overview';
 
@@ -715,6 +725,8 @@ class ServiceRoutes {
     ServiceKey.jellyfin,
     ServiceKey.plex,
     ServiceKey.emby,
+    // Its Live and History rows open the title they are about.
+    ServiceKey.tracearr,
   };
 
   /// Where a title opened from [path] lands: under the service tab [path] is

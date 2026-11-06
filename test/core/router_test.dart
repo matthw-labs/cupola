@@ -84,6 +84,11 @@ import 'package:cupola/features/settings/domain/connection_address.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_item_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
 import 'package:cupola/features/transmission/presentation/transmission_overview_screen.dart';
@@ -937,6 +942,7 @@ void main() {
         ServiceRoutes.jellyfinOverview: StreamOverviewScreen,
         ServiceRoutes.plexOverview: StreamOverviewScreen,
         ServiceRoutes.embyOverview: StreamOverviewScreen,
+        ServiceRoutes.tracearrOverview: TracearrOverviewScreen,
       };
 
       for (final entry in overviews.entries) {
@@ -1302,6 +1308,22 @@ void main() {
         );
       }
     });
+
+    testWidgets(
+      'Tracearr, in the band and not a media server, lands on its own '
+      'Overview',
+      (tester) async {
+        final container = await _pumpRouter(tester);
+        final router = container.read(routerProvider);
+
+        router.go(ServiceRoutes.tracearr);
+        await tester.pumpAndSettle();
+
+        expect(router.state.uri.toString(), ServiceRoutes.tracearrOverview);
+        expect(find.byType(TracearrOverviewScreen), findsOneWidget);
+        expect(find.byType(StreamOverviewScreen), findsNothing);
+      },
+    );
 
     testWidgets('every tab on the bar has a branch that resolves', (
       tester,
@@ -1970,6 +1992,15 @@ void main() {
                 _serviceOf(widget) == ServiceKey.emby,
             description: '${entry.value}(emby)',
           ),
+      },
+      // Its own five screens: Tracearr is in the Stream band and is not a media
+      // server.
+      ServiceKey.tracearr: {
+        ServiceTab.overview: find.byType(TracearrOverviewScreen),
+        ServiceTab.live: find.byType(TracearrLiveScreen),
+        ServiceTab.history: find.byType(TracearrHistoryScreen),
+        ServiceTab.users: find.byType(TracearrUsersScreen),
+        ServiceTab.violations: find.byType(TracearrViolationsScreen),
       },
       ServiceKey.plex: {
         ServiceTab.overview: find.byWidgetPredicate(

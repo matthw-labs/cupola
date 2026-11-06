@@ -21,8 +21,8 @@ String joinServiceNames(List<ServiceKey> services) => switch (services.length) {
 
 /// Every service that shares one connection state, and the state itself.
 ///
-/// The grouping is the point. Eighteen services with one cause (the VPN is
-/// down, the host is asleep) is one fact, and eighteen rows saying
+/// The grouping is the point. Nineteen services with one cause (the VPN is
+/// down, the host is asleep) is one fact, and nineteen rows saying
 /// "Unreachable" is that fact repeated until it stops being read. Grouped by
 /// the vocabulary's own label, the same screen says "SABnzbd and Unraid ·
 /// Unreachable" and "Bazarr · API key rejected", which is two facts and two

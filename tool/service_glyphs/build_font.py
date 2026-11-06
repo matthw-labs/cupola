@@ -53,6 +53,7 @@ GLYPHS = [
     ("jellyfin", "jellyfin", 0xE010),
     ("plex", "plex", 0xE011),
     ("emby", "emby", 0xE012),
+    ("tracearr", "tracearr", 0xE013),
 ]
 
 NS = "{http://www.w3.org/2000/svg}"

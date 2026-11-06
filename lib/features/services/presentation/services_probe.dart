@@ -28,6 +28,7 @@ import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/npm/data/npm_client.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/transmission/presentation/transmission_provider.dart';
 import 'package:cupola/features/truenas/data/truenas_service.dart';
 import 'package:cupola/features/truenas/data/truenas_ws_client.dart';
@@ -580,6 +581,26 @@ Future<String?> _loadVersion(
           );
     return _versionOrNull(
       () async => await client.checkCredentialAndVersion() ?? '',
+      timeout: const Duration(seconds: 6),
+      close: client.close,
+    );
+  }
+
+  // Tracearr's `/health` is anonymous too: its own authenticated read says the
+  // key is accepted, who answered, and whether the API v2 is there. A version
+  // below the minimum throws, which is the probe's "did not answer as usable".
+  if (service == ServiceKey.tracearr) {
+    final client = TracearrClient(
+      baseUrl: reach.url,
+      apiKey: instance.credential,
+      pinnedCertFingerprint: reach.pin,
+      accessHeaders: reach.access.headers(),
+    );
+    return _versionOrNull(
+      () async {
+        final health = await client.checkCredentialAndVersion();
+        return health.parsedVersion?.toString() ?? health.version ?? '';
+      },
       timeout: const Duration(seconds: 6),
       close: client.close,
     );

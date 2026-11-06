@@ -10,6 +10,7 @@ void main() {
       ServiceKey.nginxProxyManager,
       ServiceKey.nzbget,
       ServiceKey.transmission,
+      ServiceKey.tracearr,
     };
 
     for (final service in ServiceKey.values) {

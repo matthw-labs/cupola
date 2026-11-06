@@ -11,7 +11,7 @@ import 'package:cupola/features/settings/data/connection_test_command.dart';
 /// two would start testing different sets or saying different things afterwards.
 ///
 /// It announces through a snack because the work is invisible: the rows below
-/// re-enter their checking state, but on a list of eighteen the ones that
+/// re-enter their checking state, but on a list of nineteen the ones that
 /// changed are usually off screen, and a command with no acknowledgement is a
 /// command people press twice.
 class TestAllConnectionsButton extends ConsumerWidget {

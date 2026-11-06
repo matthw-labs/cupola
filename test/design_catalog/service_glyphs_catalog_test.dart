@@ -72,7 +72,7 @@ void main() {
     width: 1100,
     scenes: [
       CatalogScene(
-        'The eighteen marks, registry order · each on the settings header\'s '
+        'The nineteen marks, registry order · each on the settings header\'s '
         'well (the lamp at 14%, radius-md), the mark in the primary ink: '
         'monochrome, told apart by shape',
         (context) => Container(
@@ -123,7 +123,7 @@ void main() {
         ),
       ),
       CatalogScene(
-        'Text at 200% · the eighteen wells at twice the reading size: the '
+        'Text at 200% · the nineteen wells at twice the reading size: the '
         'marks are icons, so the wells keep their 48pt',
         (context) => Container(
           padding: const EdgeInsets.all(16),

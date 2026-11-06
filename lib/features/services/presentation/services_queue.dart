@@ -1360,7 +1360,9 @@ Future<_QueueRead> _loadServiceQueueItems(
     // and does not belong in a queue row.
     ServiceKey.jellyfin ||
     ServiceKey.plex ||
-    ServiceKey.emby => const ArrRecordPage(records: [], total: 0),
+    ServiceKey.emby ||
+    // Tracearr watches playback and moves nothing: no queue of its own.
+    ServiceKey.tracearr => const ArrRecordPage(records: [], total: 0),
   };
   final records = page.records.whereType<Map>().map(stringKeyMap);
   return (
@@ -1687,7 +1689,8 @@ String? _queueTypeLabel(ServiceKey service) {
     ServiceKey.nginxProxyManager ||
     ServiceKey.jellyfin ||
     ServiceKey.plex ||
-    ServiceKey.emby => null,
+    ServiceKey.emby ||
+    ServiceKey.tracearr => null,
   };
 }
 

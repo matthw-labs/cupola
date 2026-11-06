@@ -55,7 +55,8 @@ Audience audienceOf(Iterable<AudienceConnection> connections) {
           ServiceKey.sabnzbd ||
           ServiceKey.nzbget ||
           ServiceKey.unraid ||
-          ServiceKey.nginxProxyManager:
+          ServiceKey.nginxProxyManager ||
+          ServiceKey.tracearr:
         return Audience.operator;
     }
   }

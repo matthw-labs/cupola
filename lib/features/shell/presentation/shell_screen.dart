@@ -85,7 +85,7 @@ class _ShellScreenState extends ConsumerState<ShellScreen>
   /// Held by identity rather than by value: [ActiveInstancesNotifier] hands out
   /// a fresh `Map` on every `select`, and never otherwise, so `identical` is
   /// exactly the question "did somebody move a lens since the last frame", and
-  /// it costs no comparison of eighteen entries to ask it.
+  /// it costs no comparison of nineteen entries to ask it.
   Map<ServiceKey, String>? _lastLenses;
   Timer? _demoTimer;
 

@@ -206,7 +206,7 @@ void main() {
 
       // The header counts it apart, the band names it, its cell says it.
       expect(
-        find.textContaining('1 signed out\u00A0· 17 not set up'),
+        find.textContaining('1 signed out\u00A0· 18 not set up'),
         findsOne,
       );
       expect(find.textContaining('Seerr signed out'), findsOne);
@@ -231,7 +231,7 @@ void main() {
 
       expect(
         find.textContaining(
-          '1 of 1 answering\u00A0· 1 signed out\u00A0· 16 not set up',
+          '1 of 1 answering\u00A0· 1 signed out\u00A0· 17 not set up',
         ),
         findsOne,
       );
@@ -239,8 +239,8 @@ void main() {
       expect(find.text('Seerr signed out\u00A0·'), findsOne);
       expect(find.text('5 not set up'), findsOne);
       expect(find.text('1 of 1 clean\u00A0·'), findsOne);
-      // The Stream band: Jellyfin is set up, Plex and Emby are not.
-      expect(find.text('2 not set up'), findsOne);
+      // The Stream band: Jellyfin is set up, Plex, Emby and Tracearr are not.
+      expect(find.text('3 not set up'), findsOne);
       expect(find.text('Signed out'), findsOne);
       expect(find.textContaining('fault'), findsNothing);
       expect(find.textContaining('needs a look'), findsNothing);
@@ -259,7 +259,7 @@ void main() {
       );
 
       expect(
-        find.textContaining('11 of 11 answering\u00A0· 7 not set up'),
+        find.textContaining('11 of 11 answering\u00A0· 8 not set up'),
         findsOne,
       );
       // Radarr and Sonarr carry the world's faults (a stall, an import),

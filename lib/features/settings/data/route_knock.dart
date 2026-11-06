@@ -89,6 +89,12 @@ KnockPlan? knockPlanOf(ServiceKey service, String url) => switch (service) {
     '/emby/System/Info/Public',
     (answer) => _identifies(ServiceKey.emby, answer),
   ),
+  // Tracearr's keyless health route: it names no version, and its own parts
+  // (`db`, `redis`, `timescale`) are what tell it from a bare `status: ok`.
+  ServiceKey.tracearr => KnockPlan(
+    '/health',
+    (answer) => _identifies(ServiceKey.tracearr, answer),
+  ),
   ServiceKey.plex => KnockPlan(
     '/identity',
     (answer) =>

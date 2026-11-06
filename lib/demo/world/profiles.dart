@@ -144,6 +144,14 @@ abstract final class WorldConnections {
     WorldHosts.emby,
     viewerId: EmbyFake.operatorId,
   );
+
+  /// Tracearr on `tower`, beside the Emby it watches, and the Jellyfin and
+  /// the Plex on `nas`: the same people and titles as the three of them.
+  static final tracearr = _api(
+    WorldIds.tracearr,
+    ServiceKey.tracearr,
+    WorldHosts.tracearr,
+  );
   static final transmission = _login(
     WorldIds.transmission,
     ServiceKey.transmission,

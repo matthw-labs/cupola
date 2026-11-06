@@ -27,7 +27,7 @@ import 'package:cupola/features/release_search/presentation/release_search_entry
 import 'package:cupola/features/settings/data/settings_service.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 
-/// The household the demo opens on: World A with all eighteen services, P1
+/// The household the demo opens on: World A with all nineteen services, P1
 /// and every service P1 leaves out.
 final demoProfile = Profiles.p1
     .withConnection(WorldConnections.plex)
@@ -36,7 +36,8 @@ final demoProfile = Profiles.p1
     .withConnection(WorldConnections.nzbget)
     .withConnection(WorldConnections.unraid)
     .withConnection(WorldConnections.npm)
-    .withConnection(WorldConnections.emby);
+    .withConnection(WorldConnections.emby)
+    .withConnection(WorldConnections.tracearr);
 
 /// The demo home, live: the world's servers answering inside the process,
 /// and every store the app writes to held in memory.

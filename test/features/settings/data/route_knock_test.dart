@@ -115,6 +115,19 @@ void main() {
       },
     );
 
+    test('Tracearr: a degraded or maintenance health still answers', () {
+      for (final body in [
+        '{"status":"maintenance","mode":"maintenance","db":true,"redis":false}',
+        '{"status":"degraded","db":false,"redis":true}',
+      ]) {
+        expect(_answers(ServiceKey.tracearr, _answer(200, body)), isTrue);
+      }
+      expect(
+        _answers(ServiceKey.tracearr, _answer(200, '{"status":"ok"}')),
+        isFalse,
+      );
+    });
+
     test('qBittorrent: its version, or Forbidden to a caller signed out', () {
       expect(_answers(ServiceKey.qbittorrent, _answer(200, 'v5.0.4')), isTrue);
       expect(

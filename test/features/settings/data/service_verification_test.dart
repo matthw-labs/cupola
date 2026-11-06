@@ -11,6 +11,7 @@ import 'package:cupola/core/network/redirect_guard.dart';
 import 'package:cupola/features/settings/data/service_connection_provider.dart';
 import 'package:cupola/features/settings/data/service_verification.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_version.dart';
 
 /// The two media servers do not authenticate the way every other service does,
 /// and verifying them through the shared `ApiClient` was therefore a check that
@@ -729,6 +730,178 @@ void main() {
         hasLength(ServiceFailureReason.values.length),
         reason: 'a duplicated sentence means a reason nobody can act on',
       );
+    });
+  });
+
+  group('Tracearr verification', () {
+    // `/health` is Tracearr's keyless route and proves an address, never a key,
+    // so the test reads the public API's own health with the key: a refused key
+    // is a 401 there, and the version it names is the one the minimum is
+    // checked against.
+    final health = File(
+      'test/fixtures/tracearr/real_health.json',
+    ).readAsStringSync();
+    const refused =
+        '{"statusCode":401,"error":"UnauthorizedError",'
+        '"message":"Missing or invalid Authorization header"}';
+    const healthPath = '/api/v1/public/health';
+
+    test('a refused key is unauthorized, not a green connection', () async {
+      final server = _FakeServer({
+        '/health': _Reply(200, body: '{"status":"ok","db":true,"redis":true}'),
+        healthPath: _Reply(401, body: refused),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_not-a-real-key',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      expect(diagnosis.reason, ServiceFailureReason.unauthorized);
+    });
+
+    test('the key travels as a bearer token and nowhere else', () async {
+      final server = _FakeServer({healthPath: _Reply(200, body: health)});
+
+      await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      final request = server.requestFor(healthPath)!;
+      expect(request.headers['authorization'], 'Bearer trr_pub_abc');
+      expect(request.headers.containsKey('x-api-key'), isFalse);
+      expect(request.uri.toString(), isNot(contains('trr_pub_abc')));
+    });
+
+    test('an accepted key connects and names the version', () async {
+      final server = _FakeServer({healthPath: _Reply(200, body: health)});
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.connected);
+      // Without the `v` Tracearr spells it with, as every other service's.
+      expect(diagnosis.serverVersion, '3.1.4');
+    });
+
+    test(
+      'a Tracearr older than the public API v2 says which to install',
+      () async {
+        final server = _FakeServer({
+          healthPath: _Reply(
+            200,
+            body: health.replaceFirst('v3.1.4', 'v2.6.3'),
+          ),
+        });
+
+        final diagnosis = await server.run(
+          () => diagnoseCredentials(
+            ServiceKey.tracearr,
+            url: 'http://tracearr.local:3000',
+            apiKey: 'trr_pub_abc',
+          ),
+        );
+
+        expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+        expect(diagnosis.reason, ServiceFailureReason.invalidResponse);
+        expect(diagnosis.detail, contains('2.6.3'));
+        expect(diagnosis.detail, contains(kTracearrMinVersion));
+        // Not a key problem and not an address problem: the remedy is upgrading,
+        // and Retry stays for after it.
+        expect(failureRetryHelps(diagnosis.reason!), isTrue);
+      },
+    );
+
+    test('the minimum itself connects', () async {
+      final server = _FakeServer({
+        healthPath: _Reply(
+          200,
+          body: health.replaceFirst('v3.1.4', 'v$kTracearrMinVersion'),
+        ),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.connected);
+    });
+
+    test('a web page at the address is not Tracearr', () async {
+      final server = _FakeServer({
+        healthPath: _Reply(
+          200,
+          body: '<!doctype html><html><body>Welcome to nginx!</body></html>',
+        ),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      // The stubbed stack labels every answer as JSON, so the page reads as
+      // an answer nobody can read rather than as a page; either way it is
+      // the address that is wrong, never the key.
+      expect(
+        diagnosis.reason,
+        anyOf(
+          ServiceFailureReason.notFound,
+          ServiceFailureReason.invalidResponse,
+        ),
+      );
+    });
+
+    test('another service answering at the address is not Tracearr', () async {
+      final server = _FakeServer({
+        healthPath: _Reply(200, body: '{"status":"OK","version":{"major":2}}'),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      expect(diagnosis.reason, ServiceFailureReason.notFound);
+    });
+
+    test('no key, nothing asked', () async {
+      final server = _FakeServer({healthPath: _Reply(200, body: health)});
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.notConfigured);
+      expect(server.requests, isEmpty);
     });
   });
 }

@@ -59,7 +59,7 @@ flutter test test/e2e/testlab_transport_e2e_test.dart \
   --tags e2e --run-skipped
 ~~~
 
-The docker harness covers the seventeen registry services other than Emby,
+The docker harness covers the seventeen registry services other than Emby and Tracearr,
 which it does not cover yet, and asserts a successful typed read, not merely that a container is running. Empty lists are valid
 data; a failed health, authentication or payload probe fails the test.
 It also probes wrong credentials against every transport: sixteen services

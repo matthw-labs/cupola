@@ -177,6 +177,10 @@ class AppColors {
   /// of the class; the interface never paints with it.
   static const Color emby = DesignTokens.colorServiceEmby;
 
+  /// Tracearr cyan: the brand value, used unchanged. Registry data like the
+  /// rest of the class; the interface never paints with it.
+  static const Color tracearr = DesignTokens.colorServiceTracearr;
+
   // === DARK THEME SURFACES ===
   //
   // The dark room's floor and its steps: ground, slab, raised, menu.

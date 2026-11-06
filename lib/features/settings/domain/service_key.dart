@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cupola/core/service_glyphs.dart';
 import 'package:cupola/core/theme.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_version.dart';
 import 'package:cupola/features/truenas/domain/truenas_version.dart';
 
 enum ServiceKey {
@@ -23,6 +24,7 @@ enum ServiceKey {
   jellyfin,
   plex,
   emby,
+  tracearr,
 }
 
 /// High-level grouping used to organise services across the app.
@@ -76,7 +78,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.nzbget => ServiceDomain.downloads,
     ServiceKey.jellyfin ||
     ServiceKey.plex ||
-    ServiceKey.emby => ServiceDomain.stream,
+    ServiceKey.emby ||
+    ServiceKey.tracearr => ServiceDomain.stream,
     ServiceKey.truenas ||
     ServiceKey.dockge ||
     ServiceKey.unraid ||
@@ -120,6 +123,7 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.jellyfin => 'Jellyfin',
     ServiceKey.plex => 'Plex',
     ServiceKey.emby => 'Emby',
+    ServiceKey.tracearr => 'Tracearr',
   };
 
   /// What the service is for, in a word or two: the line under "Set up X"
@@ -135,6 +139,9 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.qbittorrent || ServiceKey.transmission => 'Torrent client',
     ServiceKey.sabnzbd || ServiceKey.nzbget => 'Usenet client',
     ServiceKey.jellyfin || ServiceKey.plex || ServiceKey.emby => 'Streaming',
+    // It watches the media servers rather than serving media: the word is the
+    // one Tracearr uses of itself.
+    ServiceKey.tracearr => 'Monitoring',
     ServiceKey.truenas || ServiceKey.unraid => 'Server',
     ServiceKey.dockge => 'Containers',
     ServiceKey.nginxProxyManager => 'Reverse proxy',
@@ -184,6 +191,7 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.jellyfin => ServiceGlyphs.jellyfin,
     ServiceKey.plex => ServiceGlyphs.plex,
     ServiceKey.emby => ServiceGlyphs.emby,
+    ServiceKey.tracearr => ServiceGlyphs.tracearr,
   };
 
   /// What the interface paints for this service: the neutral lamp, the same
@@ -229,6 +237,7 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.jellyfin => AppColors.jellyfin,
     ServiceKey.plex => AppColors.plex,
     ServiceKey.emby => AppColors.emby,
+    ServiceKey.tracearr => AppColors.tracearr,
   };
 
   /// Whether this service authenticates with a single API key rather than a
@@ -268,7 +277,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.unraid ||
     ServiceKey.jellyfin ||
     ServiceKey.plex ||
-    ServiceKey.emby => true,
+    ServiceKey.emby ||
+    ServiceKey.tracearr => true,
   };
 
   /// Whether the library this service serves has to be entered through a chosen
@@ -311,7 +321,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.sabnzbd ||
     ServiceKey.nzbget ||
     ServiceKey.unraid ||
-    ServiceKey.nginxProxyManager => false,
+    ServiceKey.nginxProxyManager ||
+    ServiceKey.tracearr => false,
   };
 
   /// Says who is playing now: its answer becomes rows of Now playing,
@@ -371,6 +382,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.nginxProxyManager => 81,
     ServiceKey.jellyfin || ServiceKey.emby => 8096,
     ServiceKey.plex => 32400,
+    // The port its container image publishes.
+    ServiceKey.tracearr => 3000,
     ServiceKey.dockge => 5001,
     // Both ship a TLS web UI on the standard port.
     ServiceKey.truenas || ServiceKey.unraid => 443,
@@ -413,7 +426,9 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.qbittorrent ||
     ServiceKey.transmission ||
     ServiceKey.nzbget ||
-    ServiceKey.nginxProxyManager => null,
+    ServiceKey.nginxProxyManager ||
+    // Its key travels as `Authorization: Bearer`, which `ownHeaders` holds.
+    ServiceKey.tracearr => null,
   };
 
   /// Every header this service's own client sets, lower-cased: its
@@ -421,9 +436,9 @@ extension ServiceKeyExtension on ServiceKey {
   /// access header by one of these names would never be sent, because the
   /// service's own header wins (`guardedDio`), so the Access row refuses it.
   ///
-  /// `Authorization` is here for the three services that sign in with it
-  /// (NZBGet and Transmission with Basic, Nginx Proxy Manager with a bearer
-  /// token) and not for Jellyfin, whose token moves to `X-Emby-Token` and
+  /// `Authorization` is here for the four services that sign in with it
+  /// (NZBGet and Transmission with Basic, Nginx Proxy Manager and Tracearr with
+  /// a bearer token) and not for Jellyfin, whose token moves to `X-Emby-Token` and
   /// leaves `Authorization` to the proxy.
   Set<String> get ownHeaders => switch (this) {
     ServiceKey.plex => const {
@@ -439,7 +454,8 @@ extension ServiceKeyExtension on ServiceKey {
       'x-transmission-session-id',
     },
     ServiceKey.nzbget ||
-    ServiceKey.nginxProxyManager => const {'authorization'},
+    ServiceKey.nginxProxyManager ||
+    ServiceKey.tracearr => const {'authorization'},
     ServiceKey.qbittorrent => const {'referer', 'origin'},
     _ => {?credentialHeader?.toLowerCase()},
   };
@@ -477,6 +493,10 @@ extension ServiceKeyExtension on ServiceKey {
     // refused (see `jellyfin_client.dart`). What it loses are reads, a read
     // scope `jellyfin_provider.dart` answers.
     ServiceKey.jellyfin || ServiceKey.emby => false,
+    // The public key reads everything and is the only credential the
+    // connection needs; the owner's session, when it comes, is a second
+    // credential with its own job, not a narrower scope of this one.
+    ServiceKey.tracearr => false,
     // One key compared for equality, or one account with no role: nothing to
     // be narrower than. SABnzbd's NZB key and NZBGet's add-only user are
     // narrower, but they cannot *read* either, which makes them a connection
@@ -547,7 +567,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.sabnzbd ||
     ServiceKey.unraid ||
     ServiceKey.jellyfin ||
-    ServiceKey.emby => 'api_key',
+    ServiceKey.emby ||
+    ServiceKey.tracearr => 'api_key',
   };
 
   /// Whether this service may hold more than one instance.
@@ -602,6 +623,7 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.sabnzbd => 'Config → General → API Key',
     ServiceKey.jellyfin => 'Dashboard → Advanced → API Keys',
     ServiceKey.emby => 'Settings → Advanced → API Keys',
+    ServiceKey.tracearr => 'Settings → Data & API → API',
     ServiceKey.truenas => 'Credentials → API Keys',
     ServiceKey.unraid => 'Settings → Management Access → API Keys',
     ServiceKey.plex => 'any item → Get Info → View XML → copy X-Plex-Token',
@@ -656,6 +678,13 @@ extension ServiceKeyExtension on ServiceKey {
           'API Key. The key authenticates as an administrator but carries no '
           'user of its own, so pick whose watch state to read below once the '
           'connection works.',
+    // The public key is the one credential, and it is Tracearr's to show: it
+    // sits in the API card with a Generate Key button when none exists yet.
+    ServiceKey.tracearr =>
+      'Requires Tracearr $kTracearrMinVersion or newer. Copy the API key under '
+          'Settings → Data & API → API, or press Generate Key if there is none '
+          'yet. It begins trr_pub_ and only reads, which is all this '
+          'connection does.',
     ServiceKey.plex =>
       'Open any item in Plex Web, choose Get Info → View XML, and copy '
           'the X-Plex-Token from the address bar. This connection talks to '
@@ -727,6 +756,9 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.emby =>
       'The key signs in as an administrator but carries no user of its '
           'own, so pick whose watch state to read in Settings afterwards.',
+    ServiceKey.tracearr =>
+      'It needs Tracearr $kTracearrMinVersion or newer, and the key begins '
+          'trr_pub_.',
     ServiceKey.plex =>
       'It must be a long-lived device token: one beginning "eyJ" expires '
           'in 7 days and Cupola cannot renew it without contacting plex.tv.',
@@ -775,6 +807,7 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.jellyfin => 'v10',
     ServiceKey.plex => 'v1',
     ServiceKey.emby => 'v4',
+    ServiceKey.tracearr => 'v2',
   };
 
   /// The endpoint used to prove a service is answering.
@@ -807,6 +840,10 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.plex => '/identity',
     // Emby answers the same anonymous route under its `/emby` base path.
     ServiceKey.emby => '/emby/System/Info/Public',
+    // Tracearr's keyless health route: it names the product and no version, so
+    // like the media servers' it proves an address, never a key. The key and
+    // the version are read by its own branches (`/api/v1/public/health`).
+    ServiceKey.tracearr => '/health',
     // Transmission (RPC envelope + session-id handshake) and Nginx Proxy
     // Manager (token exchange) join this group for the same reason: no plain
     // GET can separate "reachable" from "authenticated" for either.
@@ -852,6 +889,8 @@ extension ServiceKeyExtension on ServiceKey {
     // naming one of them would both misdescribe the server and read as a
     // duplicate of Radarr's or Sonarr's own label.
     ServiceKey.jellyfin || ServiceKey.plex || ServiceKey.emby => 'libraries',
+    // What it watches over: the media servers it monitors.
+    ServiceKey.tracearr => 'servers',
   };
 
   String get routeParam => switch (this) {
@@ -875,7 +914,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.unraid ||
     ServiceKey.jellyfin ||
     ServiceKey.plex ||
-    ServiceKey.emby => name,
+    ServiceKey.emby ||
+    ServiceKey.tracearr => name,
   };
 
   String? extractHost(String? url) {

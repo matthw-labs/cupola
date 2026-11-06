@@ -32,7 +32,23 @@ void main() {
         ServiceKey.jellyfin,
         ServiceKey.plex,
         ServiceKey.emby,
+        ServiceKey.tracearr,
       ]);
+    });
+
+    test('Tracearr is in the band and is not a media server, and gives no '
+        'sessions yet', () {
+      const service = ServiceKey.tracearr;
+      expect(service.domain, ServiceDomain.stream);
+      expect(service.isMediaServer, isFalse);
+      expect(service.speaksMediaBrowser, isFalse);
+      expect(service.needsViewerSelection, isFalse);
+      // The merge of its streams into Now playing is a later lot's: flipping
+      // this earlier would send Tracearr through the media servers' session
+      // code, which has no client for it.
+      expect(service.givesSessions, isFalse);
+      expect(sessionServices, isNot(contains(service)));
+      expect(mediaServers, isNot(contains(service)));
     });
 
     test('the media servers are the services that answer isMediaServer', () {

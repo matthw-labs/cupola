@@ -104,6 +104,11 @@ const _onDisk = <ServiceKey, ({String url, String secret, String? username})>{
     secret: 'secure_emby_api_key',
     username: null,
   ),
+  ServiceKey.tracearr: (
+    url: 'tracearr_url',
+    secret: 'secure_tracearr_api_key',
+    username: null,
+  ),
 };
 
 ServiceInstance _primary(ServiceKey service) => ServiceInstance(

@@ -8,6 +8,7 @@ import 'package:cupola/core/api/api_client.dart';
 import 'package:cupola/core/network/answer_guard.dart';
 import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/core/network/list_mapping.dart';
+import 'package:cupola/features/settings/domain/probe_identity.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/tracearr/data/tracearr_events.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
@@ -18,6 +19,7 @@ import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_version.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
 
 /// The largest page the API accepts for most reads.
@@ -161,6 +163,30 @@ final class TracearrTerminateFailed extends TracearrTerminateResult {
   final String? message;
 }
 
+/// The public API v2 Cupola reads is not on this Tracearr: it is older than
+/// [kTracearrMinVersion].
+///
+/// Carries the version it named and no more: nothing here is a secret, and the
+/// sentence tells the person what to install.
+class TracearrTooOld implements Exception, HasFailureReason, HasFailureDetail {
+  const TracearrTooOld(this.found);
+
+  final TracearrVersion found;
+
+  /// An answer Cupola cannot use as it is, which a newer Tracearr fixes, so
+  /// Retry stays beside it.
+  @override
+  ServiceFailureReason get reason => ServiceFailureReason.invalidResponse;
+
+  @override
+  String get failureDetail =>
+      'Tracearr $found is older than the public API Cupola reads. Install '
+      'Tracearr $kTracearrMinVersion or newer.';
+
+  @override
+  String toString() => 'TracearrTooOld($found)';
+}
+
 /// Tracearr's public API, read with the `trr_pub_` key.
 ///
 /// Built over [ApiClient.authenticatedBy] like the media-server clients: it
@@ -186,10 +212,11 @@ class TracearrClient {
     String? pinnedCertFingerprint,
     Map<String, String> accessHeaders = const {},
     ServiceKey? onlyAtHome,
-  }) {
+  }) : _authorization = 'Bearer ${apiKey.trim()}',
+       _accessHeaders = Map.unmodifiable(accessHeaders) {
     _api = ApiClient.authenticatedBy(
       baseUrl: baseUrl,
-      headers: {'Authorization': 'Bearer ${apiKey.trim()}'},
+      headers: {'Authorization': _authorization},
       pinnedCertFingerprint: pinnedCertFingerprint,
       accessHeaders: accessHeaders,
       onlyAtHome: onlyAtHome,
@@ -197,6 +224,16 @@ class TracearrClient {
   }
 
   late final ApiClient _api;
+  final String _authorization;
+  final Map<String, String> _accessHeaders;
+
+  /// What a poster or an avatar asks Tracearr's image proxy with: the key and
+  /// the address's access, in headers. Never in the address, which is what the
+  /// image cache names the file by.
+  Map<String, String> get imageHeaders => {
+    ..._accessHeaders,
+    'Authorization': _authorization,
+  };
 
   /// The transport, so a test can stub the socket while the client still
   /// builds its own headers and URLs.
@@ -214,6 +251,26 @@ class TracearrClient {
   Future<TracearrHealth> getHealth() async {
     final response = await _api.get('$_v1/health');
     return TracearrHealth.fromJson(response.data);
+  }
+
+  /// The connection test and the probe's read: [getHealth] with the key, who
+  /// answered, and whether this Tracearr has the API v2 Cupola reads.
+  ///
+  /// A 401 throws, the key refused. A body that is not Tracearr's own, or a
+  /// web page, throws as a wrong answer ([requireProbeIdentity]). A version
+  /// below [kTracearrMin] throws [TracearrTooOld]; one it does not name, or
+  /// that does not parse, is let through, since a server that accepted the key
+  /// and spoke in Tracearr's shape is not worth refusing on a field we cannot
+  /// read.
+  Future<TracearrHealth> checkCredentialAndVersion() async {
+    final response = await _api.get('$_v1/health');
+    requireProbeIdentity(ServiceKey.tracearr, response.data, url: _api.baseUrl);
+    final health = TracearrHealth.fromJson(response.data);
+    final version = health.parsedVersion;
+    if (version != null && version < kTracearrMin) {
+      throw TracearrTooOld(version);
+    }
+    return health;
   }
 
   /// The servers Tracearr watches, with their state.

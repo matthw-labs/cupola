@@ -312,6 +312,7 @@ const Map<String, String> _excused = {
   'SeerrOverviewScreen': _overviewPage,
   'SonarrOverviewScreen': _overviewPage,
   'StreamOverviewScreen': _safeAreaOverview,
+  'TracearrOverviewScreen': _overviewPage,
   'TransmissionOverviewScreen': _overviewPage,
   'UnraidOverviewScreen': _overviewPage,
   'NzbgetScreen': _safeAreaDashboard,

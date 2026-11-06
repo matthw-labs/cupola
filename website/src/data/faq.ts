@@ -11,7 +11,7 @@ const untested = s.filter((x) => x.tested === 'untested').map((x) => x.name);
 export const faq = {
   arrApp: {
     q: 'Is there a Radarr or Sonarr app for iPhone and Android?',
-    a: 'Yes. Cupola is a free, open-source app for Radarr, Sonarr, Lidarr and Readarr on iPhone, Android and Mac. It also covers Seerr, the download clients, Jellyfin, Plex, Emby and the server they run on. See <a href="/radarr-sonarr-app/">Radarr and Sonarr on your phone</a>.',
+    a: 'Yes. Cupola is a free, open-source app for Radarr, Sonarr, Lidarr and Readarr on iPhone, Android and Mac. It also covers Seerr, the download clients, Jellyfin, Plex, Emby, Tracearr and the server they run on. See <a href="/radarr-sonarr-app/">Radarr and Sonarr on your phone</a>.',
   },
   account: {
     q: 'Does Cupola need a server or an account?',

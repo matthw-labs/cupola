@@ -150,6 +150,7 @@ ServiceFake serviceFakeFor(ServiceKey service) => switch (service) {
   ServiceKey.jellyfin => const JellyfinFake(),
   ServiceKey.plex => const PlexFake(),
   ServiceKey.emby => const EmbyFake(),
+  ServiceKey.tracearr => const TracearrFake(),
   ServiceKey.qbittorrent => const QbittorrentFake(),
   ServiceKey.transmission => const TransmissionFake(),
   ServiceKey.sabnzbd => const SabnzbdFake(),

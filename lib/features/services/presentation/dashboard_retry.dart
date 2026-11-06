@@ -74,7 +74,10 @@ List<ProviderOrFamily> dashboardSourcesOf(ServiceKey service) =>
       ServiceKey.unraid ||
       ServiceKey.jellyfin ||
       ServiceKey.plex ||
-      ServiceKey.emby => const [],
+      ServiceKey.emby ||
+      // Its four sources are the rail's own (`serviceKpiSources`), dropped with
+      // the figures; it feeds no merged region of the Dashboard.
+      ServiceKey.tracearr => const [],
     };
 
 /// Asks [services] again, everywhere the Dashboard shows them: the probe of

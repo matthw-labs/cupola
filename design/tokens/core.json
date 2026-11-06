@@ -102,6 +102,11 @@
         "$type": "color",
         "$value": "#52b54b",
         "$description": "Emby Green, the brand value unchanged. Registry data only: the interface paints every service with the lamp."
+      },
+      "tracearr": {
+        "$type": "color",
+        "$value": "#18d1e7",
+        "$description": "Tracearr Cyan, the brand value unchanged. Registry data only: the interface paints every service with the lamp."
       }
     },
     "status": {
