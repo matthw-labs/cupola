@@ -272,6 +272,13 @@ const _gluedAllowed = <({String file, String literal, String reason})>[
     literal: '1920s to now',
     reason: 'the decades the catalogue runs through, not seconds',
   ),
+  (
+    file: 'lib/features/tracearr/domain/models/tracearr_media_stats.dart',
+    literal: 'alertsLast24h',
+    reason:
+        "the name of a field of Tracearr's today read, off the wire; never "
+        'shown',
+  ),
 ];
 
 bool _isGluedAllowed(CopyLiteral literal) => _gluedAllowed.any(

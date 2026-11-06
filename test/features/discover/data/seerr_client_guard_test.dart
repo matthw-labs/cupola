@@ -393,6 +393,7 @@ const _apiClientSites = <String, String>{
       'Jellyfin, and Emby beside it: the one client of the MediaBrowser '
       'family, under either dialect.',
   'lib/features/plex/data/plex_client.dart': 'Plex.',
+  'lib/features/tracearr/data/tracearr_client.dart': 'Tracearr.',
 };
 
 /// What a `SeerrService` may be built over.

@@ -1,0 +1,37 @@
+{
+    "id": "13925ec5-c7a3-42ef-9cb9-38118462c8de",
+    "media_type": "movie",
+    "title": "The Matrix",
+    "year": 1999,
+    "imdb_id": null,
+    "tmdb_id": null,
+    "tvdb_id": null,
+    "genres": null,
+    "show_media_id": null,
+    "merged_ids": [],
+    "availability": [
+        {
+            "server_id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+            "server_type": "emby",
+            "library_id": "3",
+            "rating_key": "13",
+            "added_at": "2026-11-06T11:26:51.000Z",
+            "removed_at": null,
+            "video_resolution": "sd",
+            "file_size": 33526,
+            "versions": [
+                {
+                    "resolution": "sd",
+                    "video_codec": "H264",
+                    "audio_codec": "AAC",
+                    "dynamic_range": "sdr",
+                    "container": "mp4",
+                    "file_size": 33526
+                }
+            ],
+            "replaces": null
+        }
+    ],
+    "season_count": null,
+    "episode_count": null
+}

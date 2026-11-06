@@ -1,0 +1,58 @@
+{
+  "data": [
+    {
+      "id": "7a3e91c4-5d28-4b6f-8e10-2f4a6c8d0b13",
+      "username": "anna",
+      "identity_name": "Anna",
+      "email": "anna@example.test",
+      "plex_account_id": "1000001",
+      "accounts": [
+        {
+          "server_id": "5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51",
+          "server_type": "plex",
+          "server_user_id": "a1b2c3d4-1111-4222-8333-444455556661",
+          "external_user_id": "1000001",
+          "username": "anna",
+          "removed_at": null
+        },
+        {
+          "server_id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30",
+          "server_type": "emby",
+          "server_user_id": "a1b2c3d4-1111-4222-8333-444455556662",
+          "external_user_id": "4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c",
+          "username": "anna",
+          "removed_at": null
+        },
+        {
+          "server_id": "2c8a6f10-d3e5-47b9-8c14-5a9e0b7d6f22",
+          "server_type": "jellyfin",
+          "server_user_id": "a1b2c3d4-1111-4222-8333-444455556663",
+          "external_user_id": "0a1b2c3d4e5f60718293a4b5c6d7e8f9",
+          "username": "anna_old",
+          "removed_at": "2026-09-01T00:00:00.000Z"
+        }
+      ]
+    },
+    {
+      "id": "c41d58e7-0a96-4f3b-b2d8-6e9a1c3f5d70",
+      "username": "luca",
+      "identity_name": null,
+      "email": null,
+      "plex_account_id": null,
+      "accounts": [
+        {
+          "server_id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30",
+          "server_type": "emby",
+          "server_user_id": "b2c3d4e5-2222-4333-8444-555566667771",
+          "external_user_id": "9988776655443322110099887766aabb",
+          "username": "luca",
+          "removed_at": null
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "nextCursor": null,
+    "pageSize": 25
+  }
+}

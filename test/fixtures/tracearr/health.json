@@ -1,0 +1,31 @@
+{
+  "status": "ok",
+  "version": "v3.1.4",
+  "timestamp": "2026-11-06T10:15:00.000Z",
+  "servers": [
+    {
+      "id": "5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51",
+      "name": "Plex Living Room",
+      "type": "plex",
+      "online": true,
+      "historical": false,
+      "activeStreams": 1
+    },
+    {
+      "id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30",
+      "name": "Emby Study",
+      "type": "emby",
+      "online": true,
+      "historical": false,
+      "activeStreams": 1
+    },
+    {
+      "id": "2c8a6f10-d3e5-47b9-8c14-5a9e0b7d6f22",
+      "name": "Jellyfin Attic",
+      "type": "jellyfin",
+      "online": false,
+      "historical": false,
+      "activeStreams": 0
+    }
+  ]
+}
