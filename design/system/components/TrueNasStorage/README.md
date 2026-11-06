@@ -20,3 +20,4 @@ Each row is one tappable card that opens the pool's page; the name and the state
 Drawn in the dark and the light room, on a phone.
 
 - Storage: `tank` sound (`Healthy`) and `backup` degraded (`Degraded`), over the shell's floating bar.
+- Text at 200%: the same page at twice the reading size; each state word stays whole beside its pool's name, and the bar's own labels clamp at 1.3×.
