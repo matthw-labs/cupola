@@ -139,14 +139,15 @@ KnockPlan? knockPlanOf(ServiceKey service, String url) => switch (service) {
         server.startsWith('nzbget') ||
         (json is Map && json.containsKey('version'));
   }),
-  // Dockge's Socket.IO opens a polling session without signing in.
+  // Dockge's own page names it in its title. Its Socket.IO handshake would
+  // open without signing in too, but so does any Socket.IO server's
+  // (Tracearr's reads the same, measured on the lab), so the page is the
+  // proof that it is Dockge rather than something that speaks like it.
   ServiceKey.dockge => KnockPlan(
-    '/socket.io/',
+    '/',
     (answer) =>
         answer.status == 200 &&
-        answer.body.startsWith('0{') &&
-        answer.body.contains('"sid"'),
-    query: const {'EIO': '4', 'transport': 'polling'},
+        answer.body.toLowerCase().contains('<title>dockge</title>'),
   ),
   // Unraid's GraphQL endpoint answers a bare GET with nothing that names
   // it; an answer that is not a redirect is the most a knock can ask.

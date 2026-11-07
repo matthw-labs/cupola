@@ -200,13 +200,35 @@ void main() {
       );
     });
 
-    test('Dockge: a Socket.IO session opens', () {
+    test('Dockge: its own page names it', () {
       expect(
         _answers(
           ServiceKey.dockge,
-          _answer(200, '0{"sid":"zd55","upgrades":["websocket"]}'),
+          _answer(200, '<!DOCTYPE html><html><head><title>Dockge</title>'),
         ),
         isTrue,
+      );
+    });
+
+    test('Dockge: another Socket.IO server is not Dockge', () {
+      // Tracearr opens the same polling session without signing in, and its
+      // page names Tracearr: neither answer may read as Dockge.
+      expect(
+        _answers(
+          ServiceKey.dockge,
+          _answer(
+            200,
+            '0{"sid":"fog1","upgrades":["websocket"],"pingInterval":25000}',
+          ),
+        ),
+        isFalse,
+      );
+      expect(
+        _answers(
+          ServiceKey.dockge,
+          _answer(200, '<!DOCTYPE html><html><head><title>Tracearr</title>'),
+        ),
+        isFalse,
       );
     });
 
