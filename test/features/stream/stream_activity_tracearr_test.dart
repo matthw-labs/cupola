@@ -312,5 +312,62 @@ void main() {
       sub.close();
       container.dispose();
     });
+
+    testWidgets('the Stack\'s poll gates its first read on the source of the '
+        'connection now in view, not the one it was built over', (
+      tester,
+    ) async {
+      _CountingLive.refreshes = 0;
+      const second = ServiceInstance(
+        id: 'tracearr-b',
+        service: ServiceKey.tracearr,
+        label: 'B',
+        url: 'https://b.test',
+        credential: 'key-b',
+      );
+      final container = ProviderContainer(
+        retry: (_, _) => null,
+        overrides: [
+          ...await settingsScopeOverrides(
+            configured: const [ServiceKey.tracearr],
+            customize: (settings) =>
+                SettingsModel(instances: [...settings.instances, second]),
+          ),
+          tracearrLiveProvider.overrideWith(_CountingLive.new),
+          _tracearrSees(const []),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      // The Live list is a cache another page filled, of any age.
+      final live = container.listen(tracearrLiveProvider, (_, _) {});
+      addTearDown(live.close);
+      await container.read(tracearrLiveProvider.future);
+
+      // Built over the connection that is not in view: its own read does not
+      // exist, so nothing is due at build.
+      final sub = container.listen(
+        streamSessionsPollProvider((
+          service: ServiceKey.tracearr,
+          instanceId: second.id,
+        )),
+        (_, _) {},
+      );
+      addTearDown(sub.close);
+      await tester.pump();
+      expect(_CountingLive.refreshes, 0);
+
+      // It enters the view: the cache it now reads is already answered, so
+      // the read comes at once, not an interval later.
+      await container
+          .read(activeInstancesProvider.notifier)
+          .select(ServiceKey.tracearr, second.id);
+      await tester.pump(const Duration(milliseconds: 1));
+
+      expect(_CountingLive.refreshes, 1);
+
+      sub.close();
+      container.dispose();
+    });
   });
 }

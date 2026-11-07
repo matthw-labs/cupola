@@ -300,8 +300,9 @@ Future<OutsideReading> readOutside(
 ///   notice, and the cursor moves to the newest read.
 ///
 /// `notices` is null when nothing was asked or nothing answered: a read that
-/// did not come is not a violation going away.
-Future<({List<OutsideNotice>? notices, Map<String, DateTime> since})>
+/// did not come is not a violation going away. `since` is null when there was
+/// no connection to read, which keeps the stored cursors as they are.
+Future<({List<OutsideNotice>? notices, Map<String, DateTime>? since})>
 _readFlagged(
   ProviderContainer container,
   Future<T?> Function<T>(ProviderListenable<Future<T>> future) settle, {
@@ -310,6 +311,12 @@ _readFlagged(
   required Map<String, DateTime> since,
 }) async {
   final connections = container.read(tracearrConnectionsProvider);
+  // Configured but with no connection to read (settings that look empty for a
+  // run, a keychain still locked): nothing was read, so there are no cursors
+  // to hand back. An empty map would be taken as "every connection is gone"
+  // and wipe the stored ones, turning the next real run into a first one that
+  // skips what came in between.
+  if (connections.isEmpty) return (notices: null, since: null);
   final cursors = <String, DateTime>{};
   final notices = <OutsideNotice>[];
   var asked = 0;

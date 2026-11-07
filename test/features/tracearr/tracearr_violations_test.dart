@@ -2,14 +2,17 @@
 /// the violation's own page (typed for the rules we know, the name alone for
 /// any other), the owner's two controls, and what Needs you holds.
 ///
-/// **The lab has no violation yet**, so every violation here is made up: the
-/// rows of `test/fixtures/tracearr/violations.json` and
-/// `violation_detail.json`, whose places and addresses are invented. What is
-/// not invented is the shape of their `data`: its keys are the ones Tracearr
-/// 3.1.4's server writes (`data.evidence`, groups of conditions, each told by
-/// its `field`), read from its source and recorded in the probe notes, though
-/// never yet captured from a live violation. No test name, and no failure
-/// text, carries a place or an address.
+/// **The lab holds one rule's violations only**: the concurrent-streams runs
+/// of `tracearr_real_fixtures_test.dart`, captured live. Every other
+/// violation here is made up: the rows of
+/// `test/fixtures/tracearr/violations.json` and `violation_detail.json`, whose
+/// places and addresses are invented. What is not invented is the shape of
+/// their `data`: its keys are the ones Tracearr 3.1.4's server writes
+/// (`data.evidence`, groups of conditions, each told by its `field`), read from
+/// its source and recorded in the probe notes, and confirmed on a live
+/// concurrent-streams run; the travel and locations rules are still the source's
+/// word alone. No test name, and no failure text, carries a place or an
+/// address.
 library;
 
 import 'dart:async';

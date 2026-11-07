@@ -190,7 +190,9 @@ final class TracearrViolation {
   /// The public contract types `data` as free-form and does not send the
   /// rule's type, so the rule is recognised by what Tracearr wrote, which we
   /// read off its server source (v3.1.4, `automations/runRecorder.ts` and
-  /// `evaluators/index.ts`) and not off a guess:
+  /// `evaluators/index.ts`) and not off a guess. A live 3.1.4 has since
+  /// answered for the concurrent-streams rule exactly as the source said; this
+  /// rule's own shape has not been seen live yet:
   ///
   ///  * a run of Tracearr 3.x keeps what it weighed in `data.evidence`, a list
   ///    of groups of conditions; impossible travel is the condition whose

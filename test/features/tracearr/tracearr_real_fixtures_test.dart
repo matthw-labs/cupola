@@ -202,6 +202,105 @@ void main() {
     expect(watchers.lastWatchedDay, DateTime.parse('2026-11-06'));
   });
 
+  group('violations a live Tracearr 3.1.4 recorded', () {
+    // Five "too many streams" runs the lab's own policy wrote when a person
+    // started a second and then a fourth playback, with the person renamed and
+    // the address in `data` replaced by one from the documentation range. The
+    // lab has yet to write an impossible-travel or a simultaneous-locations
+    // run, so those two stay on the invented fixtures.
+    const address = '192.0.2.10';
+
+    test('the list: newest first, the concurrent rule read off its '
+        'evidence', () async {
+      final page = await _client(_answering('violation_list')).getViolations();
+
+      expect(page.dropped, 0);
+      expect(page.items, hasLength(5));
+      expect(page.hasMore, isFalse);
+      expect(page.pageSize, 50);
+      final times = page.items.map((violation) => violation.createdAt!);
+      expect(times.toList(), [...times]..sort((a, b) => b.compareTo(a)));
+
+      final newest = page.items.first;
+      expect(newest.severity, TracearrSeverity.warning);
+      expect(newest.isAcknowledged, isFalse);
+      expect(newest.rule.name, 'Too many streams at once');
+      expect(newest.server.type, TracearrServerType.emby);
+      expect(newest.person.name, 'Anna');
+      expect(newest.person.id, annaId);
+      expect(newest.sessionId, isNotNull);
+      // A list row carries no actions: that says nothing of what was done.
+      expect(newest.actions, isEmpty);
+
+      expect(page.items.map((v) => v.concurrentStreams!.count), [
+        2,
+        2,
+        4,
+        3,
+        2,
+      ]);
+      expect(
+        page.items.map((v) => v.concurrentStreams!.limit),
+        everyElement(1),
+      );
+      expect(page.items.map((v) => v.impossibleTravel), everyElement(isNull));
+    });
+
+    test('the detail is the row with its actions, none yet', () async {
+      final violation = await _client(
+        _answering('violation_detail'),
+      ).getViolation('6d471af5-ed90-4a35-a094-427140b545cd');
+
+      expect(violation, isNotNull);
+      expect(violation!.concurrentStreams!.count, 2);
+      expect(violation.concurrentStreams!.limit, 1);
+      expect(violation.actions, isEmpty);
+      expect(violation.hasFailedAction, isFalse);
+      expect(violation.impossibleTravel, isNull);
+    });
+
+    test('a count of four reads as four', () async {
+      final violation = await _client(
+        _answering('violation_four_streams'),
+      ).getViolation('7ff9b1a0-df6c-4e20-8b2d-cc8b64d56512');
+
+      expect(violation!.concurrentStreams!.count, 4);
+      expect(violation.concurrentStreams!.limit, 1);
+    });
+
+    test('nothing the reader hands out carries the address', () async {
+      final page = await _client(_answering('violation_list')).getViolations();
+
+      for (final violation in page.items) {
+        expect('$violation', isNot(contains(address)));
+        expect('${violation.concurrentStreams}', isNot(contains(address)));
+      }
+    });
+
+    test('a rule we do not know is its name and nothing else', () async {
+      final row =
+          jsonDecode(
+                File(
+                  'test/fixtures/tracearr/real_violation_detail.json',
+                ).readAsStringSync(),
+              )
+              as Map<String, dynamic>;
+      final conditions =
+          ((row['data'] as Map)['evidence'] as List).first['conditions']
+              as List;
+      // The same shape under a field Tracearr may add one day.
+      (conditions.first as Map)['field'] = 'device_velocity_count';
+
+      final violation = await _client(
+        CapturingHttpAdapter(response: row),
+      ).getViolation('6d471af5-ed90-4a35-a094-427140b545cd');
+
+      expect(violation!.rule.name, 'Too many streams at once');
+      expect(violation.concurrentStreams, isNull);
+      expect(violation.impossibleTravel, isNull);
+    });
+  });
+
   test('an unknown TMDB ref is a 404 that reads as null', () async {
     final adapter = CapturingHttpAdapter(
       statusCode: 404,

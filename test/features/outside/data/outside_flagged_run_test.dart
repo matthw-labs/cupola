@@ -42,6 +42,7 @@ void main() {
   Future<ProviderContainer> container({
     bool configured = true,
     bool twoConnections = false,
+    bool noConnections = false,
   }) async {
     final container = ProviderContainer(
       overrides: [
@@ -59,6 +60,10 @@ void main() {
                 )
               : settings,
         ),
+        // Configured, yet nothing to read: a connection list that came back
+        // empty while the service still counts as set up.
+        if (noConnections)
+          tracearrConnectionsProvider.overrideWith((ref) => const []),
         tracearrClientForProvider.overrideWith(
           (ref, id) => id == 'tracearr-2' ? second : first,
         ),
@@ -299,6 +304,27 @@ void main() {
         expect(heard.say.map((notice) => notice.id), ['a']);
       },
     );
+
+    test('a Tracearr that is set up but has no connection to read keeps the '
+        'cursors it had', () async {
+      first.hold([_violation('old', at(-10))]);
+      await run(await container(), minutes: 0);
+      expect((await cursors())['tracearr'], at(-10));
+
+      first.reads.clear();
+      final heard = await run(
+        await container(noConnections: true),
+        minutes: 15,
+      );
+      expect(heard.say, isEmpty);
+      expect(first.reads, isEmpty);
+      expect((await cursors())['tracearr'], at(-10));
+
+      // What came in meanwhile is still news once the connection is back.
+      first.hold([_violation('a', at(7)), _violation('old', at(-10))]);
+      final back = await run(await container(), minutes: 30);
+      expect(back.say.map((notice) => notice.id), ['a']);
+    });
 
     test('a connection that is gone is forgotten by the next read', () async {
       first.hold([_violation('x', at(-30))]);

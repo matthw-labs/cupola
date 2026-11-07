@@ -95,22 +95,27 @@ final streamSessionsPollProvider = Provider.autoDispose
       // list would hand back what it already holds.
       final isTracearr = key.service == ServiceKey.tracearr;
 
-      // Asked on every tick and never once at build: the lens moves while the
-      // poll lives (a room or the Stack keeps it), and a tick that remembered
-      // the lens it was built under would refresh the connection that left the
-      // view and leave the one that entered it unread.
-      bool inView() {
-        final lens = ref.read(activeInstanceProvider(key.service))?.id ?? '';
-        return key.instanceId.isEmpty || key.instanceId == lens;
-      }
+      // Whether the connection is the lens's. Watched, so the poll is built
+      // again the moment the lens moves (a room or the Stack keeps it alive
+      // across the move): a tick and the due-now gate below are then both
+      // read from the connection's current source. A gate worked out once at
+      // build looked at the provider the connection had *then*, and a poll
+      // whose connection had just entered the view waited a whole interval
+      // over a cache of any age. Only the connection that left and the one
+      // that entered rebuild: the selection is a bool, not the lens.
+      final inView = ref.watch(
+        activeInstanceProvider(key.service).select((lens) {
+          return key.instanceId.isEmpty || key.instanceId == (lens?.id ?? '');
+        }),
+      );
 
       ProviderBase<AsyncValue<Object?>> source() {
         if (isTracearr) {
-          return inView()
+          return inView
               ? tracearrLiveProvider
               : tracearrStreamsForProvider(key.instanceId);
         }
-        if (!inView()) return streamSessionsForProvider(key);
+        if (!inView) return streamSessionsForProvider(key);
         return streamBackendOf(key.service).sessions;
       }
 
@@ -120,7 +125,7 @@ final streamSessionsPollProvider = Provider.autoDispose
         interval: streamSessionsInterval,
         dueNow: ref.exists(read) && !ref.read(read).isLoading,
         onTick: () {
-          if (isTracearr && inView()) {
+          if (isTracearr && inView) {
             unawaited(ref.read(tracearrLiveProvider.notifier).refresh());
           } else {
             ref.readAgainUnlessInFlight([source()]);
