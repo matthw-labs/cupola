@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 
+import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/utils/arr_activity_display.dart';
 import 'package:cupola/core/widgets/app_bottom_sheet.dart';
 import 'package:cupola/core/widgets/service_overview.dart';
@@ -293,17 +294,46 @@ TracearrStreams _streams() {
 TracearrSession tracearrTranscodeSession() =>
     TracearrSession.live(_streams().streams.first);
 
+/// A viewing from History, as recorded by a real Tracearr: the first row of
+/// the recorded page.
+TracearrSession tracearrRecordedSession() => TracearrSession.recorded(
+  TracearrHistoryEntry.fromJson(
+    (jsonFixtureMap('tracearr/history_page.json')['data'] as List).first
+        as Map<String, dynamic>,
+  ),
+);
+
 /// Live with the detail sheet open over it, the sheet drawn in place: a modal
 /// on the root navigator is off the catalog's sheet, so the panel is the
 /// app's own `AppBottomSheet` around the sheet's own body.
-class TracearrSheetOver extends ConsumerWidget {
-  const TracearrSheetOver({super.key, required this.behind});
+///
+/// Laid out as the app opens it (`showTracearrSession`): a draggable sheet
+/// whose body scrolls inside the sheet's own margin.
+class TracearrSheetOver extends ConsumerStatefulWidget {
+  const TracearrSheetOver({super.key, required this.behind, this.session});
 
   final Widget behind;
 
+  /// The viewing; the Live transcode when null.
+  final TracearrSession Function()? session;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final session = tracearrTranscodeSession();
+  ConsumerState<TracearrSheetOver> createState() => _TracearrSheetOverState();
+}
+
+class _TracearrSheetOverState extends ConsumerState<TracearrSheetOver> {
+  final _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = (widget.session ?? tracearrTranscodeSession)();
+    final behind = widget.behind;
     final title = tracearrMediaTitleOf(session.media);
     return Stack(
       fit: StackFit.expand,
@@ -312,20 +342,33 @@ class TracearrSheetOver extends ConsumerWidget {
         const ColoredBox(color: Colors.black54),
         Align(
           alignment: Alignment.bottomCenter,
-          child: AppBottomSheet(
-            title: title,
-            subtitle: joinDisplayParts([
-              tracearrPersonOf(session.person),
-              session.device.name,
-            ]),
-            icon: Icons.play_circle_outline_rounded,
-            headerTrailing: ServiceOverviewArt(posterUrl: null, title: title),
-            child: TracearrSessionBody(
-              session: session,
-              onClose: () {},
-              host: context,
-              hostRef: ref,
-              onPersonPage: null,
+          child: FractionallySizedBox(
+            heightFactor: 0.7,
+            child: AppBottomSheet(
+              title: title,
+              subtitle: joinDisplayParts([
+                tracearrPersonOf(session.person),
+                session.device.name,
+              ]),
+              icon: Icons.play_circle_outline_rounded,
+              headerTrailing: ServiceOverviewArt(posterUrl: null, title: title),
+              scrollController: _scroll,
+              bodyPadding: const EdgeInsets.fromLTRB(
+                AppSpacing.lg,
+                0,
+                AppSpacing.lg,
+                AppSpacing.lg,
+              ),
+              child: SingleChildScrollView(
+                controller: _scroll,
+                child: TracearrSessionBody(
+                  session: session,
+                  onClose: () {},
+                  host: context,
+                  hostRef: ref,
+                  onPersonPage: null,
+                ),
+              ),
             ),
           ),
         ),

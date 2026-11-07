@@ -701,6 +701,20 @@ void main() {
         id: 'tracearr-session-sheet',
       ),
       CatalogScene(
+        'Tracearr session sheet · a viewing from History: when and how far '
+        'first, then how it played and where, each a group of rows, and '
+        'Open title and Go to the person inside the sheet\'s margin',
+        (_) => tracearrWorldScene(
+          const TracearrSheetOver(
+            behind: TracearrHistoryScreen(),
+            session: tracearrRecordedSession,
+          ),
+        ),
+        width: 390,
+        height: 844,
+        id: 'tracearr-history-sheet',
+      ),
+      CatalogScene(
         'TracearrHistoryScreen · day by day, with the filter row showing a '
         'remembered filter (Anna, Last 7 days, Only watched) and Clear',
         (_) => tracearrWorldScene(

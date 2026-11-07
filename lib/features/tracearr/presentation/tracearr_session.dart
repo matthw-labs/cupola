@@ -119,6 +119,64 @@ typedef TracearrFact = ({String label, String value});
 /// One row of the source-against-output table.
 typedef TracearrComparison = ({String label, String source, String output});
 
+/// One group of the sheet: a heading, none for the first, and its rows.
+typedef TracearrSheetGroup = ({String? heading, List<TracearrFact> rows});
+
+/// The sheet's facts in the groups a person reads them in: when and how far
+/// first (the answer to "what happened"), then how it played, then where.
+///
+/// Every fact [tracearrFactsOf] states is in exactly one group, and nothing
+/// is added: a fact Tracearr did not state stays absent. Source and output
+/// read as one value ([tracearrSourceToOutput]), so the sheet has no table.
+List<TracearrSheetGroup> tracearrSheetGroupsOf(
+  TracearrSession session, {
+  DateTime? now,
+}) {
+  final facts = tracearrFactsOf(session, now: now);
+  TracearrFact? take(String label) =>
+      facts.where((fact) => fact.label == label).firstOrNull;
+  final quality = session.quality;
+  final when = [
+    for (final label in const ['Started', 'Ran for', 'Completion', 'Progress'])
+      ?take(label),
+  ];
+  final playback = [
+    (label: 'How', value: tracearrHowWords(quality)),
+    for (final row in tracearrComparisonOf(quality))
+      (
+        label: row.label,
+        value: tracearrSourceToOutput(row, converted: quality.isTranscode),
+      ),
+    for (final label in const ['Bitrate', 'Hardware', 'Speed', 'Subtitles'])
+      ?take(label),
+  ];
+  final where = [
+    for (final label in const ['Server', 'Device']) ?take(label),
+  ];
+  return [
+    if (when.isNotEmpty) (heading: null, rows: when),
+    (heading: 'Playback', rows: playback),
+    if (where.isNotEmpty) (heading: 'Where', rows: where),
+  ];
+}
+
+/// One side of the source against the output, as one value: the source alone
+/// when nothing is [converted] (a direct play, whose output Tracearr describes
+/// with fewer words, would read as a change that is not one) or both sides
+/// agree, `HEVC · 4K · HDR → H.264 · 1080p` when the server converts it.
+String tracearrSourceToOutput(
+  TracearrComparison row, {
+  required bool converted,
+}) {
+  final source = row.source;
+  final output = row.output;
+  if (source == Lexicon.noFigure) return output;
+  if (!converted || output == source || output == Lexicon.noFigure) {
+    return source;
+  }
+  return '$source → $output';
+}
+
 /// What the person is told about how a viewing reached them, first: the method
 /// and, when it transcodes, why, in the server's own words.
 String tracearrHowWords(TracearrQuality quality) {
