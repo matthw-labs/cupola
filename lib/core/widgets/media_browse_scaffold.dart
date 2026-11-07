@@ -17,6 +17,7 @@ import 'package:cupola/core/utils/image_utils.dart';
 import 'package:cupola/core/widgets/ambient_scaffold.dart';
 import 'package:cupola/core/widgets/app_empty_state.dart';
 import 'package:cupola/core/widgets/app_error_state.dart';
+import 'package:cupola/core/widgets/media_poster_caption.dart';
 import 'package:cupola/core/widgets/async_value_widget.dart';
 import 'package:cupola/core/widgets/content_card.dart';
 import 'package:cupola/core/widgets/floating_bottom_nav_bar.dart';
@@ -1357,7 +1358,6 @@ class _BrowsePosterTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     // The status is painted inside the excluded subtree, or, on the circular
     // shape, not painted at all, so it has to be spoken here or it is lost
     // entirely.
@@ -1386,28 +1386,12 @@ class _BrowsePosterTile extends StatelessWidget {
                 : CrossAxisAlignment.start,
             children: [
               _artwork(context),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: isCircle ? TextAlign.center : TextAlign.start,
-                style: Theme.of(context).textTheme.labelSmall!
-                    .weight(FontWeight.w600)
-                    .copyWith(color: colorScheme.onSurface),
+              const SizedBox(height: MediaPosterCaption.gap),
+              MediaPosterCaption(
+                title: title,
+                subtitle: subtitle,
+                centered: isCircle,
               ),
-              if (subtitle.isNotEmpty)
-                Text(
-                  subtitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: isCircle ? TextAlign.center : TextAlign.start,
-                  // Was fontSize 10, below the 11pt floor; the subtitle keeps
-                  // its dimmer tone to stay a step under the title.
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
             ],
           ),
         ),

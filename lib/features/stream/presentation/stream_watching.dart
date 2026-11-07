@@ -274,11 +274,10 @@ class _PosterGrid extends ConsumerWidget {
           physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.only(top: AppSpacing.xs),
           itemCount: items.length,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: columns,
-            childAspectRatio: 2 / 3,
-            crossAxisSpacing: AppSpacing.gridGap,
-            mainAxisSpacing: AppSpacing.gridGap,
+          gridDelegate: MediaPosterCaption.gridDelegate(
+            context,
+            width: constraints.maxWidth,
+            columns: columns,
           ),
           itemBuilder: (context, index) => _Poster(
             service: service,
@@ -327,10 +326,24 @@ class _Poster extends StatelessWidget {
       semanticLabel: item.title,
       semanticValue: item.year == null ? null : '${item.year}',
       excludeChildSemantics: true,
-      child: MediaPosterCard(
-        heroTag: heroTag,
-        imageUrl: image?.url,
-        imageHeaders: image?.headers,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AspectRatio(
+            aspectRatio: 2 / 3,
+            child: MediaPosterCard(
+              heroTag: heroTag,
+              imageUrl: image?.url,
+              imageHeaders: image?.headers,
+              fallbackIcon: streamItemGlyph(item.kind),
+            ),
+          ),
+          const SizedBox(height: MediaPosterCaption.gap),
+          MediaPosterCaption(
+            title: item.title,
+            subtitle: item.year == null ? '' : '${item.year}',
+          ),
+        ],
       ),
     );
   }

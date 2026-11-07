@@ -58,7 +58,7 @@ void main() {
           ),
         ),
         width: 390,
-        height: 900,
+        height: 1000,
         id: 'emby-activity',
       ),
       CatalogScene(

@@ -463,16 +463,14 @@ class _LibraryGrid extends StatelessWidget {
     // computed against the floor can.
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = MediaGrid.columnsFor(
-          constraints.maxWidth - (AppSpacing.lg * 2),
-          3,
-        );
-        return _pagedGrid(context, columns);
+        final width = constraints.maxWidth - (AppSpacing.lg * 2);
+        final columns = MediaGrid.columnsFor(width, 3);
+        return _pagedGrid(context, width, columns);
       },
     );
   }
 
-  Widget _pagedGrid(BuildContext context, int columns) {
+  Widget _pagedGrid(BuildContext context, double width, int columns) {
     return PagedGridView<int, StreamItem>(
       state: state,
       fetchNextPage: fetchNextPage,
@@ -482,11 +480,10 @@ class _LibraryGrid extends StatelessWidget {
         AppSpacing.lg,
         FloatingNavBarMetrics.getScrollViewBottomPadding(context),
       ),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: columns,
-        childAspectRatio: 2 / 3,
-        crossAxisSpacing: AppSpacing.gridGap,
-        mainAxisSpacing: AppSpacing.gridGap,
+      gridDelegate: MediaPosterCaption.gridDelegate(
+        context,
+        width: width,
+        columns: columns,
       ),
       builderDelegate: PagedChildBuilderDelegate<StreamItem>(
         itemBuilder: (context, item, index) => StreamPosterTile(

@@ -634,5 +634,44 @@ void main() {
         _wholeByName,
       ]);
     });
+
+    testWidgets('a tile names its title and year under the poster, and '
+        'speaks them once', (tester) async {
+      final handle = tester.ensureSemantics();
+      final server = _ScriptedServer({
+        0: _page([_item('a', 'Arrival')], nextStartIndex: 1, hasMore: false),
+      });
+
+      await _pumpLibrary(tester, server);
+
+      expect(find.text('Arrival'), findsOneWidget);
+      expect(find.text('2016'), findsOneWidget);
+      // One button, named by the full title: the caption is not a second
+      // reading of it.
+      expect(find.bySemanticsLabel('Arrival'), findsOneWidget);
+      handle.dispose();
+    });
+
+    testWidgets('at twice the reading size every cell holds its caption', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final server = _ScriptedServer({
+        0: _page(
+          [
+            for (var i = 0; i < 6; i++)
+              _item('$i', 'A title long enough to be cut $i'),
+          ],
+          nextStartIndex: 6,
+          hasMore: false,
+        ),
+      });
+
+      await _pumpLibrary(tester, server);
+
+      expect(tester.takeException(), isNull);
+      expect(find.text('2016'), findsWidgets);
+    });
   });
 }
