@@ -1,16 +1,42 @@
-import 'package:dio/dio.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-
+import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/jellyfin/data/jellyfin_client.dart';
+import 'package:cupola/features/jellyfin/presentation/media_browser_providers.dart';
 import 'package:cupola/features/jellyfin/domain/models/jellyfin_models.dart';
-import 'package:cupola/features/settings/data/connection_providers.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
-import 'package:cupola/features/stream/domain/models/stream_item.dart';
-import 'package:cupola/features/stream/domain/models/stream_library.dart';
-import 'package:cupola/features/stream/domain/models/stream_session.dart';
-import 'package:cupola/features/stream/domain/stream_server_client.dart';
-import 'package:cupola/core/providers/provider_retry.dart';
+
+export 'package:cupola/features/jellyfin/presentation/media_browser_providers.dart';
+
+/// Jellyfin's set. Every `jellyfin*Provider` below is a field of it, under the
+/// name callers and tests override it by.
+final jellyfinProviders = MediaBrowserProviders<JellyfinClient>(
+  ServiceKey.jellyfin,
+  create: (transport, viewerId) => JellyfinClient(
+    baseUrl: transport.url,
+    apiKey: transport.apiKey,
+    userId: viewerId,
+    pinnedCertFingerprint: transport.pin,
+    accessHeaders: transport.access.headers(),
+    onlyAtHome: transport.onlyAtHomeOf(ServiceKey.jellyfin),
+  ),
+);
+
+/// The providers of a MediaBrowser [service], for a widget written once for
+/// every server of the family (the Users, Devices, Tasks and Activity tabs,
+/// the viewer picker). Throws for a service that is not one: a widget that
+/// asks has been handed the wrong key, and an answer about some other server
+/// would be worse than the throw.
+MediaBrowserProviders<MediaBrowserClient> mediaBrowserProvidersOf(
+  ServiceKey service,
+) => switch (service) {
+  ServiceKey.jellyfin => jellyfinProviders,
+  ServiceKey.emby => embyProviders,
+  _ => throw ArgumentError.value(
+    service,
+    'service',
+    'is not a MediaBrowser server',
+  ),
+};
 
 /// Jellyfin client bound to the current settings.
 ///
@@ -36,34 +62,9 @@ import 'package:cupola/core/providers/provider_retry.dart';
 /// live `Dio` in `onDispose`, so rebuilding it cancels every in-flight Stream
 /// request and invalidates every surface downstream. Watching the whole object
 /// made a theme-mode toggle do exactly that.
-final jellyfinClientProvider = _jellyfin.lens;
+final jellyfinClientProvider = jellyfinProviders.client.lens;
 
-final jellyfinClientForProvider = _jellyfin.forConnection;
-
-final _jellyfin = ConnectionProviders<JellyfinClient>.transport(
-  ServiceKey.jellyfin,
-  create: (ref, transport) {
-    // The viewer is read from the **instance**, not from
-    // `settings.jellyfinUserId`: that projection is the first connection's, so
-    // following the lens without this would have every user-scoped query on the
-    // second server carry a user id from the first server's user table, an id
-    // that does not exist there.
-    final viewerId = ref.watch(
-      currentSettingsProvider.select(
-        (s) => s.instanceById(transport.instanceId)?.viewerId ?? '',
-      ),
-    );
-    return JellyfinClient(
-      baseUrl: transport.url,
-      apiKey: transport.apiKey,
-      userId: viewerId,
-      pinnedCertFingerprint: transport.pin,
-      accessHeaders: transport.access.headers(),
-      onlyAtHome: transport.onlyAtHomeOf(ServiceKey.jellyfin),
-    );
-  },
-  close: (client) => client.close(),
-);
+final jellyfinClientForProvider = jellyfinProviders.client.forConnection;
 
 /// The same client, seen through the interface the Stream surfaces are written
 /// against.
@@ -75,24 +76,14 @@ final _jellyfin = ConnectionProviders<JellyfinClient>.transport(
 /// cancellable per-item fetches below go through here; the concrete provider
 /// stays public only for the Jellyfin-specific extras (`getViewers` filtering,
 /// the raw item mapper) that genuinely have no cross-server meaning.
-final jellyfinServerProvider = Provider<StreamServerClient>((ref) {
-  return ref.watch(jellyfinClientProvider);
-});
+final jellyfinServerProvider = jellyfinProviders.server;
 
 /// Everything playing right now, most expensive first.
 ///
 /// Not polled from here: the dashboard owns its own refresh cadence the way
 /// `torrentDetailPollingProvider` does, and a timer buried in a data provider
 /// would keep firing behind a screen nobody is looking at.
-final jellyfinSessionsProvider = FutureProvider<List<StreamSession>>((
-  ref,
-) async {
-  return ref.watch(jellyfinServerProvider).getSessions();
-  // `retry: noProviderRetry` below, because `streamActivityProvider` awaits
-  // this inside a `try` written to carry on without a dark server, and it
-  // walks the media servers one at a time, so ten backing-off retries here are
-  // spent before Plex is even asked. See [noProviderRetry].
-}, retry: noProviderRetry);
+final jellyfinSessionsProvider = jellyfinProviders.sessions;
 
 /// The libraries this server exposes.
 ///
@@ -104,18 +95,11 @@ final jellyfinSessionsProvider = FutureProvider<List<StreamSession>>((
 /// Retry it already draws. (The "not configured" throw never needed the flag;
 /// it reaches a watcher as a `ProviderException`, which `defaultRetry`
 /// declines on its own.)
-final jellyfinLibrariesProvider = FutureProvider<List<StreamLibrary>>((
-  ref,
-) async {
-  return ref.watch(jellyfinServerProvider).getLibraries();
-}, retry: noProviderRetry);
+final jellyfinLibrariesProvider = jellyfinProviders.libraries;
 
 /// The server's own id, per connection: what a Jellyfin app needs to open an
 /// item on it. Null while the server does not say.
-final jellyfinServerIdProvider = FutureProvider.autoDispose
-    .family<String?, String>((ref, instanceId) async {
-      return ref.watch(jellyfinClientForProvider(instanceId)).publicServerId();
-    }, retry: noProviderRetry);
+final jellyfinServerIdProvider = jellyfinProviders.serverId;
 
 /// The same list, from one named connection.
 ///
@@ -123,10 +107,7 @@ final jellyfinServerIdProvider = FutureProvider.autoDispose
 /// whose form is on screen, and a user id is only meaningful against the server
 /// that issued it. Empty id means the lens, which is what every caller meant
 /// before Jellyfin could have two.
-final jellyfinViewersForProvider =
-    FutureProvider.family<List<StreamViewer>, String>((ref, instanceId) async {
-      return ref.watch(jellyfinClientForProvider(instanceId)).getViewers();
-    }, retry: noProviderRetry);
+final jellyfinViewersForProvider = jellyfinProviders.viewersFor;
 
 /// One item at any depth, by id.
 ///
@@ -134,25 +115,13 @@ final jellyfinViewersForProvider =
 /// link; `state.extra` stays preload/Hero data only.
 ///
 /// `autoDispose` for two reasons: every item ever opened would otherwise be
-/// retained forever, and the cancellation below would never fire.
-final jellyfinItemProvider = FutureProvider.autoDispose
-    .family<StreamItem?, String>((ref, itemId) async {
-      final client = ref.watch(jellyfinServerProvider);
-      final cancelToken = CancelToken();
-      ref.onDispose(cancelToken.cancel);
-      return client.getItem(itemId, cancelToken: cancelToken);
-    }, retry: noProviderRetry);
+/// retained forever, and the cancellation would never fire.
+final jellyfinItemProvider = jellyfinProviders.item;
 
 /// The children of a series, season or album: seasons, episodes or tracks.
 ///
 /// Empty for a leaf item, which the client answers without a request.
-final jellyfinItemChildrenProvider = FutureProvider.autoDispose
-    .family<List<StreamItem>, String>((ref, itemId) async {
-      final client = ref.watch(jellyfinServerProvider);
-      final cancelToken = CancelToken();
-      ref.onDispose(cancelToken.cancel);
-      return client.getChildren(itemId, cancelToken: cancelToken);
-    }, retry: noProviderRetry);
+final jellyfinItemChildrenProvider = jellyfinProviders.itemChildren;
 
 /// The libraries with the transport failure preserved, for the surfaces that
 /// state a **figure** rather than draw a board (the KPI rail).
@@ -163,20 +132,14 @@ final jellyfinItemChildrenProvider = FutureProvider.autoDispose
 /// caches, invalidates with everything else, and can be overridden by name.
 /// The sessions had a twin of this too; it went once both reads threw, because
 /// two caches of one sessions read let the figure and Now playing disagree.
-final jellyfinStrictLibrariesProvider = FutureProvider<List<StreamLibrary>>(
-  (ref) => ref.watch(jellyfinClientProvider).getLibrariesOrThrow(),
-  retry: noProviderRetry,
-);
+final jellyfinStrictLibrariesProvider = jellyfinProviders.strictLibraries;
 
 /// Which credential kind the lens connection's slot holds. Never fails: an
 /// unanswered probe is [JellyfinCredentialKind.unknown].
 ///
 /// `noProviderRetry`, because the tabs that read it wait on it before they
 /// decide between their list and the administrator placeholder.
-final jellyfinCredentialKindProvider = FutureProvider<JellyfinCredentialKind>(
-  (ref) => ref.watch(jellyfinClientProvider).getCredentialKind(),
-  retry: noProviderRetry,
-);
+final jellyfinCredentialKindProvider = jellyfinProviders.credentialKind;
 
 /// Which credential kind one named connection's slot holds.
 ///
@@ -189,72 +152,26 @@ final jellyfinCredentialKindProvider = FutureProvider<JellyfinCredentialKind>(
 ///
 /// Not part of the capability layer, on purpose: that layer describes the
 /// writes a credential may make, and a non-administrator loses reads.
-final jellyfinCredentialKindForProvider =
-    FutureProvider.family<JellyfinCredentialKind, String>((
-      ref,
-      instanceId,
-    ) async {
-      final lens =
-          ref.watch(activeInstanceProvider(ServiceKey.jellyfin))?.id ?? '';
-      if (instanceId.isEmpty || instanceId == lens) {
-        return ref.watch(jellyfinCredentialKindProvider.future);
-      }
-      return ref
-          .watch(jellyfinClientForProvider(instanceId))
-          .getCredentialKind();
-    }, retry: noProviderRetry);
+final jellyfinCredentialKindForProvider = jellyfinProviders.credentialKindFor;
 
 /// Whether the elevated reads are known to be out of reach for the lens
 /// connection. False while the probe is out and when it did not answer, so a
 /// healthy administrator never sees the placeholder flash.
-final jellyfinLacksAdministratorProvider = Provider<bool>(
-  (ref) =>
-      ref
-          .watch(jellyfinCredentialKindProvider)
-          .asData
-          ?.value
-          .lacksAdministrator ??
-      false,
-);
+final jellyfinLacksAdministratorProvider = jellyfinProviders.lacksAdministrator;
 
 /// [jellyfinLacksAdministratorProvider], for one named connection. Same rule:
 /// false until `/Users/Me` has said the token is a non-administrator's.
 ///
 /// The lens's own id, and the empty id, collapse onto the plain provider, so
 /// an override of either still reaches both.
-final jellyfinLacksAdministratorForProvider = Provider.family<bool, String>((
-  ref,
-  instanceId,
-) {
-  final lens = ref.watch(activeInstanceProvider(ServiceKey.jellyfin))?.id ?? '';
-  if (instanceId.isEmpty || instanceId == lens) {
-    return ref.watch(jellyfinLacksAdministratorProvider);
-  }
-  return ref
-          .watch(jellyfinCredentialKindForProvider(instanceId))
-          .asData
-          ?.value
-          .lacksAdministrator ??
-      false;
-});
+final jellyfinLacksAdministratorForProvider =
+    jellyfinProviders.lacksAdministratorFor;
 
-final jellyfinUsersProvider = FutureProvider<List<JellyfinUserDto>>((
-  ref,
-) async {
-  return ref.watch(jellyfinClientProvider).getUsers();
-}, retry: noProviderRetry);
+final jellyfinUsersProvider = jellyfinProviders.users;
 
-final jellyfinDevicesProvider = FutureProvider<List<JellyfinDevice>>((
-  ref,
-) async {
-  return ref.watch(jellyfinClientProvider).getDevices();
-}, retry: noProviderRetry);
+final jellyfinDevicesProvider = jellyfinProviders.devices;
 
-final jellyfinTasksProvider = FutureProvider<List<JellyfinScheduledTask>>((
-  ref,
-) async {
-  return ref.watch(jellyfinClientProvider).getScheduledTasks();
-}, retry: noProviderRetry);
+final jellyfinTasksProvider = jellyfinProviders.tasks;
 
 /// [jellyfinUsersProvider] for one named connection; empty is the lens.
 ///
@@ -262,47 +179,12 @@ final jellyfinTasksProvider = FutureProvider<List<JellyfinScheduledTask>>((
 /// every tab. The lens's own id collapses onto the plain provider, so an
 /// override of either still reaches both, and so do the pages that read the
 /// lens. `retry: noProviderRetry` for the reason the plain one carries it.
-final jellyfinUsersForProvider =
-    FutureProvider.family<List<JellyfinUserDto>, String>((
-      ref,
-      instanceId,
-    ) async {
-      final lens =
-          ref.watch(activeInstanceProvider(ServiceKey.jellyfin))?.id ?? '';
-      if (instanceId.isEmpty || instanceId == lens) {
-        return ref.watch(jellyfinUsersProvider.future);
-      }
-      return ref.watch(jellyfinClientForProvider(instanceId)).getUsers();
-    }, retry: noProviderRetry);
+final jellyfinUsersForProvider = jellyfinProviders.usersFor;
 
 /// [jellyfinDevicesProvider] for one named connection; empty is the lens. See
 /// [jellyfinUsersForProvider].
-final jellyfinDevicesForProvider =
-    FutureProvider.family<List<JellyfinDevice>, String>((
-      ref,
-      instanceId,
-    ) async {
-      final lens =
-          ref.watch(activeInstanceProvider(ServiceKey.jellyfin))?.id ?? '';
-      if (instanceId.isEmpty || instanceId == lens) {
-        return ref.watch(jellyfinDevicesProvider.future);
-      }
-      return ref.watch(jellyfinClientForProvider(instanceId)).getDevices();
-    }, retry: noProviderRetry);
+final jellyfinDevicesForProvider = jellyfinProviders.devicesFor;
 
 /// [jellyfinTasksProvider] for one named connection; empty is the lens. See
 /// [jellyfinUsersForProvider].
-final jellyfinTasksForProvider =
-    FutureProvider.family<List<JellyfinScheduledTask>, String>((
-      ref,
-      instanceId,
-    ) async {
-      final lens =
-          ref.watch(activeInstanceProvider(ServiceKey.jellyfin))?.id ?? '';
-      if (instanceId.isEmpty || instanceId == lens) {
-        return ref.watch(jellyfinTasksProvider.future);
-      }
-      return ref
-          .watch(jellyfinClientForProvider(instanceId))
-          .getScheduledTasks();
-    }, retry: noProviderRetry);
+final jellyfinTasksForProvider = jellyfinProviders.tasksFor;

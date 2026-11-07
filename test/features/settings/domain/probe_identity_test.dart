@@ -26,6 +26,8 @@ final Map<ServiceKey, Object?> _genuine = {
   },
   ServiceKey.jellyfin: _fixture('jellyfin/system_info_public.json'),
   ServiceKey.plex: _fixture('plex/identity.json'),
+  ServiceKey.emby: _fixture('emby/system_info_public.json'),
+  ServiceKey.tracearr: _fixture('tracearr/real_health.json'),
   ServiceKey.sabnzbd: _fixture('sabnzbd/version.json'),
   ServiceKey.qbittorrent: 'v5.1.2',
   ServiceKey.nginxProxyManager: {
@@ -148,7 +150,6 @@ void main() {
         (ServiceKey.radarr, [1, 2, 3]),
         (ServiceKey.seerr, {'message': 'Not Found'}),
         (ServiceKey.bazarr, {'version': '1.0'}),
-        (ServiceKey.jellyfin, {'ProductName': 'Emby Server', 'Version': '4.8'}),
         (ServiceKey.plex, {'version': '1.40'}),
         (ServiceKey.sabnzbd, {'queue': <String, Object?>{}}),
         (ServiceKey.qbittorrent, 'Welcome'),
@@ -164,6 +165,218 @@ void main() {
           reason: service.title,
         );
       }
+    });
+  });
+
+  group('Jellyfin and Emby, which answer the same route', () {
+    // Jellyfin forked Emby, and `/System/Info/Public` of the two looks alike.
+    // Jellyfin sends a `ProductName` and a single `LocalAddress`; Emby 4.10
+    // sends no `ProductName` (the spec of it assumed one) and a
+    // `LocalAddresses` list. Both bodies are recorded from real servers.
+    final emby = _fixture('emby/system_info_public.json');
+    final embyInfo = _fixture('emby/system_info.json');
+    final jellyfin = _fixture('jellyfin/system_info_public.json');
+
+    test('an Emby on a Jellyfin\'s address is named as Emby', () {
+      expect(
+        identifyProbeAnswer(ServiceKey.jellyfin, emby),
+        _otherService(ServiceKey.emby),
+      );
+      expect(
+        identifyProbeAnswer(ServiceKey.jellyfin, embyInfo),
+        _otherService(ServiceKey.emby),
+      );
+    });
+
+    test('a Jellyfin on an Emby\'s address is named as Jellyfin', () {
+      expect(
+        identifyProbeAnswer(ServiceKey.emby, jellyfin),
+        _otherService(ServiceKey.jellyfin),
+      );
+    });
+
+    test('each recognises its own, public info and full info alike', () {
+      expect(identifyProbeAnswer(ServiceKey.emby, emby), ProbeIdentity.matches);
+      expect(
+        identifyProbeAnswer(ServiceKey.emby, embyInfo),
+        ProbeIdentity.matches,
+      );
+      expect(
+        identifyProbeAnswer(ServiceKey.jellyfin, jellyfin),
+        ProbeIdentity.matches,
+      );
+    });
+
+    test('an empty LocalAddresses list is still the proof', () {
+      // A server with no address of its own to advertise: the common case,
+      // and the one the lab's Emby is.
+      expect(
+        identifyProbeAnswer(ServiceKey.jellyfin, {
+          'LocalAddresses': <String>[],
+          'Version': '4.10.2.0',
+        }),
+        _otherService(ServiceKey.emby),
+      );
+    });
+
+    test('a product name, when there is one, decides', () {
+      expect(
+        identifyProbeAnswer(ServiceKey.emby, {
+          'ProductName': 'Emby Server',
+          'Version': '4.8.0',
+        }),
+        ProbeIdentity.matches,
+      );
+      expect(
+        identifyProbeAnswer(ServiceKey.jellyfin, {
+          'ProductName': 'Emby Server',
+          'Version': '4.8.0',
+        }),
+        _otherService(ServiceKey.emby),
+      );
+      expect(
+        identifyProbeAnswer(ServiceKey.emby, {
+          'ProductName': 'Jellyfin Server',
+          'Version': '10.11.0',
+        }),
+        _otherService(ServiceKey.jellyfin),
+      );
+      // Named, and not either: not this.
+      expect(
+        identifyProbeAnswer(ServiceKey.emby, {'ProductName': 'Plex Media'}),
+        ProbeIdentity.notThisService,
+      );
+      expect(
+        identifyProbeAnswer(ServiceKey.jellyfin, {'ProductName': 'Plex Media'}),
+        ProbeIdentity.notThisService,
+      );
+    });
+
+    test('a Jellyfin that names no product is told by its own fields', () {
+      // An older Jellyfin: no `ProductName`, but its single `LocalAddress`.
+      expect(
+        identifyProbeAnswer(ServiceKey.emby, {
+          'LocalAddress': 'http://192.0.2.24:8096',
+          'Version': '10.8.13',
+          'Id': 'abc',
+        }),
+        _otherService(ServiceKey.jellyfin),
+      );
+    });
+
+    test(
+      'a body that is ambiguous gets the benefit of the doubt, both ways',
+      () {
+        // Nothing in it says which: never fail a genuine server over a field a
+        // build or a proxy left out. Each service accepts it.
+        const bare = {'Version': '10.8.13', 'Id': 'abc'};
+        expect(
+          identifyProbeAnswer(ServiceKey.jellyfin, bare),
+          ProbeIdentity.matches,
+        );
+        expect(
+          identifyProbeAnswer(ServiceKey.emby, bare),
+          ProbeIdentity.matches,
+        );
+      },
+    );
+
+    test('a body with neither shape is neither server', () {
+      for (final body in <Object?>[
+        {'status': 'ok'},
+        {'LocalAddresses': 'not a list', 'message': 'hi'},
+        _page,
+        [1, 2],
+      ]) {
+        expect(
+          identifyProbeAnswer(ServiceKey.emby, body),
+          ProbeIdentity.notThisService,
+          reason: '$body',
+        );
+        expect(
+          identifyProbeAnswer(ServiceKey.jellyfin, body),
+          ProbeIdentity.notThisService,
+          reason: '$body',
+        );
+      }
+    });
+
+    test('the sentence names who answered, as for any other service', () {
+      expect(
+        connectionFailureDetail(
+          WrongServiceAnswer(
+            ServiceKey.jellyfin,
+            const ProbeIdentity.otherService(ServiceKey.emby),
+            url: 'http://nas.home.arpa:8096',
+          ),
+        ),
+        'Emby answered at nas.home.arpa:8096, not Jellyfin.',
+      );
+      expect(
+        connectionFailureDetail(
+          WrongServiceAnswer(
+            ServiceKey.emby,
+            const ProbeIdentity.otherService(ServiceKey.jellyfin),
+            url: 'http://nas.home.arpa:8096',
+          ),
+        ),
+        'Jellyfin answered at nas.home.arpa:8096, not Emby.',
+      );
+    });
+
+    test('Emby\'s /emby is the API\'s prefix, not a path to suggest', () {
+      expect(conventionalBasePath(ServiceKey.emby), isNull);
+    });
+  });
+
+  group('Tracearr health, whatever state it is in', () {
+    test('a maintenance or degraded answer is still Tracearr', () {
+      for (final body in <Object?>[
+        {
+          'status': 'maintenance',
+          'mode': 'maintenance',
+          'db': true,
+          'redis': false,
+        },
+        {'status': 'degraded', 'db': false, 'redis': true, 'timescale': {}},
+      ]) {
+        expect(
+          identifyProbeAnswer(ServiceKey.tracearr, body),
+          ProbeIdentity.matches,
+          reason: '$body',
+        );
+      }
+    });
+
+    test('a bare status, ok or not, is not Tracearr', () {
+      for (final body in <Object?>[
+        {'status': 'ok'},
+        {'status': 'degraded'},
+        {'status': 'maintenance', 'mode': 'maintenance'},
+      ]) {
+        expect(
+          identifyProbeAnswer(ServiceKey.tracearr, body),
+          ProbeIdentity.notThisService,
+          reason: '$body',
+        );
+      }
+    });
+
+    test('the authenticated shape still needs ok and a version', () {
+      expect(
+        identifyProbeAnswer(ServiceKey.tracearr, {
+          'status': 'ok',
+          'version': '1.4.0',
+        }),
+        ProbeIdentity.matches,
+      );
+      expect(
+        identifyProbeAnswer(ServiceKey.tracearr, {
+          'status': 'degraded',
+          'version': '1.4.0',
+        }),
+        ProbeIdentity.notThisService,
+      );
     });
   });
 

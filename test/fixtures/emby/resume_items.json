@@ -1,0 +1,25 @@
+{
+  "Items": [
+    {
+      "Name": "Big Buck Bunny",
+      "ServerId": "a88212fc366d449c8bbe2a34a9e4a91b",
+      "Id": "15",
+      "RunTimeTicks": 1200210000,
+      "ProviderIds": {},
+      "IsFolder": false,
+      "Type": "Movie",
+      "UserData": {
+        "PlaybackPositionTicks": 400000000,
+        "PlayCount": 0,
+        "IsFavorite": false,
+        "Played": false,
+        "PlayedPercentage": 33.3,
+        "LastPlayedDate": "2026-11-06T11:40:00.0000000Z"
+      },
+      "ImageTags": {},
+      "BackdropImageTags": [],
+      "MediaType": "Video"
+    }
+  ],
+  "TotalRecordCount": 1
+}

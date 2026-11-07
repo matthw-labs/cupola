@@ -9,6 +9,7 @@ import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/lifecycle/page_activity.dart';
 import 'package:cupola/core/lifecycle/refresh_on_return.dart';
 import 'package:cupola/core/providers/navigation_refresh_provider.dart';
+import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/dot_separator.dart';
 import 'package:cupola/core/utils/service_routes.dart';
@@ -35,6 +36,7 @@ import 'package:cupola/features/activity/presentation/widgets/everyone_request_r
 import 'package:cupola/features/activity/presentation/widgets/requests_board.dart';
 import 'package:cupola/features/activity/presentation/widgets/import_done_card.dart';
 import 'package:cupola/features/activity/presentation/widgets/needs_you_cards.dart';
+import 'package:cupola/features/activity/presentation/widgets/violation_rows.dart';
 import 'package:cupola/features/discover/domain/models/seerr_request.dart';
 import 'package:cupola/features/discover/presentation/discover_provider.dart';
 import 'package:cupola/features/home/data/answered_requests.dart';
@@ -57,9 +59,12 @@ import 'package:cupola/features/stream/presentation/stream_activity_provider.dar
 import 'package:cupola/core/widgets/screen_title.dart';
 
 /// The services Activity reads: the queues, the clients, the requests and
-/// the media servers. With none of them set up the page has nothing to say
-/// and says how to begin.
-const _activityServices = [
+/// whatever says who is playing. With none of them set up the page has
+/// nothing to say and says how to begin.
+///
+/// Not `const`: the playing services come from their capability, so a new one
+/// is read here without this list being touched.
+final _activityServices = [
   ServiceKey.radarr,
   ServiceKey.sonarr,
   ServiceKey.lidarr,
@@ -69,8 +74,7 @@ const _activityServices = [
   ServiceKey.sabnzbd,
   ServiceKey.nzbget,
   ServiceKey.seerr,
-  ServiceKey.jellyfin,
-  ServiceKey.plex,
+  ...sessionServices,
 ];
 
 /// The arrs whose History tab the page's foot leads to.
@@ -470,10 +474,23 @@ class _GroupHeading extends StatelessWidget {
   }
 }
 
-/// `3 faults · 2 requests`: what Needs you holds, each kind counted apart,
-/// since a request is somebody waiting and not something broken.
-String needsYouMeta({required int faults, required int requests}) => [
+/// `3 faults · 2 violations · 2 requests`: what Needs you holds, each kind
+/// counted apart, since a request is somebody waiting and a violation a rule
+/// somebody broke, and neither is something broken. [violationsFloor] when the
+/// list of violations is longer than the one read (`5+ violations`).
+String needsYouMeta({
+  required int faults,
+  required int requests,
+  int violations = 0,
+  bool violationsFloor = false,
+}) => [
   if (faults > 0) faults == 1 ? '1 fault' : '$faults faults',
+  if (violations > 0)
+    violationsFloor
+        ? '${Lexicon.floor(violations)} violations'
+        : violations == 1
+        ? '1 violation'
+        : '$violations violations',
   if (requests > 0) requests == 1 ? '1 request' : '$requests requests',
 ].join(dotSeparator);
 
@@ -518,10 +535,16 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
           decision,
     ];
     final requests = [...waiting, for (final a in answered.values) ?a.decision];
+    // Tracearr's unseen violations of severity high: blue, between the faults
+    // and the requests, and never in the count of faults.
+    final flagged = violationsOf(decisions.decisions);
     final coverage = decisions.coverage;
     // The import a Review sent reports itself here, first.
     final report = ref.watch(importReportProvider);
-    if (cards.isEmpty && requests.isEmpty && report == null) {
+    if (cards.isEmpty &&
+        requests.isEmpty &&
+        flagged.count == 0 &&
+        report == null) {
       final note = coverage.failed.isEmpty ? null : coverageNote(coverage);
       if (note == null) return const SizedBox.shrink();
       return ActivitySection(
@@ -538,7 +561,13 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
     final scheme = Theme.of(context).colorScheme;
     final room = CupolaRoom.of(context);
     final blue = statusToneColor(scheme, StatusTone.info, surface: room.slab);
-    final meta = needsYouMeta(faults: entries.length, requests: waiting.length);
+    final meta = needsYouMeta(
+      faults: entries.length,
+      requests: waiting.length,
+      violations: flagged.count,
+      violationsFloor: flagged.floor,
+    );
+    final violationRows = violationRowsOf(flagged, blue);
 
     // On a tablet and a desktop each fault is one line with its remedy, and
     // the requests one line with Review: the whole card is on Needs you's
@@ -546,7 +575,11 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
     final wide =
         AppBreakpoints.isDesktopShell(context) ||
         MediaQuery.sizeOf(context).width >= AppBreakpoints.touchSplit;
-    if (wide && (cards.isNotEmpty || report != null || waiting.isNotEmpty)) {
+    if (wide &&
+        (cards.isNotEmpty ||
+            report != null ||
+            waiting.isNotEmpty ||
+            flagged.count > 0)) {
       return ActivitySection(
         title: 'Needs you',
         meta: meta.isEmpty ? null : meta,
@@ -567,6 +600,7 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
               entry: entry,
               divided: index > 0 || report != null,
             ),
+          ...violationRows,
           if (waiting.isNotEmpty)
             RequestsWaitRow(
               requests: waiting,
@@ -601,11 +635,14 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
                 entry: entry,
                 divided: index > 0 || report != null,
               ),
-            if (cards.isEmpty && report == null)
+            if (cards.isEmpty && report == null) ...[
+              ...violationRows,
               ...requestRowsOf(requests, answered, blue),
+            ],
           ],
         ),
-        if ((cards.isNotEmpty || report != null) && requests.isNotEmpty)
+        if ((cards.isNotEmpty || report != null) &&
+            (requests.isNotEmpty || flagged.count > 0))
           Padding(
             padding: const EdgeInsets.fromLTRB(
               AppSpacing.gutter,
@@ -614,7 +651,10 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
               0,
             ),
             child: ActivitySlab(
-              children: requestRowsOf(requests, answered, blue),
+              children: [
+                ...violationRows,
+                ...requestRowsOf(requests, answered, blue),
+              ],
             ),
           ),
       ],
@@ -705,7 +745,7 @@ class _EveryonesRequestsSection extends ConsumerWidget {
   }
 }
 
-/// Who is watching, on every media server: the Home's rows.
+/// Who is watching, on every service that says so: the Home's rows.
 class _WatchingNowSection extends ConsumerWidget {
   const _WatchingNowSection();
 
@@ -719,12 +759,9 @@ class _WatchingNowSection extends ConsumerWidget {
     }
     final sessions = ref.watch(streamActivityProvider).value;
     if (sessions == null || sessions.isEmpty) return const SizedBox.shrink();
-    final servers = {
-      for (final row in sessions) row.service.title,
-    }.join(dotSeparator);
     return ActivitySection(
       title: _title,
-      meta: servers,
+      meta: streamServersLabel(sessions),
       semanticLabel: [
         _title,
         sessions.length == 1 ? '1 playing' : '${sessions.length} playing',

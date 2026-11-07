@@ -1,0 +1,15 @@
+{
+    "status": "ok",
+    "version": "v3.1.4",
+    "timestamp": "2026-11-06T12:40:16.227Z",
+    "servers": [
+        {
+            "id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+            "name": "Casa Emby",
+            "type": "emby",
+            "online": true,
+            "historical": false,
+            "activeStreams": 2
+        }
+    ]
+}

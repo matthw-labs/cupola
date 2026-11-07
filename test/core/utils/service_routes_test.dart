@@ -457,6 +457,61 @@ void main() {
       );
     });
 
+    test('the Emby tab roots are spelled by the tabs they mount', () {
+      // Emby keeps Jellyfin's bar, and still gets a case of its own: a loop
+      // over both would keep passing if one bar changed.
+      expect(ServiceRoutes.emby, '/stack/emby');
+      expect(ServiceRoutes.emby, ServiceRoutes.forService(ServiceKey.emby));
+      expect(
+        ServiceRoutes.embyOverview,
+        '${ServiceRoutes.emby}/${ServiceTab.overview.segment}',
+      );
+      expect(
+        ServiceRoutes.embyLibraries,
+        '${ServiceRoutes.emby}/${ServiceTab.libraries.segment}',
+      );
+      expect(
+        ServiceRoutes.embyUsers,
+        '${ServiceRoutes.emby}/${ServiceTab.users.segment}',
+      );
+      expect(
+        ServiceRoutes.embyDevices,
+        '${ServiceRoutes.emby}/${ServiceTab.devices.segment}',
+      );
+      expect(
+        ServiceRoutes.embyTasks,
+        '${ServiceRoutes.emby}/${ServiceTab.tasks.segment}',
+      );
+      expect(
+        ServiceRoutes.embyActivity,
+        '${ServiceRoutes.emby}/${ServiceTab.activity.segment}',
+      );
+      // An Emby item id is a short number, a path segment like the others.
+      expect(ServiceRoutes.embyItem('15'), '/stack/emby/libraries/item/15');
+      expect(
+        ServiceRoutes.embyItem('15', instanceId: 'cabin'),
+        '/stack/emby/libraries/item/15?i=cabin',
+      );
+      expect(
+        ServiceRoutes.embyLibrary('3', title: 'Movies'),
+        '/stack/emby/libraries/3?title=Movies',
+      );
+      expect(
+        ServiceRoutes.streamItem(ServiceKey.emby, '15'),
+        ServiceRoutes.embyItem('15'),
+      );
+      expect(
+        ServiceRoutes.streamActivity(ServiceKey.emby),
+        ServiceRoutes.embyActivity,
+      );
+      // Not Jellyfin's, and not Plex's: the silent else of the ternaries.
+      expect(
+        ServiceRoutes.streamItem(ServiceKey.emby, '15'),
+        isNot(ServiceRoutes.jellyfinItem('15')),
+      );
+      expect(ServiceRoutes.mediaMountServices, contains(ServiceKey.emby));
+    });
+
     test('the Plex tab roots are spelled by the tabs they mount', () {
       expect(
         ServiceRoutes.plexOverview,
@@ -553,6 +608,63 @@ void main() {
         ServiceRoutes.streamActivity(ServiceKey.plex),
         ServiceRoutes.plexActivities,
       );
+    });
+
+    group('a media server\'s routes, asked by capability', () {
+      // Each media server must land under its own prefix: the ternaries these
+      // replaced sent every one that was not Jellyfin (or not Plex) to the
+      // other's pages.
+      for (final service in mediaServers) {
+        test('${service.name}: item, library and playbacks are its own', () {
+          final base = ServiceRoutes.forService(service);
+          expect(
+            ServiceRoutes.streamItem(service, 'x1', instanceId: 'i2'),
+            startsWith('$base/libraries/item/x1'),
+          );
+          expect(
+            ServiceRoutes.streamItem(service, 'x1', instanceId: 'i2'),
+            endsWith('?i=i2'),
+          );
+          expect(
+            ServiceRoutes.streamLibrary(service, '7', instanceId: 'i2'),
+            startsWith('$base/libraries/7'),
+          );
+          expect(
+            ServiceRoutes.streamActivity(service, instanceId: 'i2'),
+            allOf(startsWith('$base/'), endsWith('?i=i2')),
+          );
+        });
+      }
+
+      test('a service that is no media server is refused by name, never '
+          'routed to Plex or Jellyfin', () {
+        for (final service in ServiceKey.values.where(
+          (s) => !s.isMediaServer,
+        )) {
+          final named = throwsA(
+            isA<ArgumentError>().having(
+              (e) => e.toString(),
+              'message',
+              contains(service.name),
+            ),
+          );
+          expect(
+            () => ServiceRoutes.streamItem(service, 'x1'),
+            named,
+            reason: service.name,
+          );
+          expect(
+            () => ServiceRoutes.streamLibrary(service, '7'),
+            named,
+            reason: service.name,
+          );
+          expect(
+            () => ServiceRoutes.streamActivity(service),
+            named,
+            reason: service.name,
+          );
+        }
+      });
     });
 
     test('the Dockge tab roots are spelled by the tabs they mount', () {

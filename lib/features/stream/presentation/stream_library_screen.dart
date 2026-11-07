@@ -291,14 +291,15 @@ class _StreamLibraryScreenState extends ConsumerState<StreamLibraryScreen> {
     // client is fetched with `ref.read` inside the fetch, so coming back landed
     // on a controller still parked in `firstPageError`, which
     // `PagedLayoutBuilder` never retries: the panel kept telling the user to
-    // choose a viewer they had just chosen. Plex has no viewer to pick.
+    // choose a viewer they had just chosen. A Plex token is its own viewer, so
+    // only a service that needs one to be chosen listens.
     final connection = streamInstanceOf(ref, widget.service, widget.instanceId);
-    if (widget.service == ServiceKey.jellyfin) {
+    if (widget.service.needsViewerSelection) {
       // The viewer of the connection being browsed, not the first one's.
       ref.listen<String?>(
         currentSettingsProvider.select(
           (s) => connection.isEmpty
-              ? s.jellyfinUserId
+              ? s.primaryOf(widget.service)?.viewerId ?? ''
               : s.instanceById(connection)?.viewerId,
         ),
         (_, _) => _restart(),

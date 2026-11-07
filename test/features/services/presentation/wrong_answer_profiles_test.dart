@@ -422,6 +422,39 @@ void main() {
       );
     }
 
+    test('Emby: a web page reads the same on Home and in Settings', () async {
+      final profile = Profiles.p1
+          .withConnection(WorldConnections.emby)
+          .withBehaviour(WorldIds.emby, ConnectionBehaviour.servesHtmlPage);
+      final summary = await _probe(profile, ServiceKey.emby, WorldIds.emby);
+      final diagnosis = await _test(profile, WorldIds.emby);
+
+      expect(summary.failureReason, ServiceFailureReason.notFound);
+      final home = failureMessageOf(ServiceKey.emby, summary.failure);
+      expect(
+        home,
+        startsWith(
+          'A web page answered at tower.home.arpa:8096 instead of Emby.',
+        ),
+      );
+      expect(diagnosis.reason, ServiceFailureReason.notFound);
+      expect(diagnosis.messageFor(ServiceKey.emby), home);
+    });
+
+    test('Emby: a refused key is the key, never an Answering tile', () async {
+      // Its public info is anonymous: a probe that read only that would paint
+      // a wrong key green.
+      final profile = Profiles.p1
+          .withConnection(WorldConnections.emby)
+          .withBehaviour(WorldIds.emby, PlainBehaviour.refusesKey);
+      final summary = await _probe(profile, ServiceKey.emby, WorldIds.emby);
+      final diagnosis = await _test(profile, WorldIds.emby);
+
+      expect(summary.isOnline, isFalse);
+      expect(summary.failureReason, ServiceFailureReason.unauthorized);
+      expect(diagnosis.reason, ServiceFailureReason.unauthorized);
+    });
+
     test('a genuine service still answers', () async {
       for (final (service, id) in [
         (ServiceKey.radarr, WorldIds.radarr),
@@ -433,9 +466,11 @@ void main() {
         (ServiceKey.qbittorrent, WorldIds.qbittorrent),
         (ServiceKey.sabnzbd, WorldIds.sabnzbd),
         (ServiceKey.jellyfin, WorldIds.jellyfin),
+        (ServiceKey.emby, WorldIds.emby),
       ]) {
-        final summary = await _probe(Profiles.p1, service, id);
-        final diagnosis = await _test(Profiles.p1, id);
+        final profile = Profiles.p1.withConnection(WorldConnections.emby);
+        final summary = await _probe(profile, service, id);
+        final diagnosis = await _test(profile, id);
 
         expect(summary.isOnline, isTrue, reason: service.title);
         expect(diagnosis.isConnected, isTrue, reason: service.title);
@@ -562,6 +597,7 @@ void main() {
       (ServiceKey.qbittorrent, WorldConnections.qbittorrent),
       (ServiceKey.sabnzbd, WorldConnections.sabnzbd),
       (ServiceKey.jellyfin, WorldConnections.jellyfin),
+      (ServiceKey.emby, WorldConnections.emby),
       (ServiceKey.plex, WorldConnections.plex),
       (ServiceKey.transmission, WorldConnections.transmission),
       (ServiceKey.nzbget, WorldConnections.nzbget),

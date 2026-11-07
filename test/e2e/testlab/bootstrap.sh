@@ -190,6 +190,29 @@ post_json "$jellyfin_url/Users/AuthenticateByName" \
 jellyfin_token="$(json_get "$jellyfin_auth" AccessToken)"
 jellyfin_user_id="$(json_get "$jellyfin_auth" User Id)"
 
+# Emby's first run is a module of its own, so the same code walks the wizard
+# here and in the validation against a disposable container. It answers the
+# administrator's id and the API key named Cupola, which the app is given the
+# way it is given Jellyfin's token. Emby listens on 8096 inside; the lab
+# publishes it on 8097.
+emby_url="http://127.0.0.1:8097"
+emby_first_run="$state_dir/.emby-first-run.json"
+"$python_bin" "$script_dir/emby_first_run.py" --url "$emby_url" --output "$emby_first_run"
+emby_token="$(json_get "$emby_first_run" token)"
+emby_user_id="$(json_get "$emby_first_run" userId)"
+
+# Tracearr's first run is a module of its own too: it waits for the image's
+# own migrations, makes the owner and issues the public API key the app reads
+# with (the one `trr_pub_` string), and writes it to a file of mode 600. The
+# lab publishes it on 3010; the owner's email and password are the lab's fixed
+# ones, below. What it watches (Jellyfin, Emby, the rule) is `tracearr_lab.py`'s
+# and is seeded once the media servers have their libraries.
+tracearr_url="http://127.0.0.1:3010"
+tracearr_first_run="$state_dir/.tracearr-first-run.json"
+"$python_bin" "$script_dir/tracearr_first_run.py" --url "$tracearr_url" --output "$tracearr_first_run"
+tracearr_key="$(json_get "$tracearr_first_run" key)"
+tracearr_owner_email="$(json_get "$tracearr_first_run" ownerEmail)"
+
 seerr_url="http://127.0.0.1:5055"
 seerr_public="$state_dir/.seerr-public.json"
 seerr_cookie="$state_dir/.seerr-cookie"
@@ -233,6 +256,7 @@ new_password() {
 }
 seerr_requester_password="$(new_password)"
 jellyfin_requester_password="$(new_password)"
+emby_requester_password="$(new_password)"
 # The journeys run inside the app sandbox and cannot start processes. This
 # token authorises the loopback control API that moves the lab for them.
 control_token="$("$python_bin" -c 'import secrets; print(secrets.token_urlsafe(32))')"
@@ -263,6 +287,14 @@ umask 077
   printf 'CUPOLA_TESTLAB_JELLYFIN_REQUESTER_USERNAME=cupola-viewer\n'
   printf 'CUPOLA_TESTLAB_JELLYFIN_REQUESTER_PASSWORD=%s\n' "$jellyfin_requester_password"
   printf 'CUPOLA_TESTLAB_JELLYFIN_PASSWORD=cupola-pass\n'
+  printf 'CUPOLA_TESTLAB_EMBY_TOKEN=%s\n' "$emby_token"
+  printf 'CUPOLA_TESTLAB_EMBY_USER_ID=%s\n' "$emby_user_id"
+  printf 'CUPOLA_TESTLAB_EMBY_PASSWORD=cupola-pass\n'
+  printf 'CUPOLA_TESTLAB_EMBY_REQUESTER_USERNAME=cupola-viewer\n'
+  printf 'CUPOLA_TESTLAB_EMBY_REQUESTER_PASSWORD=%s\n' "$emby_requester_password"
+  printf 'CUPOLA_TESTLAB_TRACEARR_KEY=%s\n' "$tracearr_key"
+  printf 'CUPOLA_TESTLAB_TRACEARR_OWNER_EMAIL=%s\n' "$tracearr_owner_email"
+  printf 'CUPOLA_TESTLAB_TRACEARR_OWNER_PASSWORD=cupola-pass\n'
   printf 'CUPOLA_TESTLAB_NPM_USERNAME=admin@example.com\n'
   printf 'CUPOLA_TESTLAB_NPM_PASSWORD=changeme\n'
   printf 'CUPOLA_TESTLAB_QBITTORRENT_USERNAME=admin\n'
@@ -305,7 +337,7 @@ python3 "$script_dir/seed_lab.py" --state-dir "$state_dir"
 printf '\nSetting up the second Seerr (Sara'"'"'s)...\n'
 python3 "$script_dir/seerr_sara.py" --state-dir "$state_dir"
 
-rm -f "$jellyfin_info" "$jellyfin_auth" "$seerr_public" "$seerr_cookie" "$seerr_response"
+rm -f "$emby_first_run" "$tracearr_first_run" "$jellyfin_info" "$jellyfin_auth" "$seerr_public" "$seerr_cookie" "$seerr_response"
 
 printf '\nCupola macOS lab is ready.\n'
 printf 'Credentials: %s (chmod 600; never commit or paste its contents)\n' "$credentials"
@@ -324,6 +356,8 @@ printf '  Transmission        http://127.0.0.1:9091\n'
 printf '  SABnzbd            http://127.0.0.1:8082\n'
 printf '  NZBGet             http://127.0.0.1:6789\n'
 printf '  Jellyfin           http://127.0.0.1:8096\n'
+printf '  Emby               http://127.0.0.1:8097\n'
+printf '  Tracearr           http://127.0.0.1:3010\n'
 printf '  Plex               http://127.0.0.1:32400\n'
 printf '  Dockge             http://127.0.0.1:5001\n'
 printf '  Nginx Proxy Manager http://127.0.0.1:8181\n'

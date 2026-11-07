@@ -407,7 +407,9 @@ void main() {
         expect(_operator(_anna).namesService(service), isTrue);
         expect(
           _requester(_anna).namesService(service),
-          service == ServiceKey.jellyfin || service == ServiceKey.plex,
+          service == ServiceKey.jellyfin ||
+              service == ServiceKey.plex ||
+              service == ServiceKey.emby,
           reason: service.name,
         );
       }

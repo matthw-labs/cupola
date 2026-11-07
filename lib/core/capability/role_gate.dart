@@ -227,7 +227,7 @@ final class RoleGate {
   bool namesService(ServiceKey service) {
     if (_operator) return true;
     return switch (service) {
-      ServiceKey.jellyfin || ServiceKey.plex => true,
+      ServiceKey.jellyfin || ServiceKey.plex || ServiceKey.emby => true,
       ServiceKey.seerr ||
       ServiceKey.radarr ||
       ServiceKey.sonarr ||
@@ -242,7 +242,8 @@ final class RoleGate {
       ServiceKey.sabnzbd ||
       ServiceKey.nzbget ||
       ServiceKey.unraid ||
-      ServiceKey.nginxProxyManager => false,
+      ServiceKey.nginxProxyManager ||
+      ServiceKey.tracearr => false,
     };
   }
 

@@ -204,7 +204,7 @@ class _ServiceRingState extends State<ServiceRing>
         .where((s) => s == ServiceRingState.silent)
         .length;
     // What has answered, never what was picked: the way in sets services up
-    // one at a time, so there is no choice among the seventeen to report.
+    // one at a time, so there is no choice among the nineteen to report.
     final parts = <String>[
       if (connected > 0) '$connected of ${ServiceKey.values.length} answering',
       if (silent > 0) '$silent ${StateWord.didNotAnswer.inline}',

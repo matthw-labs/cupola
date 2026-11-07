@@ -28,6 +28,14 @@ One line of a wide list: Needs you on a tablet and a desktop.
 - Work that runs and a way out taken say so under the words, in place of the controls, as on the card.
 - **The requests** (`RequestsWaitRow`): the Seerr glyph's plate, `2 requests wait for your approval` in `AppType.row` the ink after a 7pt blue dot, under it what and who of the first two (`Charge · Anna · Metropolis · Luca`, then `· 3 more`), and `Review`, outlined, which opens the Requests view where each has its Approve and Decline.
 
+## Tracearr's violations (`ViolationDecisionRow`)
+
+Needs you also holds the unseen violations of severity high that Tracearr recorded (`lib/features/activity/presentation/widgets/violation_rows.dart`). They are not faults: a rule was broken by a person and nothing stopped working, so they are blue, are never counted among the faults (the Home's line, the badge and the stack's lights read faults only) and are never a notification of Needs you. They sit between the faults and the requests, in the same slab as the requests where there are both.
+
+- A line over them in `AppType.label` in blue after a 7pt blue dot: `3 violations to review`; a floor when the list is longer than the page reads (the source reads one past `kNeedsYouViolationCap`, 5): `5+ violations to review`, spoken *at least 5 violations to review*. The section's count says it too (`3 faults · 2 violations · 3 requests`, a group of its own between the faults and the requests).
+- A row each, newest first: Tracearr's glyph on a plate (`HomeRowArt`), the rule in `AppType.row` (600) in the ink, under it the person and when in `AppType.meta` in `inkSecondary` (`Anna · 2 h ago`), a chevron at the end. No remedy and no control: the whole row, at least 44 tall, opens the violation, where the owner acknowledges or dismisses it. No place and no address ever reaches it.
+- One node: the rule as the label, the person and when as the value, hint *opens the violation*.
+
 ## The consumer provides
 
 `headline`; optionally `explanation`, `source`, `why`, `art`, `release`, `proof`, `progress`, `evidence`, `primary` (the fill, built by the consumer so it can be gated or busy), `primarySubtitle`, `running` (text, progress), `secondary` (label, callback, spoken label), `note` (text, Undo callback) and, inside a slab, `divided`.
@@ -46,6 +54,7 @@ Each sheet is drawn in the dark and the light room, on the phone and on the desk
 - A scrub that runs, in place of the fill, with Open alert beside it.
 - A health check failing on four \*arrs: one card, the \*arrs on the source line, the other three two a row.
 - `FaultCard.whole`: a storage alert with its evidence and Why? open.
+- Tracearr's violations under the faults: three rows, and the floor (`5+`); at 200%.
 - Text at 200%.
 - The desktop: a stuck download in the page well.
 - `FaultCard.row` on a desktop's All (784): three faults and the requests' line; beside an open download on a tablet (440), the remedy under the words; text at 200%.

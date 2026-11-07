@@ -47,7 +47,10 @@ PROBES: dict[str, tuple[str, str]] = {
     "bazarr": ("/api/system/status", "key"),
     "sabnzbd": ("/api?mode=version&apikey={key}", "query"),
     "jellyfin": ("/System/Info/Public", "none"),
+    "emby": ("/emby/System/Info/Public", "none"),
     "plex": ("/identity", "none"),
+    # The one read that needs the public key and names the version.
+    "tracearr": ("/api/v1/public/health", "bearer"),
 }
 
 
@@ -201,6 +204,8 @@ class AppConfig(Scenario):
         secret = self._secret_of(document, connection)
         if kind == "key":
             status = probe(url, path, {"X-Api-Key": secret})
+        elif kind == "bearer":
+            status = probe(url, path, {"Authorization": f"Bearer {secret}"})
         elif kind == "query":
             status = probe(url, path.format(key=secret))
         else:

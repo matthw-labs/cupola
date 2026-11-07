@@ -22,6 +22,7 @@ import 'package:cupola/features/media/presentation/media_page.dart';
 import 'package:cupola/core/router.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/service_routes.dart';
+import 'package:cupola/demo/world/fakes/media_fakes.dart';
 import 'package:cupola/core/widgets/floating_nav_rail.dart';
 import 'package:cupola/features/shell/presentation/desktop/command_deck.dart';
 import 'package:cupola/features/discover/presentation/collection_page.dart';
@@ -38,7 +39,6 @@ import 'package:cupola/features/settings/presentation/settings_appearance_screen
 import 'package:cupola/features/settings/presentation/settings_home_screen.dart';
 import 'package:cupola/features/settings/presentation/settings_region_screen.dart';
 
-import 'package:cupola/demo/world/fakes/media_fakes.dart';
 import '../../../test_helpers/profiles/profiles.dart';
 
 /// Words the requester never reads (the brand book's requester section).
@@ -46,7 +46,10 @@ import '../../../test_helpers/profiles/profiles.dart';
 /// the word she must not meet, a download's release name, is a service's.
 final _never = <RegExp>[
   for (final service in ServiceKey.values)
-    if (service != ServiceKey.jellyfin && service != ServiceKey.plex)
+    // The three players a household member watches with (`namesService`).
+    if (service != ServiceKey.jellyfin &&
+        service != ServiceKey.plex &&
+        service != ServiceKey.emby)
       RegExp(RegExp.escape(service.title)),
   RegExp(r'\bAPI key\b', caseSensitive: false),
   RegExp(r'\bqueue\b', caseSensitive: false),
@@ -185,6 +188,15 @@ Future<ProfileHarness> _pump(
   return harness;
 }
 
+/// Anna with her own Emby token beside her Seerr account: a player she
+/// watches in, named where Jellyfin and Plex are (`namesService`).
+final _p2WithEmby = Profiles.p2.withConnection(
+  ProfileConnection(
+    WorldConnections.emby.instance.copyWith(viewerId: EmbyFake.annaId),
+    behaviour: ConnectionBehaviour.readOnly,
+  ),
+);
+
 void main() {
   for (final profile in [
     Profiles.p2,
@@ -200,6 +212,28 @@ void main() {
         await harness.unmount(tester);
       });
     }
+  }
+
+  // Her own Emby beside her account: the pages that name a player. The Media
+  // pages of a title her player holds are not walked here: its server row says
+  // `Available`, a word the sweep refuses, exactly as with her own Jellyfin
+  // (P2+J), so it is a finding about those rows and not about Emby.
+  for (final name in [
+    'the Home',
+    'the Requests tab',
+    'the Discover tab',
+    'the Media page, a movie of hers',
+    'the global search',
+    'Settings',
+    'her account',
+  ]) {
+    testWidgets('P2+E: $name', (tester) async {
+      final harness = await _pump(tester, _p2WithEmby, _pages[name]!);
+
+      _expectNothingOfTheOperators(tester, 'P2+E, $name');
+
+      await harness.unmount(tester);
+    });
   }
 
   testWidgets('the sweep sees the operator\'s words where they are (P3)', (

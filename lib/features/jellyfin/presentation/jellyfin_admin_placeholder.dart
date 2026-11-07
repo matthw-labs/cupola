@@ -9,10 +9,25 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 /// What a Jellyfin read only an administrator may make says, reached with a
 /// household member's token: the placeholder's title, and the Overview's
 /// Libraries region on its own.
+///
+/// [needsAdministratorTitle] builds the same sentence for any server of the
+/// family, and this is what it builds for Jellyfin, kept as a constant because
+/// tests assert it verbatim.
 const jellyfinNeedsAdministratorTitle = 'Needs a Jellyfin administrator';
 
-/// A Jellyfin tab whose read only an administrator may make, reached with a
-/// credential that is not one.
+/// The title of the administrator placeholder for [service], by its name.
+///
+/// The article follows the name (`a Jellyfin`, `an Emby`): a title that reads
+/// wrong in the one place a person has just been told they lack a privilege is
+/// worse than a longer line of code.
+String needsAdministratorTitle(ServiceKey service) {
+  final name = service.title;
+  final vowel = name.isNotEmpty && 'aeiou'.contains(name[0].toLowerCase());
+  return 'Needs ${vowel ? 'an' : 'a'} $name administrator';
+}
+
+/// A tab of a media server whose read only an administrator may make, reached
+/// with a credential that is not one.
 ///
 /// **Not an error.** A household member's token is a legitimate way to connect
 /// (it plays, browses and controls its own sessions), and the server refusing
@@ -26,7 +41,12 @@ class JellyfinAdminPlaceholder extends StatelessWidget {
     required this.what,
     required this.connectionId,
     this.topPadding = 0,
+    this.service = ServiceKey.jellyfin,
   });
+
+  /// The server whose tab this is, by name and by the settings form the
+  /// action opens.
+  final ServiceKey service;
 
   /// What the tab lists, as the tail of a sentence: `devices`,
   /// `scheduled tasks`, `libraries`.
@@ -44,17 +64,14 @@ class JellyfinAdminPlaceholder extends StatelessWidget {
       child: AppEmptyStatePage(
         emptyState: AppEmptyState(
           icon: Icons.admin_panel_settings_outlined,
-          title: jellyfinNeedsAdministratorTitle,
+          title: needsAdministratorTitle(service),
           message:
-              'This Jellyfin account can play and browse. Only an '
+              'This ${service.title} account can play and browse. Only an '
               'administrator can list $what; use an API key or an '
               'administrator\'s sign-in to see them here.',
           action: FilledButton.icon(
             onPressed: () => context.push(
-              ServiceRoutes.settingsForConnection(
-                ServiceKey.jellyfin,
-                connectionId,
-              ),
+              ServiceRoutes.settingsForConnection(service, connectionId),
             ),
             icon: const Icon(Icons.key_outlined, size: 18),
             label: const Text('Update the key'),

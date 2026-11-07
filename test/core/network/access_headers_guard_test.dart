@@ -97,6 +97,8 @@ const _openers = [
   'NpmClient',
   'UnraidClient',
   'JellyfinClient',
+  'EmbyClient',
+  'TracearrClient',
   'PlexClient',
   'TrueNasWsClient',
   'DockgeClient',

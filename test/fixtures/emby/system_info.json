@@ -1,0 +1,35 @@
+{
+  "SystemUpdateLevel": "Release",
+  "OperatingSystemDisplayName": "Unix",
+  "HasPendingRestart": false,
+  "IsShuttingDown": false,
+  "HasImageEnhancers": false,
+  "OperatingSystem": "Linux",
+  "SupportsLibraryMonitor": true,
+  "SupportsLocalPortConfiguration": true,
+  "SupportsWakeServer": false,
+  "WebSocketPortNumber": 8096,
+  "CompletedInstallations": [],
+  "CanSelfRestart": true,
+  "CanSelfUpdate": false,
+  "CanLaunchWebBrowser": false,
+  "HttpServerPortNumber": 8096,
+  "SupportsHttps": false,
+  "HttpsPortNumber": 8920,
+  "HasUpdateAvailable": false,
+  "SupportsAutoRunAtStartup": false,
+  "HardwareAccelerationRequiresPremiere": true,
+  "WakeOnLanInfo": [
+    {
+      "MacAddress": "020000000000",
+      "BroadcastAddress": "192.0.2.255",
+      "Port": 9
+    }
+  ],
+  "IsInMaintenanceMode": false,
+  "LocalAddresses": [],
+  "RemoteAddresses": [],
+  "ServerName": "Emby",
+  "Version": "4.10.2.0",
+  "Id": "a88212fc366d449c8bbe2a34a9e4a91b"
+}

@@ -115,7 +115,7 @@ class SettingsConnectionsScreen extends ConsumerWidget {
                 title: 'Your services',
                 // The count and the command share the trailing slot: the chip
                 // says how much "all" is, and the button is the only way to
-                // re-ask without opening seventeen forms. `.action` is what
+                // re-ask without opening nineteen forms. `.action` is what
                 // keeps the button reachable; the plain header silences its
                 // own subtree, which would have left a nested control unnamed.
                 trailing: Row(

@@ -60,8 +60,8 @@ class FaultVoiceSwitch extends StatelessWidget {
 /// server stopped answering at a time the app saw, and `Retry` where the same
 /// request can still succeed.
 ///
-/// She never reads a service's name (Jellyfin and Plex excepted, the players
-/// she watches with), a refused key, a certificate or a status code: whatever
+/// She never reads a service's name (Jellyfin, Plex and Emby excepted, the
+/// players she watches with), a refused key, a certificate or a status code: whatever
 /// the cause, the server cannot be reached, `Can't reach the server since
 /// 20:41`, red only when nothing answered and amber otherwise, as the tone
 /// rule says.
@@ -128,8 +128,10 @@ class BriefFailureLine extends ConsumerWidget {
         sentence: Lexicon.signInToKeepAsking,
       );
     }
+    // A media server is named, the player the person watches with; every
+    // other service is the server behind the page.
     final subject = switch (service) {
-      ServiceKey.jellyfin || ServiceKey.plex => service!.title,
+      final media? when media.isMediaServer => media.title,
       _ => 'the server',
     };
     return (

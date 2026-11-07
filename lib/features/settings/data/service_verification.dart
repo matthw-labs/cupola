@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cupola/core/api/api_client.dart';
@@ -8,6 +9,7 @@ import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/core/platform/local_network_access.dart';
 import 'package:cupola/core/utils/dynamic_map_utils.dart';
 import 'package:cupola/features/dockge/data/dockge_client.dart';
+import 'package:cupola/features/emby/data/emby_client.dart';
 import 'package:cupola/features/jellyfin/data/jellyfin_client.dart';
 import 'package:cupola/features/npm/data/npm_client.dart';
 import 'package:cupola/features/nzbget/data/nzbget_client.dart';
@@ -32,6 +34,7 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/unread_secret.dart'
     show secureStoreName;
 import 'package:cupola/features/settings/domain/settings_model.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/transmission/data/transmission_client.dart';
 import 'package:cupola/features/truenas/data/truenas_ws_client.dart';
 import 'package:cupola/features/unraid/data/unraid_client.dart';
@@ -58,6 +61,7 @@ class ServiceDiagnosis {
   ]) : serverVersion = null,
        gateway = null,
        webPage = null,
+       answered = null,
        connectionId = null;
 
   /// The full form, for the places that set a field the positional list cannot
@@ -71,6 +75,7 @@ class ServiceDiagnosis {
     this.serverVersion,
     this.gateway,
     this.webPage,
+    this.answered,
     this.connectionId,
   });
 
@@ -126,6 +131,7 @@ class ServiceDiagnosis {
          detail: connectionFailureDetail(error),
          gateway: accessGatewayOf(error),
          webPage: webPageAnswerOf(error),
+         answered: wrongServiceAnswerOf(error)?.answered,
        );
 
   final ServiceConnectionStatus status;
@@ -164,6 +170,11 @@ class ServiceDiagnosis {
   /// one: its sentence names where, as Home's and the library's do.
   final UnexpectedAnswer? webPage;
 
+  /// The other service of the stack that answered at the address, when the
+  /// test met one ([WrongServiceAnswer.answered]). What lets the form say
+  /// `This is Emby` and offer that service's form, instead of only refusing.
+  final ServiceKey? answered;
+
   /// Which connection this answer is about, when it comes from a fold across
   /// a service's connections ([diagnoseService]); null for an answer about
   /// the one connection it was asked of. What lets a row that speaks for
@@ -180,6 +191,7 @@ class ServiceDiagnosis {
     serverVersion: serverVersion,
     gateway: gateway,
     webPage: webPage,
+    answered: answered,
     connectionId: id,
   );
 
@@ -227,6 +239,7 @@ class ServiceDiagnosis {
         serverVersion: serverVersion,
         gateway: gateway,
         webPage: webPage,
+        answered: answered,
         connectionId: connectionId,
       );
 
@@ -399,6 +412,33 @@ Future<ServiceDiagnosis> diagnoseCredentials(
     );
   }
 
+  if (service == ServiceKey.tracearr) {
+    final client = TracearrClient(
+      baseUrl: urlTrimmed,
+      apiKey: apiKey.trim(),
+      pinnedCertFingerprint: pin,
+      accessHeaders: accessHeaders,
+    );
+    try {
+      // The authenticated health read: its `/health` twin is anonymous and
+      // would read any key as answering. A refused key is a 401 here, a web
+      // page or another service's answer is a wrong address, and a Tracearr
+      // older than the API v2 Cupola reads says which version to install.
+      final health = await client.checkCredentialAndVersion().timeout(
+        const Duration(seconds: 6),
+      );
+      final named = (health.parsedVersion?.toString() ?? health.version)
+          ?.trim();
+      return named == null || named.isEmpty
+          ? const ServiceDiagnosis.connected()
+          : ServiceDiagnosis.connectedAs(named);
+    } catch (e) {
+      return ServiceDiagnosis.failed(e);
+    } finally {
+      client.close();
+    }
+  }
+
   if (service == ServiceKey.sabnzbd) {
     final client = SabnzbdClient(
       url: urlTrimmed,
@@ -463,33 +503,51 @@ Future<ServiceDiagnosis> diagnoseCredentials(
     }
   }
 
-  // The two media servers authenticate with a header the shared `ApiClient`
+  // The media servers authenticate with a header the shared `ApiClient`
   // does not send: `Authorization: MediaBrowser Token=` for Jellyfin,
-  // `X-Plex-Token` for Plex, and both health endpoints in the table above are
-  // anonymous. Verified through the generic branch, *any* non-empty string
+  // `X-Emby-Token` for Emby, `X-Plex-Token` for Plex, and all their health
+  // endpoints in the table above are anonymous. Verified through the generic branch, *any* non-empty string
   // therefore came back 2xx and the tile went green while every real call 401ed.
   // Their own clients are what actually present the credential.
-  if (service == ServiceKey.jellyfin) {
-    final client = JellyfinClient(
-      baseUrl: urlTrimmed,
-      apiKey: apiKey.trim(),
-      pinnedCertFingerprint: pin,
-      accessHeaders: accessHeaders,
-    );
+  if (service == ServiceKey.jellyfin || service == ServiceKey.emby) {
+    // Two constructions, not a factory: each client is opened where its pin
+    // and access are visible (`access_headers_guard_test`).
+    final MediaBrowserClient client = service == ServiceKey.emby
+        ? EmbyClient(
+            baseUrl: urlTrimmed,
+            apiKey: apiKey.trim(),
+            pinnedCertFingerprint: pin,
+            accessHeaders: accessHeaders,
+          )
+        : JellyfinClient(
+            baseUrl: urlTrimmed,
+            apiKey: apiKey.trim(),
+            pinnedCertFingerprint: pin,
+            accessHeaders: accessHeaders,
+          );
     bool accepted;
     String? version;
     try {
-      // `/System/Info`, the authenticated twin of the public probe. Swallows
-      // its own errors and answers false for all of them, which is why the
-      // refusal still has to be explained below rather than reported as-is.
-      accepted = await client.verifyCredential().timeout(
-        const Duration(seconds: 6),
-      );
+      // `/System/Info`, the authenticated twin of the public probe, and who
+      // answered is checked with the credential. An Emby answers a
+      // Jellyfin's routes (and a Jellyfin the legacy `/emby` ones) and
+      // accepts the key, so a bare yes read as a connection to the wrong
+      // server; this path throws `WrongServiceAnswer` for it, which the form
+      // turns into `This is Emby`. Any transport refusal is explained below,
+      // as it is for the bare check.
+      try {
+        version = await client.checkCredentialAndVersion().timeout(
+          const Duration(seconds: 6),
+        );
+        accepted = true;
+      } on DioException {
+        accepted = false;
+      }
       // The version is a second read, the Dashboard probe's own (`Version` on
       // the anonymous endpoint), and like TrueNAS's it is not allowed to change
       // the verdict: a server that accepted the key is connected whether or not
       // it names itself, and `probeVersion` answers null rather than throwing.
-      if (accepted) {
+      if (accepted && version == null) {
         version = await client.probeVersion().timeout(
           const Duration(seconds: 4),
           onTimeout: () => null,
@@ -544,6 +602,9 @@ Future<ServiceDiagnosis> diagnoseCredentials(
     }
   }
 
+  // A media server's status route is anonymous, so one that reached the generic
+  // branch would read any key as answering: each has its own arm above.
+  assert(!service.isMediaServer, '${service.name} has no credential check');
   return _diagnoseOverApiClient(
     service,
     url: urlTrimmed,

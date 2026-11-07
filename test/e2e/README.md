@@ -47,7 +47,8 @@ test/e2e/testlab/bootstrap.sh
 
 The script pins vendor images by digest, copies tracked seeds into
 .ai/scratch/zz_testlab/state, waits for all healthchecks, bootstraps Jellyfin,
-Seerr and the first Dockge account, and writes generated credentials to a
+Emby (its first-run wizard, then an API key named Cupola), Tracearr (its owner and
+its public key), Seerr and the first Dockge account, and writes generated credentials to a
 chmod-600 file. `--reset` includes every Compose profile, so it really stops
 and recreates this disposable project rather than silently leaving profiled
 containers running. Run the full Dart transport harness without putting
@@ -59,10 +60,11 @@ flutter test test/e2e/testlab_transport_e2e_test.dart \
   --tags e2e --run-skipped
 ~~~
 
-The harness covers all seventeen registry services and asserts a successful
-typed read, not merely that a container is running. Empty lists are valid
+The docker harness covers all nineteen registry services, Emby (the free edition
+of Emby Server 4.10, with no Premiere) and Tracearr included, and
+asserts a successful typed read, not merely that a container is running. Empty lists are valid
 data; a failed health, authentication or payload probe fails the test.
-It also probes wrong credentials against every transport: sixteen services
+It also probes wrong credentials against every transport: eighteen services
 must reject them. The separate Plex negative probe is reported as skipped when
 the container was never claimed: an unclaimed Plex runs with local
 authentication disabled and accepts any `X-Plex-Token`. Once the server is
@@ -133,6 +135,8 @@ control plane creates one proxy per service and writes the map to
 | SABnzbd | 28082 | 8082 |
 | NZBGet | 26789 | 6789 |
 | Jellyfin | 28096 | 8096 |
+| Emby | 28098 | 8097 |
+| Tracearr | 23000 | 3010 |
 | Plex | 23240 | 32400 |
 | Dockge | 25001 | 5001 |
 | Nginx Proxy Manager | 28181 | 8181 |
@@ -401,7 +405,7 @@ flutter test --tags e2e --run-skipped test/e2e/testlab_seerr_p9_e2e_test.dart
 flutter test --tags e2e --run-skipped test/e2e/testlab_seerr_p5_e2e_test.dart
 ~~~
 
-## Jellyfin and Plex
+## Jellyfin, Emby and Plex
 
 The seed adds `Series` and `Music` beside `Films` on the same `/media` folders.
 The files are the forge's episode and FLACs, so the libraries hold a film, a
@@ -411,16 +415,37 @@ a watched film and an episode at a third of its length in Continue watching;
 `plex_media.py` leaves the watched film and episode and Plex's own next-up on
 deck.
 
+Emby is a real Emby Server 4.10 (the free edition), on the same `/media`
+mount as Jellyfin, so it holds the same movie, series and album. Its first run
+is `emby_first_run.py`: the Startup wizard, the administrator, and the API key
+named Cupola that `POST /Auth/Keys` makes and `GET /Auth/Keys` reads back (the
+create call answers 204 and no body). The key is what the app is given, as
+Jellyfin's token is; because a key belongs to no user, the connection also
+names `cupola-admin` as the viewer it reads as. `emby_media.py` then makes the
+household member `cupola-viewer`, the three libraries, the watched movie and
+the episode at a third of its length for that member. Emby only lists a resume
+point that has a `LastPlayedDate`, so the seed writes one. Emby answers a few
+routes differently from Jellyfin, and the e2e say where: a member's token may
+read the libraries and is refused users, devices and tasks, an API key has no
+`/Users/Me`, item ids are short numbers, and sign-in refuses a chunked request
+body.
+
 ~~~bash
 python3 test/e2e/testlab/testlab.py play "Big Buck Bunny" --server jellyfin --pause --stop
+python3 test/e2e/testlab/testlab.py play "Big Buck Bunny" --server emby --pause --stop
 python3 test/e2e/testlab/testlab.py play "Big Buck Bunny" --server plex --stop
+python3 test/e2e/testlab/testlab.py scenario apply emby-media
 ~~~
 
-Jellyfin is the controllable one: `jellyfin_play.py` opens a session with a
-dedicated device and its pause/stop report moves the state. The app's own
-Pause/Stop are remote-control commands: the server answers 204 and forwards
-`Playstate` to the client over the WebSocket, so they only change the session
-when a client is listening (`jellyfin_play.py --listen --hold`). Plex has no
+Jellyfin and Emby are the controllable ones: `jellyfin_play.py` and
+`emby_play.py` open a session with a dedicated device and their pause/stop
+report moves the state. The app's own Pause/Stop are remote-control commands:
+the server answers 204 and forwards `Playstate` to the client over the
+WebSocket, so they only change the session when a client is listening
+(`--listen --hold`, on Emby the socket is `/embywebsocket`). Emby's helper signs
+a person in per device, because a playback reported with the API key is refused,
+and announces its capabilities before the first report, which is what makes the
+session remote-controllable. Plex has no
 pause the app can reach; its session is a spike (a part read beside
 `/:/timeline`) and its Stop is behind Plex Pass, which this server does not
 have: the app does not draw it and the raw terminate answers 401. No Plex Home
@@ -432,6 +457,7 @@ providers the surfaces read.
 
 ~~~bash
 flutter test --tags e2e --run-skipped test/e2e/testlab_jellyfin_e2e_test.dart
+flutter test --tags e2e --run-skipped test/e2e/testlab_emby_e2e_test.dart
 flutter test --tags e2e --run-skipped test/e2e/testlab_plex_e2e_test.dart
 flutter test --tags e2e --run-skipped test/e2e/testlab_stream_sessions_e2e_test.dart
 ~~~
@@ -444,7 +470,97 @@ list them, runs the journey, and ends them on the way out.
 ~~~bash
 python3 test/e2e/testlab/journey_sessions.py S-03
 python3 test/e2e/testlab/journey_sessions.py S-09
+python3 test/e2e/testlab/journey_sessions.py S-03 --server emby
 ~~~
+
+The media server journeys are written once for Jellyfin and Emby, and the
+wrapper picks a server's own by the words its test names carry.
+
+## Tracearr
+
+Tracearr is the real image, `ghcr.io/connorgallopo/tracearr:supervised-3.1.4`
+pinned by digest: one container that holds TimescaleDB, Redis and the server, so
+it asks for 512 MB of shared memory, 65536 open files and a 3 GB ceiling (below
+it the kernel kills it). It starts slowly, about a minute: `/health` answers 200
+from the first second but says `"mode":"maintenance"` while the migrations run,
+so the healthcheck and the seed wait for `"mode":"ready"`. The host publishes it
+on 3010, not 3000, and the fault layer fronts it on 23000. Its four disks are
+named volumes, not binds under the state directory (the image says a bind mount
+upsets PostgreSQL's and Redis's ownership), so they sit outside the snapshots,
+like the dind's: a snapshot reset does not rewind what Tracearr recorded, and the
+seed finds its owner, key, servers and rule where it left them.
+
+Its first run is `tracearr_first_run.py`: the owner (`owner@cupola.test`, the
+lab's fixed password, username `cupola_owner`, since a username takes no hyphen),
+signed up through `POST /api/v1/auth/sign-up/email` while `needsSetup` says
+nobody is in, signed in afterwards, and the public key read from
+`GET /api/v1/settings/api-key`, made through `.../regenerate` only when there is
+none (regenerating replaces it, which would break the key the app holds). The
+key and the owner's email and password land in the credentials file; the bearer
+never leaves the process. Tracearr rate-limits sign-up and sign-in with a 429,
+which the module waits out.
+
+`tracearr_lab.py` then makes the rest, idempotently, through Tracearr's own API as
+its owner:
+
+- **Two servers**: the lab's Jellyfin and Emby, connected with
+  `POST /api/v1/auth/<kind>/connect-api-key`. Tracearr dials them from inside the
+  compose network, so it is given `http://jellyfin:8096` and `http://emby:8096`.
+  Each gets an API key named `Tracearr`, made through the server's administrator,
+  so the key the app holds and the key the monitor holds are two.
+- **One rule**: `Too many streams at once`, from Tracearr's own
+  `concurrent-streams` template through `POST /api/v1/templates/{id}/instantiate`,
+  one stream allowed, the same device not excused, no cooldown. It is the rule
+  that produced real violations on the throwaway Tracearr of the probe.
+
+The `tracearr-streams` scenario is what makes it fire: the household member
+`cupola-viewer` plays *Big Buck Bunny* and *The Matrix* on two devices of the
+Emby, one after the other (Tracearr rules a stream when it starts, against the
+streams already live). The players are detached `emby_play.py --listen`
+processes, because an Emby playback nobody keeps alive is gone within a minute.
+The scenario waits until Tracearr lists both and has recorded a violation of
+two streams where one is allowed; its teardown ends the playbacks and waits until
+Tracearr stops listing them. Tracearr's history, violations, servers and rule
+stay, on purpose: they are its record, and `verify_absent` asserts that they
+survive. The violations pile up across runs, so no test counts them.
+
+~~~bash
+python3 test/e2e/testlab/testlab.py scenario apply tracearr-streams
+python3 test/e2e/testlab/testlab.py scenario teardown tracearr-streams
+python3 test/e2e/testlab/tracearr_lab.py --verify
+~~~
+
+The app configuration P10 now holds Seerr, Jellyfin, Emby and Tracearr, so Now
+playing draws Tracearr's streams in the same list as the two servers'.
+
+`testlab_tracearr_e2e_test.dart` drives Cupola's own clients: the keyless health,
+the key and the version, a wrong key refused with a 401, the two servers up, the
+owner's sign-in and a wrong password refused, then, during two playbacks, Live
+with both streams, the Emby's count, the violation with its typed reading
+(`2 streams at once, the limit is 1`), the same violation read by its id, the
+unseen filter, an unknown violation read as nothing, and Stop answering for a
+stream that is gone. After the playbacks end it reads History (finished
+sessions, narrowed to a person by the server), and last it ends a live stream
+through Tracearr, which relays Stop to the Emby and the player obeys. The file
+opens and ends its own playbacks (`tracearr_lab.py --play` and `--stop`), so
+it runs alone, and it also runs against disposable containers by naming their
+addresses (`CUPOLA_TESTLAB_TRACEARR_URL`, `CUPOLA_TESTLAB_EMBY_URL`,
+`CUPOLA_TESTLAB_JELLYFIN_URL`, and the names Tracearr dials them at,
+`CUPOLA_TESTLAB_TRACEARR_EMBY_URL` and `CUPOLA_TESTLAB_TRACEARR_JELLYFIN_URL`).
+The transport and route knock tests include Tracearr at 3010.
+
+~~~bash
+flutter test --tags e2e --run-skipped test/e2e/testlab_tracearr_e2e_test.dart
+~~~
+
+The Tracearr journey (it names no catalogue row, since the catalogue has none for
+Tracearr yet), in `media_server_journey_test.dart`, applies the scenario
+through the control API and reads Live ("2 streams", both titles) and Violations
+(the rule, opened to its sentence). It needs no wrapper. What has not run: the
+journeys themselves (they compile, and need the simulator and the lab's control
+API), the full lab's bootstrap with Tracearr in it, and the transport, knock and
+app-configuration tests at the lab's own ports; each was run against disposable
+containers at other ports instead.
 
 ## TrueNAS, Unraid, NPM and Dockge
 
@@ -525,7 +641,7 @@ autofirmata. Gli indirizzi sbagliati del primo avvio sono i sei esiti che il gat
 ## La configurazione dell'app per un profilo
 
 `testlab.py app-config <profilo>` scrive la configurazione dell'app per un
-profilo P1–P9 nello stato del laboratorio, nel formato che l'app legge: gli
+profilo P1–P10 nello stato del laboratorio, nel formato che l'app legge: gli
 indirizzi, i nomi e la rosa delle connessioni nelle `SharedPreferences`, le
 chiavi, le password, i token e le sessioni nella memoria sicura, con le chiavi
 che `SettingsService` deriva dall'id di ogni connessione. Il file sta in
@@ -598,6 +714,8 @@ Il pin dell'app è il certificato che la verifica di piattaforma ha rifiutato: c
 | SABnzbd | http://127.0.0.1:8082 | test-key | query API |
 | NZBGet | http://127.0.0.1:6789 | nzbget / tegbzn6789 | JSON-RPC + Basic |
 | Jellyfin | http://127.0.0.1:8096 | generated token + user id; a requester user with a generated password | REST |
+| Emby | http://127.0.0.1:8097 (the API sits under `/emby`) | generated API key named Cupola + the administrator's user id; a requester user with a generated password | REST |
+| Tracearr | http://127.0.0.1:3010 | the public `trr_pub_` API key the bootstrap issues; the owner `owner@cupola.test` with the lab's fixed password | REST + SSE |
 | Plex | http://127.0.0.1:32400 | unclaimed: any token; claimed: the server's own token, read by the bootstrap | REST/XML-or-JSON |
 | Dockge | http://127.0.0.1:5001 | disposable account provisioned by bootstrap | Socket.IO |
 | Nginx Proxy Manager | http://127.0.0.1:8181 | admin@example.com / changeme | REST + JWT |
@@ -666,7 +784,7 @@ environmental test.
 The seed is small and uses the network once, for the metadata Radarr's lookup
 needs. Radarr receives Big Buck Bunny with no file, the qBittorrent client and
 the local Torznab indexer; Sonarr and Lidarr receive one resolved record each;
-Jellyfin and Plex receive a `Films` library; qBittorrent and Transmission
+Jellyfin, Emby and Plex receive a `Films` library, and Tracearr is connected to Jellyfin and Emby with its stream rule (see its section); qBittorrent and Transmission
 receive paused zero-data magnets; SABnzbd and NZBGet receive a disposable NZB;
 and NPM receives `cupola.test`. Readarr gets its Books root and six
 authors with their books, written into its database with the container stopped
@@ -787,13 +905,13 @@ Docker endpoint cannot be mistaken for a UI placeholder:
 5. State pass: for each service capture success/empty, partial or degraded
    data, rejected credentials, remote error, unreachable host and
    not-configured. The transport tier already verifies rejected credentials
-   for sixteen services; Plex needs an authenticated server for that one
+   for seventeen services; Plex needs an authenticated server for that one
    state. Use fixture mutations or an isolated service stop/start, then restore
    the green baseline. An unavailable figure must be an em dash, and a failed
    grid must not be silently reported as a zero total.
 6. Integrated flows: test Seerr request -> arr hand-off, arr queue and
    history, Prowlarr application/indexer reads, download queues, Bazarr
-   wanted/history, Jellyfin/Plex library/session views, TrueNAS queries,
+   wanted/history, Jellyfin/Emby/Plex library/session views, TrueNAS queries,
    Unraid GraphQL reads, and NPM account/proxy/audit reads. Dockge mutations
    run against its isolated `docker:dind` sidecar, never OrbStack's daemon.
 7. Write pass: run the safe mutations below. Every specimen is disposable;
@@ -817,10 +935,11 @@ flutter test integration_test/cupola_native_smoke_test.dart -d macos
 
 The reusable full matrix is
 integration_test/testlab_ui_matrix_test.dart. It injects the disposable lab settings
-inside a test-only ProviderScope, then visits 160 route roots: every ServiceTab
+inside a test-only ProviderScope, then visits every route root (the run reports
+the count as `routes=N/M`): every ServiceTab
 root, every TrueNAS section root, the global/settings roots, and deterministic
 detail/editor specimens for Seerr, the arr clients, qBittorrent, Bazarr,
-Prowlarr, Dockge, Jellyfin, Plex and TrueNAS. Each route is drawn at all three
+Prowlarr, Dockge, Jellyfin, Emby, Plex and TrueNAS. Each route is drawn at all three
 sizes and both themes. The test also checks for a Flutter exception immediately
 after every viewport resize, before the next route is opened; this keeps an
 overflow attributed to the screen that caused it. It writes PNG evidence to
@@ -853,7 +972,7 @@ stops before the first route and names the missing entry (every `unreachable`
 run needs none: nothing is dialled).
 
 This matrix is intentionally separate from onboarding: the native smoke test
-proves the real first-run path, while the matrix makes the 17-service visual
+proves the real first-run path, while the matrix makes the per-service visual
 coverage repeatable without typing credentials into every run. Detail routes
 use deterministic ids and therefore prove route construction, loading and
 empty/error rendering even when the disposable vendor databases contain no
@@ -861,9 +980,9 @@ media. They do not claim that a populated detail card or a mutating workflow
 has been certified; those require seeded records and an explicitly isolated
 write pass.
 
-The native driver report becomes unwieldy if all 160 routes are captured in one
-process. Use route slices while retaining the same complete 160 x 3 x 2
-coverage, for example:
+The native driver report becomes unwieldy if every route is captured in one
+process. Use route slices while retaining the same complete coverage (every
+route x 3 sizes x 2 themes), for example:
 
 ~~~bash
 export CUPOLA_TESTLAB_ROUTE_OFFSET=108
@@ -879,7 +998,7 @@ flutter drive -d macos \
 Set `CUPOLA_TESTLAB_ROUTE_OFFSET`/`CUPOLA_TESTLAB_ROUTE_LIMIT` to successive
 slices (or omit them for a no-screenshot smoke pass). Set
 `CUPOLA_TESTLAB_SIZE=390x844`, `720x450` or `1440x900` to isolate one viewport.
-The 17-service transport harness must pass before starting the visual matrix.
+The transport harness must pass before starting the visual matrix.
 
 The matrix has five explicit scenarios selected with
 `CUPOLA_TESTLAB_SCENARIO`: `healthy` (the default seeded lab),

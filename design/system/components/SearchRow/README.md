@@ -19,7 +19,7 @@ Rendered from `lib/features/discover/presentation/widgets/search_row.dart` (`Sea
 
 ## Where a title stands
 
-The page decides the word, in the reader's vocabulary: on a media server it is `On Jellyfin` (green, the connection's name once there are two); else Seerr's word for its record (`seerrCatalogStatus`, the requester's words for her); else `In Radarr` (neutral) for a library that holds it. No word for a title nobody holds a record of.
+The page decides the word, in the reader's vocabulary: on a media server it is `On Jellyfin` (or Plex, or Emby) (green, the connection's name once there are two); else Seerr's word for its record (`seerrCatalogStatus`, the requester's words for her); else `In Radarr` (neutral) for a library that holds it. No word for a title nobody holds a record of.
 
 On a person's or a collection's page (`CatalogTitleRow`) the operator gets the plus to the title's arr when it is set up, every connection of it has answered and none holds the title. Through Seerr (the operator's choice on Seerr's connection page, the default) the plus is `Request` instead, once Seerr has answered that it has an arr to send it to, and it waits for that answer rather than changing from an add; without that arr, `Request` when Seerr has one to send it to; with neither, the plus dimmed. The requester gets `Request` as far as her account may. Nothing is offered for a title that is there, on its way or asked for.
 

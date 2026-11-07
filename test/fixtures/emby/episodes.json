@@ -1,0 +1,52 @@
+{
+  "Items": [
+    {
+      "Name": "Breaking Bad S01E01-E02",
+      "ServerId": "a88212fc366d449c8bbe2a34a9e4a91b",
+      "Id": "19",
+      "RunTimeTicks": 6000210000,
+      "IndexNumber": 1,
+      "IndexNumberEnd": 2,
+      "ParentIndexNumber": 1,
+      "IsFolder": false,
+      "Type": "Episode",
+      "UserData": {
+        "PlaybackPositionTicks": 0,
+        "PlayCount": 0,
+        "IsFavorite": false,
+        "Played": false
+      },
+      "SeriesName": "Breaking Bad",
+      "SeriesId": "16",
+      "SeasonId": "17",
+      "SeasonName": "Season 1",
+      "ImageTags": {},
+      "BackdropImageTags": [],
+      "MediaType": "Video"
+    },
+    {
+      "Name": "Breaking Bad S01E02",
+      "ServerId": "a88212fc366d449c8bbe2a34a9e4a91b",
+      "Id": "18",
+      "RunTimeTicks": 6000210000,
+      "IndexNumber": 2,
+      "ParentIndexNumber": 1,
+      "IsFolder": false,
+      "Type": "Episode",
+      "UserData": {
+        "PlaybackPositionTicks": 0,
+        "PlayCount": 0,
+        "IsFavorite": false,
+        "Played": false
+      },
+      "SeriesName": "Breaking Bad",
+      "SeriesId": "16",
+      "SeasonId": "17",
+      "SeasonName": "Season 1",
+      "ImageTags": {},
+      "BackdropImageTags": [],
+      "MediaType": "Video"
+    }
+  ],
+  "TotalRecordCount": 2
+}

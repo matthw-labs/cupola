@@ -53,6 +53,13 @@ enum ServiceTab {
   activities('activities', 'Activities'),
   playlists('playlists', 'Playlists'),
 
+  // ── Tracearr ─────────────────────────────────────────────────────────────
+  // Its Users and History are the shared tabs above; these two are its own.
+  // `Live`, not Activity: in Cupola Activity is the tab of a media server's
+  // sessions, and these are streams in flight with their bandwidth.
+  live('live', 'Live'),
+  violations('violations', 'Violations'),
+
   // ── Infrastructure ───────────────────────────────────────────────────────
   stacks('stacks', 'Stacks'),
   terminal('terminal', 'Terminal'),
@@ -85,7 +92,7 @@ enum ServiceTab {
 
 /// The bar, per service, in the order it is drawn.
 ///
-/// Read off the seventeen service home boards. Three rules hold over the whole
+/// Read off the nineteen service home boards. Three rules hold over the whole
 /// table and are asserted by its tests rather than left to review:
 ///
 ///  * every list starts with [ServiceTab.overview]: opening a service always
@@ -162,6 +169,25 @@ const Map<ServiceKey, List<ServiceTab>> serviceTabs = {
     ServiceTab.devices,
     ServiceTab.tasks,
     ServiceTab.activity,
+  ],
+  // Emby's bar is Jellyfin's, tab for tab: the two servers answer the same
+  // administration reads (users, devices, scheduled tasks, sessions).
+  ServiceKey.emby: [
+    ServiceTab.overview,
+    ServiceTab.libraries,
+    ServiceTab.users,
+    ServiceTab.devices,
+    ServiceTab.tasks,
+    ServiceTab.activity,
+  ],
+  // The guardian's room: what is playing, what was played, who, and what broke
+  // a rule. Five tabs, in the order a person asks them.
+  ServiceKey.tracearr: [
+    ServiceTab.overview,
+    ServiceTab.live,
+    ServiceTab.history,
+    ServiceTab.users,
+    ServiceTab.violations,
   ],
   // Six tabs, the drawn set (decision 17).
   ServiceKey.plex: [

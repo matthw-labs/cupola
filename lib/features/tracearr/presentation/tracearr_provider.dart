@@ -1,0 +1,183 @@
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:cupola/core/providers/provider_retry.dart';
+import 'package:cupola/features/settings/data/connection_providers.dart';
+import 'package:cupola/features/settings/data/settings_provider.dart';
+import 'package:cupola/features/services/domain/dashboard_decision.dart';
+import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/media/domain/media_key.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_present.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_watched.dart';
+
+/// The size of the page a count that cannot be summed is read at. A page that
+/// came back with another following has counted rows, not the set, so its
+/// figure is a floor (`25+`).
+const int kTracearrCountPage = 25;
+
+/// Tracearr's client for the connection the app is looking through, and for a
+/// named one.
+///
+/// This is the one place a [TracearrClient] is built from a connection, so the
+/// transport's pin, access headers and `onlyAtHome` reach it here (ADR-6).
+/// Widgets check `isServiceConfigured(ServiceKey.tracearr)` before they watch
+/// anything below: the client throws "not configured" otherwise.
+final _tracearr = ConnectionProviders<TracearrClient>.transport(
+  ServiceKey.tracearr,
+  create: (ref, transport) => TracearrClient(
+    baseUrl: transport.url,
+    apiKey: transport.apiKey,
+    pinnedCertFingerprint: transport.pin,
+    accessHeaders: transport.access.headers(),
+    onlyAtHome: transport.onlyAtHomeOf(ServiceKey.tracearr),
+  ),
+  close: (client) => client.close(),
+);
+
+final tracearrClientProvider = _tracearr.lens;
+
+final tracearrClientForProvider = _tracearr.forConnection;
+
+/// The health read: the one answer that names Tracearr's version.
+///
+/// `noProviderRetry` on every read below, because the figures, the Overview's
+/// sections and the Dashboard's rail await these inside handlers written to
+/// carry on without a source that is down; ten backed-off retries held in
+/// front of that handler would be the rail sitting in its skeleton.
+final tracearrHealthProvider = FutureProvider<TracearrHealth>(
+  (ref) => ref.watch(tracearrClientProvider).getHealth(),
+  retry: noProviderRetry,
+);
+
+/// The servers Tracearr watches, with what it last saw of each.
+final tracearrServersProvider = FutureProvider<TracearrServers>(
+  (ref) => ref.watch(tracearrClientProvider).getServers(),
+  retry: noProviderRetry,
+);
+
+/// Today's plays and watch time.
+///
+/// Asked with no time zone: the device's name for it is an abbreviation and
+/// Tracearr wants an IANA one, so its day is cut at UTC midnight.
+final tracearrTodayProvider = FutureProvider<TracearrToday>(
+  (ref) => ref.watch(tracearrClientProvider).getToday(),
+  retry: noProviderRetry,
+);
+
+/// The first page of people, for what only counts or glances at them. The
+/// Users tab pages its own list (`tracearrUsersListProvider`).
+final tracearrUsersProvider = FutureProvider<TracearrPage<TracearrUser>>(
+  (ref) => ref.watch(tracearrClientProvider).getUsers(),
+  retry: noProviderRetry,
+);
+
+/// The first page of violations nobody has looked at.
+///
+/// Its length is a **floor** when [TracearrPage.hasMore]: the API pages and
+/// gives no total, so a full first page counted rows and not the set.
+final tracearrUnseenViolationsProvider =
+    FutureProvider<TracearrPage<TracearrViolation>>(
+      (ref) => ref
+          .watch(tracearrClientProvider)
+          .getViolations(
+            pageSize: kTracearrCountPage,
+            filter: const TracearrViolationFilter.unseen(),
+          ),
+      retry: noProviderRetry,
+    );
+
+/// The unseen count as a figure: the rows when the page is the last, a floor
+/// when another follows. Pure, so the rail and the Overview read one rule.
+({int count, bool isFloor}) tracearrUnseenCount(
+  TracearrPage<TracearrViolation> page,
+) => (count: page.items.length, isFloor: page.hasMore);
+
+/// The violations Needs you reads, per connection (empty id: the lens): the
+/// unseen ones of severity high, one page past [kNeedsYouViolationCap] so a
+/// longer list is told apart from one that ends there.
+final tracearrFlaggedProvider =
+    FutureProvider.family<TracearrPage<TracearrViolation>, String>(
+      (ref, instanceId) => ref
+          .watch(tracearrClientForProvider(instanceId))
+          .getViolations(
+            pageSize: kNeedsYouViolationCap + 1,
+            filter: const TracearrViolationFilter.unseen(
+              severity: TracearrSeverity.high,
+            ),
+          ),
+      retry: noProviderRetry,
+    );
+
+/// How many violations a background read takes in one page. A longer burst
+/// than this is told as a floor (`50+`), which is honest: nobody needs the
+/// ninth hundred in a notification.
+const int kTracearrFlaggedPage = 50;
+
+/// Which connection, and from when: the key of one background read of what is
+/// new. [since] is Tracearr's own clock (a violation's `created_at`).
+typedef TracearrSinceKey = ({String instanceId, DateTime since});
+
+/// The violations of connection [TracearrSinceKey.instanceId] recorded after
+/// [TracearrSinceKey.since], newest first: what the Flagged notification
+/// reads when the system wakes Cupola.
+///
+/// `autoDispose` because the key moves with every read and nothing screen-side
+/// watches it; the client under it is the connection's own (its route, access
+/// and pin, like every read of Tracearr).
+final tracearrViolationsSinceProvider = FutureProvider.autoDispose
+    .family<TracearrPage<TracearrViolation>, TracearrSinceKey>(
+      (ref, key) => ref
+          .watch(tracearrClientForProvider(key.instanceId))
+          .getViolations(
+            pageSize: kTracearrFlaggedPage,
+            filter: TracearrViolationFilter(since: key.since),
+          ),
+      retry: noProviderRetry,
+    );
+
+/// The one newest violation of connection [instanceId], or none: where a
+/// connection's first Flagged read starts, so that switching it on says
+/// nothing of what the server already holds.
+final tracearrNewestViolationProvider = FutureProvider.autoDispose
+    .family<TracearrPage<TracearrViolation>, String>(
+      (ref, instanceId) => ref
+          .watch(tracearrClientForProvider(instanceId))
+          .getViolations(pageSize: 1),
+      retry: noProviderRetry,
+    );
+
+/// The page of the series an episode belongs to, or null when Tracearr does
+/// not know the series or holds no external id for it.
+///
+/// An episode's own ids are the episode's, so the series is read once through
+/// Tracearr's id of it (`show_media_id`), when the sheet of an episode is open.
+/// Dropped with the sheet: nothing keeps an answer that a later scan of the
+/// library could improve.
+final tracearrSeriesKeyProvider = FutureProvider.autoDispose
+    .family<MediaKey?, String>((ref, showMediaId) async {
+      final series = await ref
+          .watch(tracearrClientProvider)
+          .getMediaIdentity(TracearrMediaRef.id(showMediaId));
+      return series == null ? null : tracearrSeriesKeyOf(series);
+    }, retry: noProviderRetry);
+
+/// Who watched a title, by its key, or null when Tracearr does not know the
+/// title: an answer only for "unknown to Tracearr", which says nothing about
+/// whether anyone watched, so the page draws no section for it and never
+/// "nobody". A Tracearr that did not answer is an error, which a page reads
+/// the same way.
+///
+/// Dropped when no page or sheet is watching it: a title's viewing changes
+/// as it is watched.
+final tracearrWatchedByProvider = FutureProvider.autoDispose
+    .family<TracearrMediaWatchers?, MediaKey>(
+      (ref, key) =>
+          ref.watch(tracearrClientProvider).getWatchers(tracearrRefOf(key)),
+      retry: noProviderRetry,
+    );

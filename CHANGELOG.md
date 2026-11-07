@@ -1,5 +1,41 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Emby, the eighteenth service.** Add an Emby server with its address and an API key
+  and it gets the room Jellyfin has: Overview, Libraries, Users, Devices, Tasks and
+  Activity. You see who is watching right now and what you left halfway, and you can
+  pause, resume, stop or message a session. Titles open in the Emby app or in the
+  browser, Emby answers the global search, and a title Seerr finds on Emby offers
+  *Watch on Emby*, for a household member too, who keeps the simpler app.
+- **Tracearr, the nineteenth service.** Add a Tracearr with its address and its public
+  API key and it gets five tabs: Overview, Live, History, Users and Violations. Live
+  shows every stream on the media servers Tracearr watches as it starts, moves and
+  stops, and you can end one from there. A violation opens to what the rule saw, in
+  numbers and never an address, and the grave ones appear in *Needs you*. *Now
+  playing* on the Home puts Tracearr's streams in the same list as your Jellyfin's
+  and Emby's, including the ones only Tracearr sees, and a title says who watched it
+  (*Watched by*). Sign in as the owner and you can Acknowledge or Dismiss a violation
+  from the app, and a *Flagged* notification tells you when Tracearr records a new
+  one.
+- **A wrong server now says so.** Point a connection at the address of another
+  service and the form names the one that answered, and offers to set that one up
+  with the same address.
+
+### Known limits
+
+- **Emby** is new: we wrote its client from answers recorded from a real Emby 4.10
+  and run it against one in our test lab, and we have not yet run it against a server
+  we use every day.
+- **Tracearr** is new: we wrote its client from answers recorded from a real Tracearr
+  3.1.4 and run it against one in our test lab, watching the lab's Jellyfin and
+  Emby, with two streams at once that break its limit. Signing in as the owner with
+  Plex, and the owner's Acknowledge and Dismiss, have not yet been tried on a server
+  we use every day. *Today* counts from midnight UTC, not from midnight where you
+  are.
+
 ## 1.0.0-beta.1
 
 The first release of Cupola, published as a beta. Everything before it was published

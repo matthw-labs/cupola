@@ -1,33 +1,26 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show ProviderBase;
 
 import 'package:cupola/core/capability/connection_capability.dart';
 import 'package:cupola/core/lifecycle/gated_poll.dart';
 import 'package:cupola/core/providers/provider_retry.dart';
-import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_capability.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/stream/domain/models/stream_session.dart';
-import 'package:cupola/features/stream/domain/stream_server_client.dart';
+import 'package:cupola/features/stream/domain/stream_activity_row.dart';
+import 'package:cupola/features/stream/presentation/stream_activity_merge.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_sessions_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_stream_session.dart';
 
-/// One playback plus which server is serving it.
-///
-/// The pairing is the point: `/activity` merges sources, so a row has to be able
-/// to say where it came from: the same problem the Recently Added rail solves
-/// with an accent dot and a spoken `accentLabel`. [instanceId] is the connection
-/// serving it, which is where its Stop goes, and [connectionName] is how the
-/// row names it once its service has two (`SettingsModel.connectionName`).
-typedef StreamActivityRow = ({
-  ServiceKey service,
-  String instanceId,
-  String? connectionName,
-  StreamSession session,
-});
+export 'package:cupola/features/stream/domain/stream_activity_row.dart';
 
-/// A media server connection whose sessions could not be read, as the note
+/// A connection whose sessions could not be read, as the note
 /// names it, and the failure, which the note classifies: a server that did
 /// not answer and one that refused the token are said differently.
 typedef StreamOfflineSource = ({
@@ -37,13 +30,19 @@ typedef StreamOfflineSource = ({
   Object error,
 });
 
-/// One connection of a media server.
+/// One connection of a service that says who is playing: a media server, or
+/// Tracearr.
 typedef StreamConnection = ({ServiceKey service, String instanceId});
 
 /// What is playing on one named connection of a media server.
 ///
-/// The lens's own connection collapses onto [jellyfinSessionsProvider] or
-/// [plexSessionsProvider], so the service's own Now playing page and Activity
+/// A Tracearr connection reads the streams it sees
+/// ([tracearrStreamsForProvider]) as sessions, the connection in view
+/// collapsing onto the Live list.
+///
+/// The lens's own connection collapses onto the service's sessions provider
+/// ([StreamBackend.sessions]: `jellyfinSessionsProvider`,
+/// `plexSessionsProvider`), so the service's own Now playing page and Activity
 /// read one cache and an override of either still reaches both. Every other
 /// connection asks its own client. Read by both [streamActivityProvider] and
 /// [streamActivityOfflineProvider], so a second Jellyfin is asked once.
@@ -52,17 +51,20 @@ final streamSessionsForProvider =
       ref,
       key,
     ) async {
-      final lens = ref.watch(activeInstanceProvider(key.service))?.id ?? '';
-      final isJellyfin = key.service == ServiceKey.jellyfin;
-      if (key.instanceId.isEmpty || key.instanceId == lens) {
-        return isJellyfin
-            ? ref.watch(jellyfinSessionsProvider.future)
-            : ref.watch(plexSessionsProvider.future);
+      // Tracearr is not a media server: it has no backend, and never reaches
+      // one. Its own arm reads its streams and says them as sessions.
+      if (key.service == ServiceKey.tracearr) {
+        final streams = await ref.watch(
+          tracearrStreamsForProvider(key.instanceId).future,
+        );
+        return streams.streams.map(tracearrStreamSession).toList();
       }
-      final StreamServerClient client = isJellyfin
-          ? ref.watch(jellyfinClientForProvider(key.instanceId))
-          : ref.watch(plexClientForProvider(key.instanceId));
-      return client.getSessions();
+      final backend = streamBackendOf(key.service);
+      final lens = ref.watch(activeInstanceProvider(key.service))?.id ?? '';
+      if (key.instanceId.isEmpty || key.instanceId == lens) {
+        return ref.watch(backend.sessions.future);
+      }
+      return ref.watch(backend.clientFor(key.instanceId)).getSessions();
     }, retry: noProviderRetry);
 
 /// How often a media server's own pages read its sessions again while seen.
@@ -88,14 +90,33 @@ const streamSessionsInterval = Duration(seconds: 15);
 /// read, and the in-flight skip leaves that one alone.
 final streamSessionsPollProvider = Provider.autoDispose
     .family<void, StreamConnection>((ref, key) {
-      ProviderBase<AsyncValue<List<StreamSession>>> source() {
-        final lens = ref.read(activeInstanceProvider(key.service))?.id ?? '';
-        if (key.instanceId.isNotEmpty && key.instanceId != lens) {
-          return streamSessionsForProvider(key);
+      // Tracearr's list is moved by the live feed and by reading it again,
+      // which is the notifier's own `refresh`: invalidating a read over that
+      // list would hand back what it already holds.
+      final isTracearr = key.service == ServiceKey.tracearr;
+
+      // Whether the connection is the lens's. Watched, so the poll is built
+      // again the moment the lens moves (a room or the Stack keeps it alive
+      // across the move): a tick and the due-now gate below are then both
+      // read from the connection's current source. A gate worked out once at
+      // build looked at the provider the connection had *then*, and a poll
+      // whose connection had just entered the view waited a whole interval
+      // over a cache of any age. Only the connection that left and the one
+      // that entered rebuild: the selection is a bool, not the lens.
+      final inView = ref.watch(
+        activeInstanceProvider(key.service).select((lens) {
+          return key.instanceId.isEmpty || key.instanceId == (lens?.id ?? '');
+        }),
+      );
+
+      ProviderBase<AsyncValue<Object?>> source() {
+        if (isTracearr) {
+          return inView
+              ? tracearrLiveProvider
+              : tracearrStreamsForProvider(key.instanceId);
         }
-        return key.service == ServiceKey.jellyfin
-            ? jellyfinSessionsProvider
-            : plexSessionsProvider;
+        if (!inView) return streamSessionsForProvider(key);
+        return streamBackendOf(key.service).sessions;
       }
 
       final read = source();
@@ -103,7 +124,13 @@ final streamSessionsPollProvider = Provider.autoDispose
         id: 'stream.sessions.${key.service.name}.${key.instanceId}',
         interval: streamSessionsInterval,
         dueNow: ref.exists(read) && !ref.read(read).isLoading,
-        onTick: () => ref.readAgainUnlessInFlight([source()]),
+        onTick: () {
+          if (isTracearr && inView) {
+            unawaited(ref.read(tracearrLiveProvider.notifier).refresh());
+          } else {
+            ref.readAgainUnlessInFlight([source()]);
+          }
+        },
       );
     });
 
@@ -112,13 +139,31 @@ final streamSessionsPollProvider = Provider.autoDispose
 List<({StreamConnection key, String? name})> _streamConnections(Ref ref) {
   final settings = ref.watch(currentSettingsProvider);
   return [
-    for (final service in ServiceDomain.stream.services)
+    for (final service in sessionServices)
       for (final instance in settings.configuredInstancesOf(service))
         (
           key: (service: service, instanceId: instance.id),
           name: settings.connectionName(instance.id),
         ),
   ];
+}
+
+/// The names of each service's connections that have one, lower-cased: what
+/// a Tracearr server's own name is compared with when it is told which of
+/// two connections of a service a stream is on
+/// (`SettingsModel.connectionName` is null for a service with only one).
+Map<ServiceKey, Set<String>> _connectionNames(Ref ref) {
+  final settings = ref.watch(currentSettingsProvider);
+  final names = <ServiceKey, Set<String>>{};
+  for (final service in mediaServers) {
+    for (final instance in settings.configuredInstancesOf(service)) {
+      final name = settings.connectionName(instance.id)?.trim().toLowerCase();
+      if (name != null && name.isNotEmpty) {
+        (names[service] ??= {}).add(name);
+      }
+    }
+  }
+  return names;
 }
 
 /// Whether a connection whose sessions read failed is a Plex holding a shared
@@ -131,8 +176,16 @@ Future<bool> _ownerOnly(Ref ref, StreamConnection key, Object error) async =>
       error,
     );
 
-/// Every live playback across every connection of both media servers, most
-/// expensive first.
+/// Every live playback across every connection of the media servers and of
+/// Tracearr, most expensive first, each said once.
+///
+/// **One merged source, built here and never in a widget**, so Now playing,
+/// Watching now and everything else that counts playbacks count the same rows.
+/// The media servers' own rows come first; what Tracearr sees is folded into
+/// them by [mergeTracearrStreams] (a playback both describe is one row, the
+/// server's own, enriched; one only Tracearr sees is appended, marked as
+/// coming through it). Without a Tracearr connection nothing changes, and
+/// with only Tracearr the rows are all its own.
 ///
 /// **Deliberately not a `GlobalActivityItem`, and this is the load-bearing
 /// decision on this surface.** Forcing a session into that model needs a
@@ -151,9 +204,11 @@ Future<bool> _ownerOnly(Ref ref, StreamConnection key, Object error) async =>
 /// unreachable Jellyfin yields no rows rather than emptying the section, and
 /// [streamActivityOfflineProvider] names it beside the sessions Plex did send.
 /// That partial answer is honest: every row on screen is a fact, and the
-/// silence is named.
+/// silence is named. Tracearr is one of those sources: when it does not
+/// answer the media servers' own rows stand, and its silence is named the same
+/// way.
 ///
-/// When **no** configured server answered there is no partial answer to show,
+/// When **no** configured source answered there is no partial answer to show,
 /// and this throws the last failure. It used to return `[]`, which the section
 /// drew as "Nobody is watching right now" about servers nobody could ask. The
 /// offline note never fired either, because the sessions reads swallowed their
@@ -166,6 +221,7 @@ final streamActivityProvider = FutureProvider<List<StreamActivityRow>>((
   ref,
 ) async {
   final rows = <StreamActivityRow>[];
+  final sightings = <TracearrSightings>[];
   var answered = 0;
   Object? failure;
   StackTrace? failureStack;
@@ -175,13 +231,24 @@ final streamActivityProvider = FutureProvider<List<StreamActivityRow>>((
   // counted.
   for (final connection in _streamConnections(ref)) {
     try {
+      if (connection.key.service == ServiceKey.tracearr) {
+        final seen = await ref.watch(
+          tracearrStreamsForProvider(connection.key.instanceId).future,
+        );
+        answered++;
+        sightings.add((
+          instanceId: connection.key.instanceId,
+          streams: seen.streams,
+        ));
+        continue;
+      }
       final sessions = await ref.watch(
         streamSessionsForProvider(connection.key).future,
       );
       answered++;
       rows.addAll(
         sessions.map(
-          (session) => (
+          (session) => StreamActivityRow(
             service: connection.key.service,
             instanceId: connection.key.instanceId,
             connectionName: connection.name,
@@ -204,6 +271,14 @@ final streamActivityProvider = FutureProvider<List<StreamActivityRow>>((
     Error.throwWithStackTrace(failure, failureStack!);
   }
 
+  final merged = sightings.isEmpty
+      ? rows
+      : mergeTracearrStreams(
+          native: rows,
+          sightings: sightings,
+          connectionNames: _connectionNames(ref),
+        );
+
   // Transcodes first: the rows that are costing the box something are the rows
   // worth reading first, and the per-service order underneath has to stay stable
   // so a bitrate updating in place does not reshuffle the list.
@@ -215,8 +290,8 @@ final streamActivityProvider = FutureProvider<List<StreamActivityRow>>((
   // `servicesQueueProvider`.
   final ordered =
       List.generate(
-        rows.length,
-        (index) => (index: index, row: rows[index]),
+        merged.length,
+        (index) => (index: index, row: merged[index]),
         growable: false,
       )..sort((a, b) {
         final aCost = a.row.session.playMethod.isTranscode ? 0 : 1;

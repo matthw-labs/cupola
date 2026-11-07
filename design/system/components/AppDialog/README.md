@@ -9,7 +9,9 @@ Rendered from `lib/core/widgets/app_dialog.dart` (`showAppConfirmDialog`, `showA
 - **Surface**: `dialogTheme` (`surfaceContainerHigh` in dark, `surfaceContainer` (white) in light), with a continuous `AppRadius.slab` (26) corner, a 1px `room.edge` line and no shadow. Material 3 metrics: 24 padding, 16 between title and content, 24 above the actions, actions right-aligned 8 apart. Barrier the room's scrim (`#0A0A0D` at 70% dark, `#16151A` at 40% light); shown on the root navigator unless `useRootNavigator: false`.
 - **Title row**: an optional 24pt icon in `onSurface`, then `AppSpacing.md`, then the title in `titleLarge` at 600, whole: it names what the action touches, and a cap at two lines hid that name. The dialog is `scrollable`, so the title scrolls with the content and the buttons stay in view at any length; the title is also the dialog's `semanticLabel`.
 - **Message**: `bodyMedium`.
+- **Note** (`note`): `AppSpacing.sm` under the message, one line of what another service knows about the thing the action touches, `bodySmall` in `on-surface-variant`: the removal of a movie or a series says `Watched by 3 · last 12 days ago` or `Nobody has watched it` from Tracearr, and nothing when Tracearr did not answer for the title. It informs the choice and is no part of it: no checkbox, no effect on the confirm.
 - **Options**: `AppSpacing.md` above, one `CheckboxListTile` each: leading checkbox, zero content padding, the tile's own `bodyLarge` title and a `bodySmall` subtitle in `on-surface-variant`, the secondary ink.
+- **Field** (`field: AppConfirmField`): `AppSpacing.md` under the message, one text field with a floating label and no counter, limit held at `maxLength` (200). For a word to whoever the action lands on, optional by nature: the dialog confirms with it empty, and the label says so (`Message for Anna · optional`, Tracearr's Stop). The result carries it trimmed in `text`.
 - **Actions**: a `TextButton` Cancel (`cancelLabel`, the theme's `primary` and `labelLarge` 600) and the theme's own `FilledButton` confirm (`confirmLabel`; the ink fill, `primary`, padding 16 × 12, `AppRadius.control` (14)). No style of its own. A label too long to sit beside Cancel makes the pair stack rather than truncate, with the confirm on top and Cancel beneath it, 8 apart (`actionsOverflowDirection: VerticalDirection.up`, Material's stacked order).
 - **Typed variant** (`showAppTypedConfirmDialog`): the same title row and message, then `AppSpacing.md`, the phrase on a `surfaceContainerHighest` plate (`AppRadius.borderRadiusSm`, padding 12 × 8, `bodyMedium` 600, selectable), `AppSpacing.md`, a text field labelled *Type it to confirm*, autofocused. The confirm stays disabled until the field matches the phrase, trimmed and case-insensitive.
 
@@ -29,12 +31,13 @@ It used to have a `destructive` variant (red fill, red title and glyph, a red *T
 
 - **Standard** (the grab confirmation from the Interactive search sheet): *Grab release* (or *Grab rejected release*, with the rejections listed) / *Download "…"?* / Cancel, *Download release*. An icon is optional (*Approve this request?* → *Approve request*).
 - **A delete with options**: *Remove from queue?* with *Delete from download client* (ticked by default, its subtitle ending *This cannot be undone.*) and *Blocklist this release*; the confirm reads *Remove and delete files*, and *Remove from queue* once the first is unticked.
+- **A delete with a note**: *Remove Big Buck Bunny from Radarr?* / *Radarr stops looking for it.* / *Watched by 3 · last 12 days ago* / the two options.
 - **A delete with no options**: *Delete snapshot?* / *tank/media@… is destroyed. This cannot be undone.* / *Delete snapshot* (TrueNAS).
 - **Typed**: *Shut down nas?*, the hostname to type, *Shut down server* inert until it matches (TrueNAS power; NPM's *Take offline* and *Save and reload* go through the same helper).
 
 ## The consumer provides
 
-Title, message, icon, `confirmLabel`, optionally `confirmLabelFor`, `cancelLabel` and the options (`key`, `label`, `subtitle`, `initialValue`). The result is `AppConfirmResult(confirmed, options)`, read with `option(key)`; dismissing returns `AppConfirmResult.cancelled`. The typed variant takes `phrase` and returns whether it was confirmed. A haptic, where a flow wants one, is the caller's, fired before the dialog opens.
+Title, message, icon, `confirmLabel`, optionally `confirmLabelFor`, `cancelLabel` and the options (`key`, `label`, `subtitle`, `initialValue`). The result is `AppConfirmResult(confirmed, options, text)`, read with `option(key)`; dismissing returns `AppConfirmResult.cancelled`. The typed variant takes `phrase` and returns whether it was confirmed. A haptic, where a flow wants one, is the caller's, fired before the dialog opens.
 
 ## Semantics
 
@@ -44,7 +47,7 @@ Material's: a dialog route, checkbox tiles that announce their state, two button
 
 Each sheet is drawn in the dark and the light room; the delete dialog also on the desktop.
 
-- Standard, with an icon, Enter confirms with the confirm focused, a delete with its options ticked and unticked, a delete with no options, a long title, the typed confirmation.
+- Standard, with an icon, with a field for a word to the viewer (Stop this stream?), Enter confirms with the confirm focused, a delete with its options ticked and unticked, a delete with no options, a delete with a note (Watched by 3, and Nobody has watched it), a long title, the typed confirmation.
 - Text at 200%: the grab confirmation, the delete with two options, the typed confirmation.
 
 ## Keyboard

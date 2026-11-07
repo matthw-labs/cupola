@@ -54,7 +54,7 @@ import 'package:cupola/features/settings/domain/service_only_at_home.dart';
 /// The furniture every service Overview is built out of: the identity line, the
 /// section frame, the row, the empty note and the skeleton.
 ///
-/// **It lives here because seventeen services get one of these pages and four
+/// **It lives here because nineteen services get one of these pages and four
 /// of them were already written.** Radarr, Seerr, Bazarr and Prowlarr each
 /// carried a private `_OverviewSection` / `_OverviewRow` / `_SectionEmpty` /
 /// `_RowsSkeleton` / `_IdentityBlock` that differed only in which `ServiceKey`
@@ -649,9 +649,15 @@ class ServiceOverviewArt extends StatelessWidget {
     super.key,
     required this.posterUrl,
     required this.title,
+    this.httpHeaders,
   });
 
   final String? posterUrl;
+
+  /// What the picture's own server wants with the request (a Tracearr poster
+  /// sits behind its key, which travels here and never in the address, since
+  /// the address is the cache's name for it). Null for a public picture.
+  final Map<String, String>? httpHeaders;
 
   /// The title the row is about, for the plate's initials.
   final String title;
@@ -668,7 +674,7 @@ class ServiceOverviewArt extends StatelessWidget {
         height: height,
         child: url == null || url.isEmpty
             ? _InitialsPlate(initials: overviewInitialsOf(title))
-            : ContentCard.lit(imageUrl: url),
+            : ContentCard.lit(imageUrl: url, httpHeaders: httpHeaders),
       ),
     );
   }
@@ -707,12 +713,20 @@ class _InitialsPlate extends StatelessWidget {
         border: Border.all(color: room.edge),
       ),
       child: Center(
-        child: Text(
-          initials,
-          maxLines: 1,
-          style: AppType.label
-              .weight(FontWeight.w600)
-              .copyWith(color: room.inkSecondary),
+        // Scaled down into the plate, never out of it: the plate is 36 wide
+        // at any reading size, and two letters at 200% are wider than that.
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              initials,
+              maxLines: 1,
+              style: AppType.label
+                  .weight(FontWeight.w600)
+                  .copyWith(color: room.inkSecondary),
+            ),
+          ),
         ),
       ),
     );

@@ -135,6 +135,23 @@ abstract final class WorldConnections {
     WorldHosts.dockge,
   );
   static final plex = _api(WorldIds.plex, ServiceKey.plex, WorldHosts.plex);
+
+  /// Emby on `tower`, World B's media server: the household's titles again,
+  /// watched through the operator.
+  static final emby = _api(
+    WorldIds.emby,
+    ServiceKey.emby,
+    WorldHosts.emby,
+    viewerId: EmbyFake.operatorId,
+  );
+
+  /// Tracearr on `tower`, beside the Emby it watches, and the Jellyfin and
+  /// the Plex on `nas`: the same people and titles as the three of them.
+  static final tracearr = _api(
+    WorldIds.tracearr,
+    ServiceKey.tracearr,
+    WorldHosts.tracearr,
+  );
   static final transmission = _login(
     WorldIds.transmission,
     ServiceKey.transmission,

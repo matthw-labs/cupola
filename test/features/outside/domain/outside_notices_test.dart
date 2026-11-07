@@ -111,6 +111,163 @@ void main() {
     expect(OutsideSaid.fromJson('garbage'), const OutsideSaid());
   });
 
+  group('Flagged', () {
+    const flagged = {OutsideNoticeKind.flagged};
+    final anna = DateTime.utc(2026, 11, 6, 16);
+
+    OutsideNotice flag(String id) => OutsideNotice(
+      kind: OutsideNoticeKind.flagged,
+      id: id,
+      body: 'Too many streams',
+    );
+
+    OutsideHeard heard(
+      OutsideSaid said,
+      List<OutsideNotice>? notices, {
+      Map<String, DateTime>? since,
+      Set<OutsideNoticeKind> enabled = flagged,
+      bool speak = true,
+    }) => outsideNoticesOf(
+      current: {OutsideNoticeKind.flagged: notices},
+      said: said,
+      enabled: enabled,
+      now: now,
+      speak: speak,
+      flaggedSince: since,
+    );
+
+    test('is its own kind, in its own words', () {
+      expect(OutsideNoticeKind.flagged.label, 'Flagged');
+      expect(OutsideNoticeKind.flagged.name, 'flagged');
+      expect(OutsideNoticeKind.flagged.quietFirstRead, isFalse);
+    });
+
+    test(
+      'says what it reads from the first run on: the cursor is the guard',
+      () {
+        // What a first run reads is nothing (it only finds where it is), so a
+        // run that has something to say on its first outing has a cursor behind
+        // it, and a baseline would swallow exactly the violation that matters.
+        final first = heard(
+          const OutsideSaid(),
+          [flag('a')],
+          since: {'t': anna},
+        );
+        expect(first.say, [flag('a')]);
+      },
+    );
+
+    test('is said once: the same violation again is not news', () {
+      final first = heard(const OutsideSaid(), [flag('a')]);
+      final again = heard(first.said, [flag('a')]);
+      expect(again.say, isEmpty);
+    });
+
+    test('the app on the screen records and says nothing', () {
+      final looked = heard(const OutsideSaid(), [flag('a')], speak: false);
+      expect(looked.say, isEmpty);
+      expect(heard(looked.said, [flag('a')]).say, isEmpty);
+    });
+
+    test(
+      'keeps where each connection was read up to, and the file keeps it',
+      () {
+        final said = heard(
+          const OutsideSaid(),
+          const [],
+          since: {
+            'tracearr': anna,
+            'tracearr-2': anna.add(const Duration(minutes: 5)),
+          },
+        ).said;
+        expect(said.flaggedSince, {
+          'tracearr': anna,
+          'tracearr-2': anna.add(const Duration(minutes: 5)),
+        });
+        final read = OutsideSaid.fromJson(said.toJson());
+        expect(read.flaggedSince.keys, said.flaggedSince.keys);
+        for (final MapEntry(:key, :value) in said.flaggedSince.entries) {
+          expect(
+            read.flaggedSince[key]!.isAtSameMomentAs(value),
+            isTrue,
+            reason: 'an instant, whatever zone the file is read in',
+          );
+        }
+      },
+    );
+
+    test('a run that does not touch the cursors keeps them', () {
+      final said = heard(
+        const OutsideSaid(),
+        const [],
+        since: {'t': anna},
+      ).said;
+      final next = heard(said, null).said;
+      expect(next.flaggedSince, {'t': anna});
+    });
+
+    test('a cursor only moves forward, even when two runs race', () {
+      final later = OutsideSaid(
+        flaggedSince: {'t': anna.add(const Duration(minutes: 9))},
+      );
+      final ours = heard(later, const [], since: {'t': anna}).said;
+      expect(ours.flaggedSince['t'], anna.add(const Duration(minutes: 9)));
+    });
+
+    test('a connection that is gone loses its cursor', () {
+      final said = OutsideSaid(flaggedSince: {'t': anna, 'gone': anna});
+      final next = heard(said, const [], since: {'t': anna}).said;
+      expect(next.flaggedSince.keys, ['t']);
+    });
+
+    test('switched off, it forgets what it said and where it was', () {
+      var said = heard(
+        const OutsideSaid(),
+        [flag('a')],
+        since: {'t': anna},
+      ).said;
+      said = heard(said, [flag('b')], enabled: const {}).said;
+      expect(said.flaggedSince, isEmpty);
+      expect(said.seen, isEmpty);
+    });
+
+    test('a file from before the cursors reads as every first run', () {
+      final old = OutsideSaid.fromJson({
+        'version': 1,
+        'seen': {'needsYou:Charge': '2026-11-06T10:00:00.000Z'},
+        'baselined': ['needsYou'],
+      });
+      expect(old.flaggedSince, isEmpty);
+      expect(old.seen.keys, ['needsYou:Charge']);
+    });
+
+    test('Needs you leaves a violation out: blue, never a fault', () {
+      final notices = needsYouNotices([
+        DashboardDecision(
+          kind: DecisionKind.violation,
+          id: 'tracearr-violation-tracearr-a',
+          service: ServiceKey.tracearr,
+          title: 'Too many streams',
+          detail: 'Anna',
+          occurredAt: null,
+          route: '/stack/tracearr/violations/a',
+        ),
+        DashboardDecision(
+          kind: DecisionKind.stalledDownload,
+          id: 'stalled-Charge',
+          service: ServiceKey.qbittorrent,
+          title: 'Charge',
+          detail: 'detail',
+          occurredAt: null,
+        ),
+      ], now: now);
+      expect(notices.map((notice) => notice.kind), [
+        OutsideNoticeKind.needsYou,
+      ]);
+      expect(notices.single.body, 'Charge is stuck');
+    });
+  });
+
   group('the words', () {
     DashboardDecision decision(DecisionKind kind, String title) =>
         DashboardDecision(

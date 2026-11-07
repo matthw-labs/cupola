@@ -9,7 +9,10 @@ import { readFileSync } from 'node:fs';
 import { inRepo } from './paths';
 
 const SOURCE = 'lib/features/settings/domain/service_key.dart';
-const CONSTANTS = ['lib/features/truenas/domain/truenas_version.dart'];
+const CONSTANTS = [
+  'lib/features/truenas/domain/truenas_version.dart',
+  'lib/features/tracearr/domain/models/tracearr_version.dart',
+];
 
 type Value = string | number | null;
 
@@ -56,7 +59,7 @@ function switchOf(getter: string): Map<string, Value> {
     const value = literal(arm[2], getter);
     for (const key of arm[1].matchAll(/ServiceKey\.(\w+)/g)) out.set(key[1], value);
   }
-  if (out.size !== 17) throw new Error(`${SOURCE}: ${getter} covers ${out.size} services, not 17`);
+  if (out.size !== 19) throw new Error(`${SOURCE}: ${getter} covers ${out.size} services, not 19`);
   return out;
 }
 

@@ -65,13 +65,13 @@ export const rivals: Rival[] = [
       {
         label: 'Server and streaming',
         them: 'Unraid, Docker containers, Tautulli, Tracearr',
-        cupola: 'Unraid, TrueNAS, Dockge, Nginx Proxy Manager, Jellyfin and Plex sessions',
+        cupola: 'Unraid, TrueNAS, Dockge, Nginx Proxy Manager, Jellyfin, Plex and Emby sessions, Tracearr',
       },
     ],
     ahead: [
       'Around since 2012, with more than 800,000 downloads on Google Play.',
       'More download clients and indexers: Deluge, µTorrent, rTorrent, NZBHydra2, Jackett and Newznab.',
-      'Wake-on-LAN, Tautulli and Tracearr.',
+      'Wake-on-LAN and Tautulli.',
     ],
     differs: [
       'On iPhone, iPad and Mac, as well as Android.',
@@ -124,11 +124,11 @@ export const rivals: Rival[] = [
       {
         label: 'Streaming and server',
         them: 'Plex, Emby, Tautulli, Jellystat, Tracearr, Tdarr, Unraid, SSH',
-        cupola: 'Jellyfin, Plex, Unraid, TrueNAS, Dockge, Nginx Proxy Manager',
+        cupola: 'Jellyfin, Plex, Emby, Tracearr, Unraid, TrueNAS, Dockge, Nginx Proxy Manager',
       },
     ],
     ahead: [
-      'More services in places: Emby, Tdarr, Deluge, rTorrent, NZBHydra2, Jackett, Tautulli, Jellystat and Wizarr.',
+      'More services in places: Tdarr, Deluge, rTorrent, NZBHydra2, Jackett, Tautulli, Jellystat and Wizarr.',
       'An SSH and SFTP client, and a Vision Pro app.',
       'A large App Store following, rated 4.8.',
     ],
@@ -164,13 +164,13 @@ export const rivals: Rival[] = [
     ahead: [],
     differs: [
       'Actively developed, on iPhone, iPad, Android and Mac.',
-      'Goes further: Seerr, Prowlarr, Bazarr, Jellyfin, Plex and the server underneath.',
+      'Goes further: Seerr, Prowlarr, Bazarr, Jellyfin, Plex, Emby and the server underneath.',
       'Built around what needs you: Home shows what arrived and what is stuck, and every fault comes with its fix.',
       'Each service still has its own screens when you want the details.',
     ],
     moving: [
       'Cupola cannot read LunaSea\'s settings or backups: set each connection up again with the same address and key.',
-      'There is no Tautulli or Wake-on-LAN. Cupola reads sessions from Jellyfin and Plex directly.',
+      'There is no Tautulli or Wake-on-LAN. Cupola reads sessions from Jellyfin, Plex and Emby directly.',
     ],
     sources: [{ label: 'LunaSea releases on GitHub', url: 'https://github.com/JagandeepBrar/LunaSea/releases' }],
   },
@@ -180,8 +180,8 @@ export const rivals: Rival[] = [
     title: 'A Ruddarr alternative, also on Android · Cupola',
     heading: 'Comparing Ruddarr and Cupola.',
     description:
-      'Ruddarr covers Radarr and Sonarr on iOS 26. Cupola covers seventeen services, runs on Android and iOS 17, and is free with no subscription.',
-    lede: 'Ruddarr is a polished, open-source app for Radarr and Sonarr on iPhone and iPad, from iOS 26. Cupola covers fifteen more services, runs on Android and older iPhones, and is free with nothing to subscribe to.',
+      'Ruddarr covers Radarr and Sonarr on iOS 26. Cupola covers nineteen services, runs on Android and iOS 17, and is free with no subscription.',
+    lede: 'Ruddarr is a polished, open-source app for Radarr and Sonarr on iPhone and iPad, from iOS 26. Cupola covers seventeen more services, runs on Android and older iPhones, and is free with nothing to subscribe to.',
     checked: '30 October 2026',
     facts: [
       {
@@ -196,7 +196,7 @@ export const rivals: Rival[] = [
       {
         label: 'Services',
         them: 'Radarr and Sonarr',
-        cupola: 'Seventeen: Radarr, Sonarr, Lidarr, Readarr, Bazarr, Seerr, Prowlarr, four download clients, Jellyfin, Plex and the server underneath',
+        cupola: 'Nineteen: Radarr, Sonarr, Lidarr, Readarr, Bazarr, Seerr, Prowlarr, four download clients, Jellyfin, Plex, Emby, Tracearr and the server underneath',
       },
       { label: 'Languages', them: 'English and seven more', cupola: 'English only' },
     ],
@@ -206,7 +206,7 @@ export const rivals: Rival[] = [
       'A long App Store record: 4.9 out of 5 from 767 ratings when we checked.',
     ],
     differs: [
-      'Seventeen services instead of two: Seerr, Lidarr, Bazarr, Prowlarr, download clients, Jellyfin, Plex and your server.',
+      'Nineteen services instead of two: Seerr, Lidarr, Bazarr, Prowlarr, download clients, Jellyfin, Plex, Emby, Tracearr and your server.',
       'On Android too, and on iPhones back to iOS 17.',
       'Notifications are free: your phone checks your services itself.',
       'Family members can request with their own Seerr account.',
@@ -248,17 +248,17 @@ export const rivals: Rival[] = [
       {
         label: 'Streaming and server',
         them: 'Tracearr',
-        cupola: 'Jellyfin and Plex sessions, TrueNAS, Unraid, Dockge, Nginx Proxy Manager',
+        cupola: 'Jellyfin, Plex and Emby sessions, Tracearr, TrueNAS, Unraid, Dockge, Nginx Proxy Manager',
       },
     ],
     ahead: [
-      'Book and audiobook apps, Bookshelf and Listenarr, plus Deluge and Tracearr.',
+      'Book and audiobook apps, Bookshelf and Listenarr, plus Deluge.',
       'A dashboard you arrange yourself, and import and export of settings.',
     ],
     differs: [
       'Installs on iPhone, iPad and Mac from a public TestFlight beta, no Xcode needed.',
       'Reaches your server: TrueNAS, Unraid, Dockge and Nginx Proxy Manager.',
-      'Jellyfin and Plex sessions, and NZBGet.',
+      'Jellyfin, Plex and Emby sessions, and NZBGet.',
       'Family members can request with their own Seerr account.',
     ],
     moving: [

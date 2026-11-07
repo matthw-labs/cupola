@@ -30,15 +30,25 @@ import 'package:cupola/features/home/domain/home_module.dart';
 import 'package:cupola/features/media/domain/media_key.dart';
 import 'package:cupola/features/outside/data/outside_faces.dart';
 import 'package:cupola/features/outside/data/outside_shelf.dart';
+import 'package:cupola/features/outside/domain/outside_flagged.dart';
 import 'package:cupola/features/outside/domain/outside_notices.dart';
 import 'package:cupola/features/outside/domain/outside_snapshot.dart';
 import 'package:cupola/features/requests/domain/my_requests.dart';
 import 'package:cupola/features/services/domain/dashboard_decision.dart';
+import 'package:cupola/features/services/presentation/services_probe.dart';
 import 'package:cupola/features/services/presentation/services_provider.dart';
 import 'package:cupola/features/settings/data/route_probe.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/shell/domain/shell_audience.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
+
+/// Every configured connection of Tracearr, for the Flagged read: the ones
+/// the Home reads (`watchMergeConnections`), with the name each carries once
+/// the service has two.
+final tracearrConnectionsProvider = Provider<List<MergeConnection>>(
+  (ref) => watchMergeConnections(ref, ServiceKey.tracearr),
+);
 
 /// How long a run waits for all its reads together. iOS gives a background
 /// refresh about thirty seconds, and the writing comes after: a read that has
@@ -53,24 +63,36 @@ const outsideReadBudget = Duration(seconds: 20);
 /// there (no calendar set up), and null a read that did not answer. For a
 /// kind, null is a read that did not answer or was not asked (its switch is
 /// off). [pictures] are the sources of the file names the frames carry.
+/// [flaggedSince] is where each Tracearr connection has been read up to after
+/// this read, or null when Flagged was not read at all.
 typedef OutsideReading = ({
   Audience audience,
   DateTime takenAt,
   Map<OutsideWidget, List<OutsideFrame>?> frames,
   Map<OutsideNoticeKind, List<OutsideNotice>?> notices,
   Map<String, ImageSource> pictures,
+  Map<String, DateTime>? flaggedSince,
 });
 
 /// Reads [container] at [now], for the notification kinds that are [enabled]:
 /// a kind switched off is not read at all, so a person who wants no
 /// notification costs their servers nothing for it. [probe] asks where each
 /// connection is reached from first; the app on the screen already knows.
+///
+/// [flaggedSince] is where each Tracearr connection was read up to last time
+/// (`OutsideSaid.flaggedSince`), and [speak] false is the app on the screen,
+/// which reads no violations past a cursor it has: a violation that came
+/// while the person was in the app is not one they have seen (Home draws
+/// none but the grave ones), so the next run with the app away says it. It
+/// only gives a connection its first cursor, which is one tiny read.
 Future<OutsideReading> readOutside(
   ProviderContainer container, {
   required DateTime now,
   required Set<OutsideNoticeKind> enabled,
   bool probe = true,
   Duration budget = outsideReadBudget,
+  bool speak = true,
+  Map<String, DateTime> flaggedSince = const {},
 }) async {
   final kept = <ProviderSubscription<Object?>>[];
   // Measured, not dated: [now] is the clock the words are said against,
@@ -111,6 +133,7 @@ Future<OutsideReading> readOutside(
     final audience = container.read(shellAudienceProvider);
     final frames = <OutsideWidget, List<OutsideFrame>?>{};
     final notices = <OutsideNoticeKind, List<OutsideNotice>?>{};
+    Map<String, DateTime>? flaggedCursors;
 
     String? requestRoute(MyRequest mine) {
       final id = mine.request.media?.tmdbId;
@@ -194,12 +217,14 @@ Future<OutsideReading> readOutside(
           }(),
           if (enabled.contains(OutsideNoticeKind.needsYou))
             () async {
+              // Without the violations: they are blue, never a fault, and the
+              // Flagged read below is the one that asks Tracearr for them.
               final sources = await Future.wait([
-                for (final source in DecisionSource.values)
+                for (final source in DecisionSource.faultSources)
                   settle(dashboardDecisionSourceProvider(source).future),
               ]);
               if (sources.every((read) => read == null)) return;
-              final decisions = container.read(dashboardDecisionsProvider);
+              final decisions = container.read(dashboardFaultDecisionsProvider);
               notices[OutsideNoticeKind.needsYou] =
                   decisions.coverage.everySourceFailed
                   ? null
@@ -222,6 +247,19 @@ Future<OutsideReading> readOutside(
                     (instanceId: id, request: request),
               ]);
             }(),
+          if (enabled.contains(OutsideNoticeKind.flagged) &&
+              settings.isServiceConfigured(ServiceKey.tracearr))
+            () async {
+              final read = await _readFlagged(
+                container,
+                settle,
+                now: now,
+                speak: speak,
+                since: flaggedSince,
+              );
+              notices[OutsideNoticeKind.flagged] = read.notices;
+              flaggedCursors = read.since;
+            }(),
         ]);
     }
     return (
@@ -230,12 +268,100 @@ Future<OutsideReading> readOutside(
       frames: frames,
       notices: notices,
       pictures: pictures,
+      // Null when Flagged read nothing: the cursors it had stay as they are.
+      // Settings that look empty for a run (a headless start, a locked
+      // keychain) must not turn the next real run into a first one, which
+      // would skip what came in between; a connection removed for good is
+      // forgotten by the next read that has another one, and by switching
+      // Flagged off.
+      flaggedSince: flaggedCursors,
     );
   } finally {
     for (final subscription in kept) {
       subscription.close();
     }
   }
+}
+
+/// What Tracearr flagged since each connection was last read, on every
+/// configured connection of it.
+///
+/// Per connection, through its own client (`tracearrClientForProvider`, so its
+/// route, access and pin), and each answering for itself: one that does not
+/// answer keeps its cursor and says nothing, and the others are read and said.
+///
+/// * A connection with **no cursor** is on its first run (Flagged just
+///   switched on, or the connection just added): it reads its newest violation
+///   to find where "now" is in Tracearr's clock, says nothing, and keeps that.
+///   Nothing that was there before is ever news.
+/// * With a cursor, and not [speak]: the app is on the screen, nothing is read.
+/// * With a cursor, and [speak]: one read `since` it, newest first, one page;
+///   what is strictly newer (and not acknowledged yet) is grouped into one
+///   notice, and the cursor moves to the newest read.
+///
+/// `notices` is null when nothing was asked or nothing answered: a read that
+/// did not come is not a violation going away. `since` is null when there was
+/// no connection to read, which keeps the stored cursors as they are.
+Future<({List<OutsideNotice>? notices, Map<String, DateTime>? since})>
+_readFlagged(
+  ProviderContainer container,
+  Future<T?> Function<T>(ProviderListenable<Future<T>> future) settle, {
+  required DateTime now,
+  required bool speak,
+  required Map<String, DateTime> since,
+}) async {
+  final connections = container.read(tracearrConnectionsProvider);
+  // Configured but with no connection to read (settings that look empty for a
+  // run, a keychain still locked): nothing was read, so there are no cursors
+  // to hand back. An empty map would be taken as "every connection is gone"
+  // and wipe the stored ones, turning the next real run into a first one that
+  // skips what came in between.
+  if (connections.isEmpty) return (notices: null, since: null);
+  final cursors = <String, DateTime>{};
+  final notices = <OutsideNotice>[];
+  var asked = 0;
+  var answered = 0;
+  await Future.wait([
+    for (final connection in connections)
+      () async {
+        final id = connection.instanceId;
+        final from = since[id];
+        if (from != null) cursors[id] = from;
+        if (from != null && !speak) return;
+        asked++;
+        if (from == null) {
+          final newest = await settle(
+            tracearrNewestViolationProvider(id).future,
+          );
+          if (newest == null) return;
+          answered++;
+          final start = flaggedStartOf(newest.items);
+          // Violations with no time to place: no cursor, so the next run is
+          // a first run again and not a read from the start of time.
+          if (start != null) cursors[id] = start;
+          return;
+        }
+        final page = await settle(
+          tracearrViolationsSinceProvider((instanceId: id, since: from)).future,
+        );
+        if (page == null) return;
+        answered++;
+        final news = flaggedFreshOf(page.items, from);
+        cursors[id] = news.cursor;
+        final notice = flaggedNotice(
+          news.fresh,
+          instanceId: id,
+          name: connection.name,
+          now: now,
+          more: page.hasMore,
+        );
+        if (notice != null) notices.add(notice);
+      }(),
+  ]);
+  return (
+    notices: asked == 0 || answered == 0 ? null : notices,
+    since: cursors,
+  );
 }
 
 ImageSource? _tmdb(String? path) {
@@ -293,12 +419,16 @@ class OutsideRun {
     bool probe = true,
     Duration budget = outsideReadBudget,
   }) async {
+    // The cursors come from before the reading, the memory from after it: a
+    // run in the other isolate may have said something meanwhile.
     final reading = await readOutside(
       container,
       now: _clock(),
       enabled: enabled,
       probe: probe,
       budget: budget,
+      speak: speak,
+      flaggedSince: (await shelf.readSaid()).flaggedSince,
     );
     final plan = await shelf.plan(
       OutsideSnapshot(
@@ -320,6 +450,7 @@ class OutsideRun {
       enabled: enabled,
       now: reading.takenAt,
       speak: speak,
+      flaggedSince: reading.flaggedSince,
     );
     plan.pictures.addAll([for (final notice in heard.say) ?notice.picture]);
     await shelf.keepPictures(plan, reading.pictures, fetch);

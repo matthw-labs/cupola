@@ -1,0 +1,20 @@
+{
+    "media_id": "13925ec5-c7a3-42ef-9cb9-38118462c8de",
+    "media_type": "movie",
+    "window": "all_time",
+    "watchers": [
+        {
+            "user": {
+                "server_user_id": "7760cf43-f9bd-4964-9d7d-f2c5e2185def",
+                "user_id": "9d7d8f7d-0e17-4f3a-a169-bbc545d802c2",
+                "username": "Anna",
+                "identity_name": null
+            },
+            "plays": 1,
+            "watch_time_ms": 62000,
+            "completion_pct": 100,
+            "last_watched_day": "2026-11-06",
+            "distinct_episodes_watched": null
+        }
+    ]
+}

@@ -17,8 +17,8 @@ typedef AudienceConnection = ({ServiceKey service, SeerrGrant? seerr});
 ///
 /// **Requester** when at least one Seerr connection is an account whose role
 /// is requester, and every other connection is one of these: another
-/// requester's Seerr account, Jellyfin, or Plex. The two players are the ones
-/// a household member watches with; they decide nothing for the household.
+/// requester's Seerr account, Jellyfin, Plex, or Emby. The three players are the
+/// ones a household member watches with; they decide nothing for the household.
 ///
 /// **Operator** in every other case: a Seerr API key, a Seerr account that
 /// manages requests, any other service at all, or no Seerr.
@@ -26,8 +26,8 @@ typedef AudienceConnection = ({ServiceKey service, SeerrGrant? seerr});
 /// Read from the saved permissions, so it is right on the first frame. Pass
 /// a signed-out account too: signing out does not make anyone the operator.
 ///
-/// Jellyfin and Plex stay neutral whatever their credential is. Whether a
-/// Jellyfin token is an admin's is known only after a probe, and who the app
+/// Jellyfin, Plex and Emby stay neutral whatever their credential is. Whether a
+/// Jellyfin or Emby token is an admin's is known only after a probe, and who the app
 /// is for cannot wait on one. A requester's Seerr account beside an admin
 /// Jellyfin key is still a requester: accepted.
 Audience audienceOf(Iterable<AudienceConnection> connections) {
@@ -40,7 +40,7 @@ Audience audienceOf(Iterable<AudienceConnection> connections) {
           return Audience.operator;
         }
         requester = true;
-      case ServiceKey.jellyfin || ServiceKey.plex:
+      case ServiceKey.jellyfin || ServiceKey.plex || ServiceKey.emby:
         continue;
       case ServiceKey.radarr ||
           ServiceKey.sonarr ||
@@ -55,7 +55,8 @@ Audience audienceOf(Iterable<AudienceConnection> connections) {
           ServiceKey.sabnzbd ||
           ServiceKey.nzbget ||
           ServiceKey.unraid ||
-          ServiceKey.nginxProxyManager:
+          ServiceKey.nginxProxyManager ||
+          ServiceKey.tracearr:
         return Audience.operator;
     }
   }

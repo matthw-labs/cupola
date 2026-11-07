@@ -11,6 +11,7 @@ import 'package:cupola/core/network/redirect_guard.dart';
 import 'package:cupola/features/settings/data/service_connection_provider.dart';
 import 'package:cupola/features/settings/data/service_verification.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_version.dart';
 
 /// The two media servers do not authenticate the way every other service does,
 /// and verifying them through the shared `ApiClient` was therefore a check that
@@ -128,8 +129,10 @@ void main() {
     test(
       'a version that cannot be read does not unsettle the verdict',
       () async {
+        // Neither read names a version: the authenticated one says none and
+        // the anonymous one is down.
         final server = _FakeServer({
-          '/System/Info': _Reply(200, body: '{"Version":"10.9.11"}'),
+          '/System/Info': _Reply(200, body: '{"ServerName":"Home"}'),
           '/System/Info/Public': _Reply(503),
         });
 
@@ -180,6 +183,155 @@ void main() {
         (await diagnoseCredentials(
           ServiceKey.jellyfin,
           url: 'https://jelly.local:8096',
+          apiKey: '   ',
+        )).status,
+        ServiceConnectionStatus.notConfigured,
+      );
+    });
+  });
+
+  group('Emby verification', () {
+    // Emby answers every route under `/emby` and reads its key from
+    // `X-Emby-Token`. Its public info is anonymous like Jellyfin's, so the
+    // same trap applies: a wrong key must never read as a connection.
+    const info =
+        '{"LocalAddresses":[],"RemoteAddresses":[],"ServerName":"Emby",'
+        '"Version":"4.10.2.0","Id":"a88212fc366d449c8bbe2a34a9e4a91b"}';
+
+    test('a rejected key is unauthorized, not a green connection', () async {
+      final server = _FakeServer({
+        '/emby/System/Info': _Reply(401),
+        '/emby/System/Info/Public': _Reply(200, body: info),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
+          apiKey: 'not-a-real-key',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      expect(diagnosis.reason, ServiceFailureReason.unauthorized);
+    });
+
+    test('the key travels in X-Emby-Token and nowhere else', () async {
+      final server = _FakeServer({
+        '/emby/System/Info': _Reply(200, body: info),
+      });
+
+      await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
+          apiKey: 'emby-key',
+        ),
+      );
+
+      final request = server.requestFor('/emby/System/Info')!;
+      expect(request.headers['x-emby-token'], 'emby-key');
+      expect(request.headers.containsKey('authorization'), isFalse);
+      expect(request.headers.containsKey('x-api-key'), isFalse);
+      expect(request.uri.toString(), isNot(contains('emby-key')));
+    });
+
+    test('an accepted key connects and names the version', () async {
+      final server = _FakeServer({
+        '/emby/System/Info': _Reply(200, body: info),
+        '/emby/System/Info/Public': _Reply(200, body: info),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
+          apiKey: 'emby-key',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.connected);
+      expect(diagnosis.serverVersion, '4.10.2.0');
+    });
+
+    test(
+      'a household member\'s token connects, with the public version',
+      () async {
+        final server = _FakeServer({
+          '/emby/System/Info': _Reply(403),
+          '/emby/System/Info/Public': _Reply(200, body: info),
+        });
+
+        final diagnosis = await server.run(
+          () => diagnoseCredentials(
+            ServiceKey.emby,
+            url: 'http://emby.local:8096',
+            apiKey: 'member-token',
+          ),
+        );
+
+        expect(diagnosis.status, ServiceConnectionStatus.connected);
+        expect(diagnosis.serverVersion, '4.10.2.0');
+      },
+    );
+
+    test(
+      'a Jellyfin answering the legacy /emby routes is not an Emby',
+      () async {
+        const jellyfin =
+            '{"LocalAddress":"http://192.168.1.24:8096","ServerName":"basement",'
+            '"Version":"10.11.11","ProductName":"Jellyfin Server",'
+            '"Id":"9f2c1b7e4a3d4f0e8b6c5a1d2e3f4a5b"}';
+        final server = _FakeServer({
+          '/emby/System/Info': _Reply(200, body: jellyfin),
+          '/emby/System/Info/Public': _Reply(200, body: jellyfin),
+        });
+
+        final diagnosis = await server.run(
+          () => diagnoseCredentials(
+            ServiceKey.emby,
+            url: 'http://emby.local:8096',
+            apiKey: 'emby-key',
+          ),
+        );
+
+        expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+        expect(diagnosis.reason, ServiceFailureReason.notFound);
+        expect(diagnosis.answered, ServiceKey.jellyfin);
+      },
+    );
+
+    test('a server that is not answering is not blamed on the key', () async {
+      final server = _FakeServer({
+        '/emby/System/Info': _Reply(503),
+        '/emby/System/Info/Public': _Reply(503),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
+          apiKey: 'emby-key',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      expect(diagnosis.reason, ServiceFailureReason.serverError);
+    });
+
+    test('an empty address or key is not configured, not a failure', () async {
+      expect(
+        (await diagnoseCredentials(
+          ServiceKey.emby,
+          url: '',
+          apiKey: 'emby-key',
+        )).status,
+        ServiceConnectionStatus.notConfigured,
+      );
+      expect(
+        (await diagnoseCredentials(
+          ServiceKey.emby,
+          url: 'http://emby.local:8096',
           apiKey: '   ',
         )).status,
         ServiceConnectionStatus.notConfigured,
@@ -578,6 +730,178 @@ void main() {
         hasLength(ServiceFailureReason.values.length),
         reason: 'a duplicated sentence means a reason nobody can act on',
       );
+    });
+  });
+
+  group('Tracearr verification', () {
+    // `/health` is Tracearr's keyless route and proves an address, never a key,
+    // so the test reads the public API's own health with the key: a refused key
+    // is a 401 there, and the version it names is the one the minimum is
+    // checked against.
+    final health = File(
+      'test/fixtures/tracearr/real_health.json',
+    ).readAsStringSync();
+    const refused =
+        '{"statusCode":401,"error":"UnauthorizedError",'
+        '"message":"Missing or invalid Authorization header"}';
+    const healthPath = '/api/v1/public/health';
+
+    test('a refused key is unauthorized, not a green connection', () async {
+      final server = _FakeServer({
+        '/health': _Reply(200, body: '{"status":"ok","db":true,"redis":true}'),
+        healthPath: _Reply(401, body: refused),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_not-a-real-key',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      expect(diagnosis.reason, ServiceFailureReason.unauthorized);
+    });
+
+    test('the key travels as a bearer token and nowhere else', () async {
+      final server = _FakeServer({healthPath: _Reply(200, body: health)});
+
+      await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      final request = server.requestFor(healthPath)!;
+      expect(request.headers['authorization'], 'Bearer trr_pub_abc');
+      expect(request.headers.containsKey('x-api-key'), isFalse);
+      expect(request.uri.toString(), isNot(contains('trr_pub_abc')));
+    });
+
+    test('an accepted key connects and names the version', () async {
+      final server = _FakeServer({healthPath: _Reply(200, body: health)});
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.connected);
+      // Without the `v` Tracearr spells it with, as every other service's.
+      expect(diagnosis.serverVersion, '3.1.4');
+    });
+
+    test(
+      'a Tracearr older than the public API v2 says which to install',
+      () async {
+        final server = _FakeServer({
+          healthPath: _Reply(
+            200,
+            body: health.replaceFirst('v3.1.4', 'v2.6.3'),
+          ),
+        });
+
+        final diagnosis = await server.run(
+          () => diagnoseCredentials(
+            ServiceKey.tracearr,
+            url: 'http://tracearr.local:3000',
+            apiKey: 'trr_pub_abc',
+          ),
+        );
+
+        expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+        expect(diagnosis.reason, ServiceFailureReason.invalidResponse);
+        expect(diagnosis.detail, contains('2.6.3'));
+        expect(diagnosis.detail, contains(kTracearrMinVersion));
+        // Not a key problem and not an address problem: the remedy is upgrading,
+        // and Retry stays for after it.
+        expect(failureRetryHelps(diagnosis.reason!), isTrue);
+      },
+    );
+
+    test('the minimum itself connects', () async {
+      final server = _FakeServer({
+        healthPath: _Reply(
+          200,
+          body: health.replaceFirst('v3.1.4', 'v$kTracearrMinVersion'),
+        ),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.connected);
+    });
+
+    test('a web page at the address is not Tracearr', () async {
+      final server = _FakeServer({
+        healthPath: _Reply(
+          200,
+          body: '<!doctype html><html><body>Welcome to nginx!</body></html>',
+        ),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      // The stubbed stack labels every answer as JSON, so the page reads as
+      // an answer nobody can read rather than as a page; either way it is
+      // the address that is wrong, never the key.
+      expect(
+        diagnosis.reason,
+        anyOf(
+          ServiceFailureReason.notFound,
+          ServiceFailureReason.invalidResponse,
+        ),
+      );
+    });
+
+    test('another service answering at the address is not Tracearr', () async {
+      final server = _FakeServer({
+        healthPath: _Reply(200, body: '{"status":"OK","version":{"major":2}}'),
+      });
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+          apiKey: 'trr_pub_abc',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.disconnected);
+      expect(diagnosis.reason, ServiceFailureReason.notFound);
+    });
+
+    test('no key, nothing asked', () async {
+      final server = _FakeServer({healthPath: _Reply(200, body: health)});
+
+      final diagnosis = await server.run(
+        () => diagnoseCredentials(
+          ServiceKey.tracearr,
+          url: 'http://tracearr.local:3000',
+        ),
+      );
+
+      expect(diagnosis.status, ServiceConnectionStatus.notConfigured);
+      expect(server.requests, isEmpty);
     });
   });
 }

@@ -216,6 +216,8 @@ flutter:
     # (`lib/demo/world/fixtures.dart`). They keep their one home beside the
     # model tests that read them; every file the world names is listed here,
     # held by `test/demo/world_fixtures_guard_test.dart`.
+    - test/fixtures/emby/system_info.json
+    - test/fixtures/emby/system_info_public.json
     - test/fixtures/jellyfin/system_info_public.json
     - test/fixtures/npm/users_me_admin.json
     - test/fixtures/npm/users_me_view_only.json
@@ -225,6 +227,11 @@ flutter:
     - test/fixtures/plex/identity.json
     - test/fixtures/plex/library_sections.json
     - test/fixtures/sabnzbd/server_stats.json
+    - test/fixtures/tracearr/real_health.json
+    - test/fixtures/tracearr/real_history.json
+    - test/fixtures/tracearr/real_servers.json
+    - test/fixtures/tracearr/real_streams_live.json
+    - test/fixtures/tracearr/real_today.json
     - test/fixtures/seerr/public_settings_jellyseerr_1.9.2.json
     - test/fixtures/seerr/public_settings_jellyseerr_2.7.3.json
     - test/fixtures/seerr/public_settings_overseerr_1.35.0.json

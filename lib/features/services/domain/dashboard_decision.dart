@@ -93,13 +93,33 @@ enum DecisionSource {
   /// probes the stack's health already makes, so it asks nothing of its own
   /// and names no service as unread: a connection that did not answer at all
   /// is the red line above Needs you, never one of its faults.
-  connections([]);
+  connections([]),
+
+  /// Tracearr's violations of severity high that nobody has looked at. Not
+  /// faults: a rule was broken, which is the person's to read, and nothing
+  /// Cupola reaches stopped working. Read a page past [kNeedsYouViolationCap]
+  /// so the count can say it is a floor.
+  violations([ServiceKey.tracearr]);
 
   const DecisionSource(this.services);
 
   /// The services this source reads.
   final List<ServiceKey> services;
+
+  /// The sources a notification of Needs you reads: every one but
+  /// [violations], whose decisions are blue and never a fault, so no notice of
+  /// Needs you could say them. A violation is read in the background only by
+  /// the Flagged notification, which asks Tracearr for what came since.
+  static final List<DecisionSource> faultSources = [
+    for (final source in values)
+      if (source != violations) source,
+  ];
 }
+
+/// How many violations Needs you draws. The source reads one more, so that a
+/// longer list reads as a floor (`5+`) and never as the total: the API pages
+/// and gives none.
+const int kNeedsYouViolationCap = 5;
 
 /// What kind of thing is waiting.
 ///
@@ -145,6 +165,15 @@ enum DecisionKind {
   /// A certificate about to expire. Action: renew it.
   expiringCertificate,
 
+  /// An unseen violation of severity high that Tracearr recorded. Blue and
+  /// not a fault: the rule was broken by a person, and every service is still
+  /// doing its job. Action: open it, where the owner acknowledges or
+  /// dismisses it.
+  ///
+  /// After the faults and before the requests: a rule broken is further from
+  /// "stopped working" than anything above, and more than somebody waiting.
+  violation,
+
   /// A Seerr request nobody has approved or declined. Action: both.
   ///
   /// Last, and deliberately: it is the only *backlog* kind in the region.
@@ -157,7 +186,17 @@ extension DecisionKindRank on DecisionKind {
   /// The tone rule's first arm, stated once here rather than re-derived at every
   /// row: faults are amber, backlog is neutral, and red is left to a connection
   /// that did not answer.
-  bool get isFault => this != DecisionKind.pendingRequest;
+  bool get isFault => switch (this) {
+    DecisionKind.pendingRequest || DecisionKind.violation => false,
+    DecisionKind.stalledDownload ||
+    DecisionKind.importBlocked ||
+    DecisionKind.failedImport ||
+    DecisionKind.storageAlert ||
+    DecisionKind.connectionFault ||
+    DecisionKind.serviceHealth ||
+    DecisionKind.failingIndexer ||
+    DecisionKind.expiringCertificate => true,
+  };
 
   /// Whether what this kind's row and control open reads the lens, with no
   /// `?i=` to name a connection: Prowlarr's indexer page, a Dockge stack, NPM's
@@ -172,6 +211,7 @@ extension DecisionKindRank on DecisionKind {
     DecisionKind.failedImport ||
     DecisionKind.connectionFault ||
     DecisionKind.serviceHealth ||
+    DecisionKind.violation ||
     DecisionKind.pendingRequest => false,
   };
 }
@@ -343,6 +383,7 @@ bool _groups(DecisionKind kind) => switch (kind) {
   DecisionKind.serviceHealth ||
   DecisionKind.failingIndexer ||
   DecisionKind.expiringCertificate ||
+  DecisionKind.violation ||
   DecisionKind.pendingRequest => false,
 };
 
@@ -400,7 +441,7 @@ DashboardDecision _groupOf(List<DashboardDecision> members) {
 
   // Carried only when every member agrees: a manual import seeded with the
   // first member's folder or filed under its film would import the other
-  // seventeen into the wrong place.
+  // eighteen into the wrong place.
   T? shared<T>(T? Function(DashboardDecision member) read) {
     final value = read(first);
     return members.every((member) => read(member) == value) ? value : null;
@@ -453,6 +494,7 @@ String _groupTitle(DecisionKind kind, int count) => switch (kind) {
   DecisionKind.serviceHealth => '$count failing health checks',
   DecisionKind.failingIndexer => '$count failing indexers',
   DecisionKind.expiringCertificate => '$count expiring certificates',
+  DecisionKind.violation => '$count violations',
   DecisionKind.pendingRequest => '$count requests waiting for approval',
 };
 
@@ -551,6 +593,9 @@ String decisionActionLabel(
   // says Renew. Not "Open in Nginx Proxy Manager": the row's own detail
   // names the service, and the long name pushed the control off a phone row.
   DecisionKind.expiringCertificate => renewable ? 'Renew' : 'Open certificates',
+  // The row is the door: the violation's own page is where it is read and,
+  // by the owner, answered.
+  DecisionKind.violation => 'Review',
   // Two controls, not one: see the row.
   DecisionKind.pendingRequest => 'Approve',
 };
@@ -570,6 +615,7 @@ String decisionUnavailableToast(DecisionKind kind, ServiceKey required) {
     DecisionKind.serviceHealth => 'open this check',
     DecisionKind.failingIndexer => 'test this indexer',
     DecisionKind.expiringCertificate => 'renew this certificate',
+    DecisionKind.violation => 'open this violation',
     DecisionKind.pendingRequest => 'answer this request',
   };
   return '${Lexicon.setUp(required.title)} to $what.';

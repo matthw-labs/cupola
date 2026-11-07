@@ -41,6 +41,7 @@ import 'package:cupola/features/bazarr/presentation/widgets/bazarr_detail_sectio
 import 'package:cupola/features/media/presentation/media_episode_sheet.dart';
 import 'package:cupola/features/media/presentation/media_episodes_graph.dart';
 import 'package:cupola/features/media/presentation/open_media.dart';
+import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/release_search/domain/release_search_target.dart';
 import 'package:cupola/features/release_search/presentation/release_search_entry.dart';
@@ -72,6 +73,7 @@ import 'package:cupola/features/movies/data/radarr_service.dart';
 import 'package:cupola/features/movies/domain/models/radarr_movie.dart';
 import 'package:cupola/features/media/domain/media_removal.dart';
 import 'package:cupola/features/media/presentation/media_parts.dart';
+import 'package:cupola/features/media/presentation/media_watched_by.dart';
 import 'package:cupola/features/media/presentation/media_series_manage.dart';
 import 'package:cupola/features/media/presentation/media_series_sections.dart';
 import 'package:cupola/features/media/presentation/media_add_sheet.dart';
@@ -163,19 +165,28 @@ class _MediaPageState extends ConsumerState<MediaPage> {
 
   /// Opens the item [itemId] on [server]: its own app when the viewer has
   /// several to choose from (`playWith`), its web client otherwise.
-  Future<void> _playOn(ServiceInstance server, String itemId, String title) {
-    final machineId = server.service == ServiceKey.plex
-        ? ref
-              .read(plexCapabilitiesForProvider(server.id))
-              .value
-              ?.machineIdentifier
-        : null;
+  Future<void> _playOn(
+    ServiceInstance server,
+    String itemId,
+    String title,
+  ) async {
+    final machineId = switch (server.service) {
+      ServiceKey.plex =>
+        ref
+            .read(plexCapabilitiesForProvider(server.id))
+            .value
+            ?.machineIdentifier,
+      // Emby's link names the server too, and works when it does not answer.
+      ServiceKey.emby => await _embyServerId(server.id),
+      _ => null,
+    };
+    if (!mounted) return;
     // The web client at the address the server is reached at now.
     final target = streamItemWebUrl(
       service: server.service,
       baseUrl: ref.read(connectionReachProvider(server.id))?.url ?? '',
       itemId: itemId,
-      plexMachineId: machineId,
+      serverId: machineId,
     );
     return playWith(
       context,
@@ -185,6 +196,14 @@ class _MediaPageState extends ConsumerState<MediaPage> {
       title: title,
       webUrl: target,
     );
+  }
+
+  Future<String?> _embyServerId(String instanceId) async {
+    try {
+      return await ref.read(embyServerIdProvider(instanceId).future);
+    } catch (_) {
+      return null;
+    }
   }
 
   /// The Seerr "More like this" is read through: the first one set up, while
@@ -646,9 +665,7 @@ class _MediaPageState extends ConsumerState<MediaPage> {
     final shown = [
       for (final row in rows)
         if (audience == Audience.operator ||
-            (row is MediaConnectionRow &&
-                (row.service == ServiceKey.jellyfin ||
-                    row.service == ServiceKey.plex)))
+            (row is MediaConnectionRow && row.service.isMediaServer))
           row,
     ];
     // The one image that lights the room: the backdrop, else the poster. Until
@@ -1010,6 +1027,8 @@ class _MediaPageState extends ConsumerState<MediaPage> {
             ),
           ],
           ...manage,
+          // The operator's, and only where Tracearr answered.
+          if (audience == Audience.operator) MediaWatchedBy(mediaKey: mediaKey),
           if (mediaWatchProvidersOf(rows, region) case final providers?) ...[
             MediaHeading('Where to watch', trailing: regionName(region)),
             MediaWatchProviders(providers: providers),
@@ -1489,6 +1508,7 @@ class _MediaPageState extends ConsumerState<MediaPage> {
         MediaSeriesManage(
           copies: held,
           title: MediaIdentity.of(rows)?.title ?? '',
+          mediaKey: mediaKey,
           subtitles: _bazarrEpisodesOf(rows),
           onChanged: () => _readArrsAgain(rows),
           more: seerr,
@@ -1791,6 +1811,7 @@ class _MediaPageState extends ConsumerState<MediaPage> {
       context: context,
       title: removal.title,
       message: removal.message,
+      note: mediaWatchedByNote(ref, mediaKey),
       icon: Icons.delete_outline_rounded,
       cancelLabel: 'Keep it',
       confirmLabel: removal.confirm(deleteFiles: false, exclude: false),

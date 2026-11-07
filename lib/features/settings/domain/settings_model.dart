@@ -257,7 +257,7 @@ class SettingsModel {
         );
 
     // Nothing worth recording, so record nothing. Without this guard the load
-    // path mints an instance for all seventeen services on every start. It
+    // path mints an instance for all nineteen services on every start. It
     // walks the whole enum writing whatever it found, and finds `''` for the
     // sixteen the user never set up. An instance list that is never empty makes
     // "does this service have one" unanswerable, and persists sixteen blanks

@@ -44,6 +44,10 @@ String? outsideNoticeRouteOf(String? payload) {
         id: 'ready_to_watch',
         description: 'Something asked for that arrived.',
       ),
+      OutsideNoticeKind.flagged => (
+        id: 'flagged',
+        description: 'A rule that Tracearr flagged.',
+      ),
     };
 
 class LocalOutsideSpeaker implements OutsideSpeaker {

@@ -77,7 +77,7 @@ export function services(): Service[] {
       note: mark ? footnotes.get(mark) : undefined,
     });
   }
-  if (out.length !== 17) throw new Error(`README: expected 17 services, read ${out.length}`);
+  if (out.length !== 19) throw new Error(`README: expected 19 services, read ${out.length}`);
   cache = out;
   return out;
 }

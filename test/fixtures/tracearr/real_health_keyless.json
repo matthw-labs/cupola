@@ -1,0 +1,16 @@
+{
+    "status": "ok",
+    "mode": "ready",
+    "db": true,
+    "redis": true,
+    "geoip": true,
+    "tailscale": "disabled",
+    "timescale": {
+        "installed": true,
+        "hypertable": true,
+        "compression": true,
+        "aggregates": 3,
+        "chunks": 1,
+        "compressionDegraded": false
+    }
+}

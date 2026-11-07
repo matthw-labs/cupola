@@ -1,6 +1,9 @@
 /// Seerr, Jellyfin and Plex on the fake network.
 library;
 
+import 'dart:convert';
+
+import 'package:cupola/core/utils/unit_space.dart';
 import 'package:cupola/features/discover/domain/seerr_permission.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 
@@ -1475,7 +1478,8 @@ class JellyfinFake extends ServiceFake {
     'LastActivityDate': '2026-09-29T18:40:00.0000000Z',
   };
 
-  JsonMap _session(ServerContext c) => {
+  /// Anna's Sintel on the living-room TV, as the session list holds it.
+  static JsonMap _sessionOf(ServerContext c) => {
     'Id': 'session-anna-livingroom',
     'UserId': annaId,
     'UserName': WorldPeople.anna,
@@ -1594,7 +1598,7 @@ class JellyfinFake extends ServiceFake {
               : _user(operatorId, 'Operator', admin: true),
         );
       case '/Sessions':
-        return NetworkReply.json([_session(c)]);
+        return NetworkReply.json([_sessionOf(c)]);
       case '/Library/VirtualFolders':
         return NetworkReply.json([
           for (final (name, type) in const [
@@ -1773,6 +1777,374 @@ class JellyfinFake extends ServiceFake {
     return ids.contains('${t.tmdbId}') ||
         (t.imdbId != null && ids.contains(t.imdbId!)) ||
         (t.tvdbId != null && ids.contains('${t.tvdbId}'));
+  }
+}
+
+// === Emby ==================================================================
+
+/// Emby, the same household as [JellyfinFake] on another server: the same
+/// titles and the same people, and Emby's own routes, ids and shapes.
+///
+/// Built on the Jellyfin fake's data (`_item`, `_user`, `_session`) and not on
+/// its routes, because the two servers part exactly there: everything sits
+/// under `/emby`, the user list is `/Users/Query`, the libraries
+/// `/Library/VirtualFolders/Query`, a user's resume row
+/// `/Users/{id}/Items/Resume`, one item `/Users/{id}/Items/{id}` (or
+/// `/Items?Ids=`), item ids are short numbers, and there is no `/Users/Me`.
+/// The public answer carries no `ProductName` and a `LocalAddresses` list, as
+/// a real 4.10 does (`test/fixtures/emby/`).
+///
+/// [ConnectionBehaviour.readOnly] models a household member's token: it is
+/// refused the user list, the devices, the tasks and the activity log, and
+/// still reads the libraries, the server's info and the sessions, as
+/// measured.
+class EmbyFake extends ServiceFake {
+  const EmbyFake();
+
+  static const operatorId = 'e0a1b2c3d4e5f60718293a4b5c6d7e8f';
+  static const annaId = 'e1a1b2c3d4e5f60718293a4b5c6d7e8f';
+  static const lucaId = 'e2a1b2c3d4e5f60718293a4b5c6d7e8f';
+  static const serverId = 'b7e4c1a9d2f84e60a5b3c8d1e2f3a4b5';
+
+  static const _prefix = '/emby';
+
+  /// [path] without the `/emby` the API sits under. The root answers the same
+  /// routes (measured on 4.10.2), which is what lets a Jellyfin's address be
+  /// found to be an Emby's: a client that does not know the prefix still
+  /// reaches it.
+  static String _bare(String path) =>
+      path.startsWith('$_prefix/') ? path.substring(_prefix.length) : path;
+
+  @override
+  bool isPublic(NetworkRequest request) =>
+      request.method == 'GET' &&
+      (_bare(request.path) == '/System/Info/Public' ||
+          _bare(request.path) == '/System/Ping');
+
+  @override
+  NetworkReply refuseKey(NetworkRequest request) => const NetworkReply(401);
+
+  @override
+  bool isAdminRead(NetworkRequest request) {
+    final path = _bare(request.path);
+    return request.method == 'GET' &&
+        (path == '/Users/Query' ||
+            path == '/Users' ||
+            path == '/Devices' ||
+            path == '/ScheduledTasks' ||
+            path == '/System/ActivityLog/Entries');
+  }
+
+  @override
+  bool isWrite(NetworkRequest request) {
+    final path = _bare(request.path);
+    return request.method != 'GET' &&
+        (path.startsWith('/Library/') ||
+            path.startsWith('/ScheduledTasks/') ||
+            path.startsWith('/Items/') && path.endsWith('/Refresh'));
+  }
+
+  /// The id Emby gives [t]: a number, as every Emby item has.
+  static String _id(WorldTitle t) => '${100 + WorldTitles.all.indexOf(t)}';
+
+  static JsonMap _item(ServerContext c, WorldTitle t, {String? type}) => {
+    ...JellyfinFake._item(c, t, type: type),
+    'Id': _id(t),
+    'ServerId': serverId,
+  };
+
+  static JsonMap _user(String id, String name, {required bool admin}) => {
+    ...JellyfinFake._user(id, name, admin: admin),
+    'ServerId': serverId,
+  };
+
+  /// How many episodes each of Cosmos Laundromat's two seasons holds on this
+  /// server: the whole first season, and three of the second.
+  static const _episodesOfSeason = {1: 10, 2: 3};
+
+  /// The id of one season, a number like every Emby id.
+  static String _seasonId(int season) => '${300 + season}';
+
+  /// One season of Cosmos Laundromat, as `/Shows/{id}/Seasons` lists it.
+  static JsonMap _season(ServerContext c, int season) => {
+    ..._item(c, WorldTitles.cosmosLaundromat, type: 'Season'),
+    'Id': _seasonId(season),
+    'Name': 'Season $season',
+    'SeriesName': WorldTitles.cosmosLaundromat.title,
+    'SeriesId': _id(WorldTitles.cosmosLaundromat),
+    'IndexNumber': season,
+    'ChildCount': _episodesOfSeason[season],
+    'RunTimeTicks': null,
+    'UserData': {
+      'Played': false,
+      'PlaybackPositionTicks': 0,
+      'UnplayedItemCount': season == 2 ? 1 : 0,
+    },
+  };
+
+  /// Anna's Sintel on the living-room TV, and the API key's own row, which
+  /// Emby lists as a session with no user and nothing playing.
+  static List<JsonMap> _sessions(ServerContext c) => [
+    {
+      ...JellyfinFake._sessionOf(c),
+      'Id': 'emby-session-anna-livingroom',
+      'UserId': annaId,
+      'Client': 'Emby for Android TV',
+      'NowPlayingItem': {
+        ..._item(c, WorldTitles.sintel),
+        'RunTimeTicks': 40800000000,
+      },
+    },
+    {
+      'Id': 'emby-session-api-key',
+      'Client': 'Cupola',
+      'DeviceName': 'nas',
+      'DeviceId': serverId,
+      'LastActivityDate': c.ago(const Duration(seconds: 20)),
+      'PlayState': {'IsPaused': false},
+    },
+  ];
+
+  static List<JsonMap> _devices(ServerContext c) {
+    JsonMap device(
+      String id,
+      String name,
+      String app,
+      String version,
+      String userId,
+      String user,
+      Duration lastSeen,
+    ) => {
+      'Id': id,
+      'Name': name,
+      'AppName': app,
+      'AppVersion': version,
+      'LastUserId': userId,
+      'LastUserName': user,
+      'DateLastActivity': c.ago(lastSeen),
+    };
+    return [
+      device(
+        '3',
+        'Living room TV',
+        'Emby for Android TV',
+        '3.4.12',
+        annaId,
+        WorldPeople.anna,
+        const Duration(minutes: 1),
+      ),
+      device(
+        '2',
+        "Luca's iPad",
+        'Emby for iOS',
+        '2.2.8',
+        lucaId,
+        WorldPeople.luca,
+        const Duration(days: 2),
+      ),
+      device(
+        '1',
+        'Firefox',
+        'Emby Web',
+        '4.10.2.0',
+        operatorId,
+        'Operator',
+        const Duration(days: 6),
+      ),
+    ];
+  }
+
+  /// The library as `GET /Library/VirtualFolders/Query` lists it.
+  static List<JsonMap> _folders() => [
+    for (final (index, (name, type)) in const [
+      ('Movies', 'movies'),
+      ('Series', 'tvshows'),
+      ('Music', 'music'),
+    ].indexed)
+      {
+        'Name': name,
+        'CollectionType': type,
+        'ItemId': '${3 + index}',
+        'Id': '${3 + index}',
+        'Locations': ['/mnt/tank/media/${name.toLowerCase()}'],
+      },
+  ];
+
+  static JsonMap _page(List<JsonMap> items) => {
+    'Items': items,
+    'TotalRecordCount': items.length,
+  };
+
+  @override
+  NetworkReply? answer(NetworkRequest r, ServerContext c) {
+    final path = _bare(r.path);
+    if (r.method != 'GET') return const NetworkReply(204);
+    switch (path) {
+      case '/System/Info/Public':
+        return NetworkReply.json({
+          ...jsonFixtureMap('emby/system_info_public.json'),
+          'ServerName': 'tower',
+          'Id': serverId,
+        });
+      case '/System/Info':
+        return NetworkReply.json({
+          ...jsonFixtureMap('emby/system_info.json'),
+          'ServerName': 'tower',
+          'Id': serverId,
+          'HasPendingRestart': false,
+          'HasUpdateAvailable': false,
+        });
+      case '/System/Ping':
+        return NetworkReply.text('Emby Server');
+      case '/Users/Query':
+        return NetworkReply.json(
+          _page([
+            _user(operatorId, 'Operator', admin: true),
+            _user(annaId, WorldPeople.anna, admin: false),
+            _user(lucaId, WorldPeople.luca, admin: false),
+          ]),
+        );
+      case '/Sessions':
+        return NetworkReply.json(_sessions(c));
+      case '/Library/VirtualFolders/Query':
+        return NetworkReply.json(_page(_folders()));
+      case '/Devices':
+        return NetworkReply.json(_page(_devices(c)));
+      case '/ScheduledTasks':
+      case '/System/ActivityLog/Entries':
+      case '/Items/Counts':
+        // Nothing Emby-specific in them: the Jellyfin fake's own answer.
+        return const JellyfinFake().answer(
+          NetworkRequest(
+            method: r.method,
+            uri: r.uri.replace(path: path),
+            headers: r.headers,
+            body: r.body,
+            server: r.server,
+          ),
+          c,
+        );
+      case '/Items':
+        final ids =
+            r.query['AnyProviderIdEquals'] ?? r.query['anyProviderIdEquals'];
+        final term = (r.query['searchTerm'] ?? r.query['SearchTerm'] ?? '')
+            .toLowerCase();
+        final asked = (r.query['ids'] ?? r.query['Ids'] ?? '').split(',');
+        return NetworkReply.json(
+          _page([
+            for (final t in JellyfinFake._library())
+              if (asked.first.isNotEmpty
+                  ? asked.contains(_id(t))
+                  : JellyfinFake._wanted(t, ids, term))
+                _item(c, t),
+          ]),
+        );
+      case '/Shows/NextUp':
+        return NetworkReply.json(_page(const []));
+    }
+    // A series' episodes, with the viewer's watch state: Cosmos Laundromat's
+    // first season and the three of the second on the server, two of them
+    // watched and the third part-way, as the Jellyfin fake has them.
+    final seasons = RegExp(r'^/Shows/(\d+)/Seasons$').firstMatch(path);
+    if (seasons != null) {
+      final cosmos = seasons.group(1) == _id(WorldTitles.cosmosLaundromat);
+      return NetworkReply.json(
+        _page(
+          cosmos
+              ? [for (final n in _episodesOfSeason.keys) _season(c, n)]
+              : const [],
+        ),
+      );
+    }
+    final episodes = RegExp(r'^/Shows/(\d+)/Episodes$').firstMatch(path);
+    if (episodes != null) {
+      final cosmos = episodes.group(1) == _id(WorldTitles.cosmosLaundromat);
+      JsonMap episode(int season, int number, {double played = 1}) => {
+        ..._item(c, WorldTitles.cosmosLaundromat, type: 'Episode'),
+        'Id': '${200 + season * 20 + number}',
+        'Name': season == 2 && number == 3
+            ? 'The Second Cycle'
+            : 'Episode $number',
+        'SeriesName': WorldTitles.cosmosLaundromat.title,
+        'SeriesId': _id(WorldTitles.cosmosLaundromat),
+        'ParentIndexNumber': season,
+        'IndexNumber': number,
+        'RunTimeTicks': 12000000000,
+        'UserData': {
+          'Played': played >= 1,
+          'PlaybackPositionTicks': played > 0 && played < 1
+              ? (12000000000 * played).round()
+              : 0,
+          if (played > 0 && played < 1) 'PlayedPercentage': played * 100,
+        },
+      };
+      // A season's own page asks for its episodes by `seasonId`.
+      final wanted = r.query['seasonId'] ?? r.query['SeasonId'];
+      return NetworkReply.json(
+        _page(
+          cosmos
+              ? [
+                  for (var e = 1; e <= 10; e++) episode(1, e),
+                  episode(2, 1),
+                  episode(2, 2),
+                  episode(2, 3, played: 0.75),
+                ].where((row) {
+                  if (wanted == null || wanted.isEmpty) return true;
+                  return _seasonId(row['ParentIndexNumber']! as int) == wanted;
+                }).toList()
+              : const <JsonMap>[],
+        ),
+      );
+    }
+    if (RegExp(r'^/Users/[^/]+/Items/Resume$').hasMatch(path)) {
+      return NetworkReply.json(
+        _page([
+          {
+            ..._item(c, WorldTitles.cosmosLaundromat, type: 'Episode'),
+            'Id': '${200 + 2 * 20 + 3}',
+            'Name': 'The Second Cycle',
+            'SeriesName': WorldTitles.cosmosLaundromat.title,
+            'SeriesId': _id(WorldTitles.cosmosLaundromat),
+            'ParentIndexNumber': 2,
+            'IndexNumber': 3,
+            'RunTimeTicks': 12000000000,
+            'UserData': {
+              'Played': false,
+              'PlaybackPositionTicks': 9000000000,
+              'PlayedPercentage': 75.0,
+            },
+          },
+        ]),
+      );
+    }
+    final one = RegExp(r'^/Users/[^/]+/Items/(\d+)$').firstMatch(path);
+    if (one != null) {
+      final title = WorldTitles.all
+          .where((t) => _id(t) == one.group(1))
+          .firstOrNull;
+      if (title != null) return NetworkReply.json(_item(c, title));
+      for (final n in _episodesOfSeason.keys) {
+        if (_seasonId(n) == one.group(1)) {
+          return NetworkReply.json(_season(c, n));
+        }
+      }
+    }
+    final user = RegExp(r'^/Users/([^/]+)$').firstMatch(path);
+    if (user != null) {
+      return switch (user.group(1)) {
+        operatorId => NetworkReply.json(
+          _user(operatorId, 'Operator', admin: true),
+        ),
+        annaId => NetworkReply.json(
+          _user(annaId, WorldPeople.anna, admin: false),
+        ),
+        lucaId => NetworkReply.json(
+          _user(lucaId, WorldPeople.luca, admin: false),
+        ),
+        _ => null,
+      };
+    }
+    return null;
   }
 }
 
@@ -2117,6 +2489,816 @@ class PlexFake extends ServiceFake {
           ],
         },
       });
+    }
+    return null;
+  }
+}
+
+// === Tracearr ==============================================================
+
+/// Tracearr on `tower`, watching the household's three media servers.
+///
+/// Its people and its titles are the ones the three servers' own fakes
+/// already play: Anna's Sintel on the living-room TV through Jellyfin and
+/// through Emby, and Luca's Elephants Dream on his iPad through Plex, each with
+/// the id the server itself gives the item, so the Now playing that merges
+/// Tracearr's streams with the servers' own finds the same session twice and
+/// says it once. Its rows are the recorded 3.1.4 rows (`tracearr/real_*.json`)
+/// with the household written into them.
+///
+/// Public: `/health`, the keyless answer. Everything else wants the bearer key,
+/// which the world's behaviours refuse as every other service's (a refused key
+/// is `401` with Tracearr's own envelope).
+class TracearrFake extends ServiceFake {
+  const TracearrFake();
+
+  static const version = 'v3.1.4';
+
+  /// The servers Tracearr watches, by the id it gives each.
+  static const jellyfinServerId = '3b1f7a52-0c1e-4e8a-9a41-7f6c2e0b5f11';
+  static const plexServerId = '6c2e8b63-1e2e-4f9b-8b52-8e7f3f1c6a22';
+  static const embyServerId = '9e3f9c74-2e3f-4a0c-9c63-9f8e4a2f7b33';
+
+  /// The people, one Tracearr user across the three servers.
+  static const annaId = 'a0a1b2c3-e4e5-4f60-8718-293a4b5c6e71';
+  static const lucaId = 'b0a1b2c3-e4e5-4f60-8718-293a4b5c6e72';
+
+  @override
+  bool isPublic(NetworkRequest request) =>
+      request.method == 'GET' && request.path == '/health';
+
+  @override
+  NetworkReply refuseKey(NetworkRequest request) => NetworkReply.json({
+    'statusCode': 401,
+    'error': 'UnauthorizedError',
+    'message': 'Missing or invalid Authorization header',
+  }, status: 401);
+
+  static const _servers = [
+    (
+      id: jellyfinServerId,
+      name: 'nas',
+      type: 'jellyfin',
+      streams: 1,
+      version: '10.10.7',
+    ),
+    (
+      id: plexServerId,
+      name: 'basement-nas',
+      type: 'plex',
+      streams: 1,
+      version: '1.41.6',
+    ),
+    (
+      id: embyServerId,
+      name: 'tower',
+      type: 'emby',
+      streams: 1,
+      version: '4.10.2',
+    ),
+  ];
+
+  /// What the three streams are: person, server, title, the item id the
+  /// server itself gives it, and the player.
+  static List<
+    ({
+      String id,
+      String serverId,
+      String serverName,
+      String serverType,
+      String person,
+      String personId,
+      WorldTitle title,
+      String ratingKey,
+      String device,
+      String player,
+      String product,
+      String platform,
+      int bitrate,
+      int progressMinutes,
+    })
+  >
+  _playing() => [
+    (
+      id: 'stream-jellyfin-anna',
+      serverId: jellyfinServerId,
+      serverName: 'nas',
+      serverType: 'jellyfin',
+      person: WorldPeople.anna,
+      personId: annaId,
+      title: WorldTitles.sintel,
+      ratingKey: 'jf-${WorldTitles.sintel.key}',
+      device: 'Living room TV',
+      player: 'Living room TV',
+      product: 'Jellyfin Android TV',
+      platform: 'Android TV',
+      bitrate: 4200,
+      progressMinutes: 30,
+    ),
+    (
+      id: 'stream-plex-luca',
+      serverId: plexServerId,
+      serverName: 'basement-nas',
+      serverType: 'plex',
+      person: WorldPeople.luca,
+      personId: lucaId,
+      title: WorldTitles.elephantsDream,
+      ratingKey: '103',
+      device: "Luca's iPad",
+      player: 'iPad',
+      product: 'Plex for iOS',
+      platform: 'iOS',
+      bitrate: 8000,
+      progressMinutes: 4,
+    ),
+    (
+      id: 'stream-emby-anna',
+      serverId: embyServerId,
+      serverName: 'tower',
+      serverType: 'emby',
+      person: WorldPeople.anna,
+      personId: annaId,
+      title: WorldTitles.sintel,
+      ratingKey: EmbyFake._id(WorldTitles.sintel),
+      device: 'Living room TV',
+      player: 'Living room TV',
+      product: 'Emby for Android TV',
+      platform: 'Android TV',
+      bitrate: 3100,
+      progressMinutes: 12,
+    ),
+  ];
+
+  static JsonMap _streamRow(ServerContext c, int index) {
+    final p = _playing()[index];
+    final template =
+        (jsonFixtureMap('tracearr/real_streams_live.json')['data'] as List)
+                .first
+            as Map<String, dynamic>;
+    final runtime = Duration(minutes: p.title == WorldTitles.sintel ? 14 : 11);
+    return {
+      ...template,
+      'id': p.id,
+      'server_id': p.serverId,
+      'server_name': p.serverName,
+      'server_type': p.serverType,
+      'username': p.person,
+      'media_title': p.title.title,
+      'media_type': 'movie',
+      'year': p.title.year,
+      'duration_ms': runtime.inMilliseconds,
+      'state': 'playing',
+      'progress_ms': Duration(minutes: p.progressMinutes).inMilliseconds,
+      'started_at': c.ago(Duration(minutes: p.progressMinutes)),
+      'bitrate': p.bitrate,
+      'device': p.device,
+      'player': p.player,
+      'product': p.product,
+      'platform': p.platform,
+      'media_id': 'media-${p.title.key}',
+      'tmdb_id': p.title.tmdbId,
+      'imdb_id': p.title.imdbId,
+      'rating_key': p.ratingKey,
+    };
+  }
+
+  static String _bitrate(int kbps) => kbps >= 1000
+      ? withUnit((kbps / 1000).toStringAsFixed(1), 'Mbps')
+      : withUnit(kbps, 'kbps');
+
+  static JsonMap _streams(ServerContext c, String? serverId) {
+    final playing = _playing();
+    final rows = [
+      for (final (i, p) in playing.indexed)
+        if (serverId == null || p.serverId == serverId) _streamRow(c, i),
+    ];
+    final kept = [
+      for (final p in playing)
+        if (serverId == null || p.serverId == serverId) p,
+    ];
+    JsonMap summary(Iterable<dynamic> of, {String? id, String? name}) => {
+      'server_id': ?id,
+      'server_name': ?name,
+      'total': of.length,
+      'transcodes': 0,
+      'audio_transcodes': 0,
+      'direct_streams': 0,
+      'direct_plays': of.length,
+      'total_bitrate': of.isEmpty
+          ? '—'
+          : _bitrate(of.fold<int>(0, (sum, p) => sum + (p.bitrate as int))),
+    };
+    return {
+      'data': rows,
+      'summary': {
+        ...summary(kept),
+        'by_server': [
+          for (final s in _servers)
+            if (serverId == null || s.id == serverId)
+              summary(
+                kept.where((p) => p.serverId == s.id),
+                id: s.id,
+                name: s.name,
+              ),
+        ],
+      },
+    };
+  }
+
+  /// A page of [rows] by the `cursor` (an offset) and `pageSize` asked.
+  static JsonMap _paged(NetworkRequest r, List<JsonMap> rows) {
+    final size = int.tryParse(r.query['pageSize'] ?? '') ?? 25;
+    final start = (int.tryParse(r.query['cursor'] ?? '') ?? 0).clamp(
+      0,
+      rows.length,
+    );
+    final end = (start + size).clamp(0, rows.length);
+    return {
+      'data': rows.sublist(start, end),
+      'meta': {
+        'nextCursor': end < rows.length ? '$end' : null,
+        'pageSize': size,
+      },
+    };
+  }
+
+  /// Who watched what, newest first: the day's streams are in
+  /// [_streams]; these are the ones that ended.
+  static List<JsonMap> _history(ServerContext c) {
+    final template =
+        (jsonFixtureMap('tracearr/real_history.json')['data'] as List).first
+            as Map<String, dynamic>;
+    JsonMap row(
+      int n,
+      WorldTitle t,
+      ({String id, String name, String type}) server,
+      String person,
+      String personId,
+      String ratingKey,
+      Duration ago,
+      Duration length, {
+      bool watched = true,
+      String device = 'Living room TV',
+      String product = 'Android TV',
+    }) => {
+      ...template,
+      'id': 'history-$n',
+      'reference_id': 'history-$n',
+      'server_id': server.id,
+      'server_name': server.name,
+      'server_type': server.type,
+      'media_title': t.title,
+      'media_type': 'movie',
+      'year': t.year,
+      'state': 'stopped',
+      'started_at': c.ago(ago + length),
+      'stopped_at': c.ago(ago),
+      'duration_ms': length.inMilliseconds,
+      'progress_ms': '${(length.inMilliseconds * (watched ? 1 : 0.4)).round()}',
+      'total_duration_ms': '${length.inMilliseconds}',
+      'percent_complete': watched ? 100 : 40,
+      'watched': watched,
+      'segment_count': 1,
+      'device': device,
+      'player': device,
+      'product': product,
+      'media_id': 'media-${t.key}',
+      'tmdb_id': t.tmdbId,
+      'imdb_id': t.imdbId,
+      'rating_key': ratingKey,
+      'user': {
+        'id': personId,
+        'server_user_id': 'account-$person-${server.type}',
+        'username': person,
+        'thumb_url': null,
+        'avatar_url': null,
+      },
+    };
+    const jf = (id: jellyfinServerId, name: 'nas', type: 'jellyfin');
+    const plex = (id: plexServerId, name: 'basement-nas', type: 'plex');
+    const emby = (id: embyServerId, name: 'tower', type: 'emby');
+    return [
+      row(
+        1,
+        WorldTitles.tearsOfSteel,
+        jf,
+        WorldPeople.anna,
+        annaId,
+        'jf-${WorldTitles.tearsOfSteel.key}',
+        const Duration(hours: 5),
+        const Duration(minutes: 12),
+      ),
+      row(
+        2,
+        WorldTitles.coffeeRun,
+        plex,
+        WorldPeople.luca,
+        lucaId,
+        '100',
+        const Duration(hours: 20),
+        const Duration(minutes: 10),
+        watched: false,
+        device: "Luca's iPad",
+        product: 'Plex for iOS',
+      ),
+      row(
+        3,
+        WorldTitles.bigBuckBunny,
+        emby,
+        WorldPeople.anna,
+        annaId,
+        EmbyFake._id(WorldTitles.bigBuckBunny),
+        const Duration(days: 1, hours: 2),
+        const Duration(minutes: 10),
+        device: 'Emby Web',
+        product: 'Emby Web',
+      ),
+      row(
+        4,
+        WorldTitles.sintel,
+        jf,
+        WorldPeople.luca,
+        lucaId,
+        'jf-${WorldTitles.sintel.key}',
+        const Duration(days: 3),
+        const Duration(minutes: 14),
+        device: "Luca's iPad",
+        product: 'Jellyfin iOS',
+      ),
+    ];
+  }
+
+  static List<JsonMap> _users() => [
+    for (final (id, name, jellyfin, plex, emby) in [
+      (annaId, WorldPeople.anna, JellyfinFake.annaId, '1', EmbyFake.annaId),
+      (lucaId, WorldPeople.luca, JellyfinFake.lucaId, '2', EmbyFake.lucaId),
+    ])
+      {
+        'id': id,
+        'username': name,
+        'identity_name': null,
+        'email': null,
+        'plex_account_id': plex,
+        'accounts': [
+          for (final (server, type, external) in [
+            (jellyfinServerId, 'jellyfin', jellyfin),
+            (plexServerId, 'plex', plex),
+            (embyServerId, 'emby', emby),
+          ])
+            {
+              'server_id': server,
+              'server_type': type,
+              'server_user_id': 'account-$name-$type',
+              'external_user_id': external,
+              'username': name,
+              'removed_at': null,
+            },
+        ],
+      },
+  ];
+
+  /// Three violations with no address in them: Anna on two servers at once
+  /// (unseen), a rule the owner named himself (unseen, which Cupola can say
+  /// only by its name), and an old impossible journey somebody acknowledged.
+  /// What Tracearr 3.x keeps in a violation's `data`: the conditions its
+  /// engine weighed, grouped, each with the figure it measured (`actual`) and
+  /// the one it was held to (`threshold`). The rule is told by the condition's
+  /// `field`, which is how the app tells one (see `TracearrViolation`).
+  static JsonMap _evidence(
+    String field,
+    String operator, {
+    required Object threshold,
+    required Object actual,
+    required String rule,
+    JsonMap? details,
+  }) => {
+    'evidence': [
+      {
+        'groupIndex': 0,
+        'matched': true,
+        'match': 'all',
+        'conditions': [
+          {
+            'field': field,
+            'operator': operator,
+            'threshold': threshold,
+            'actual': actual,
+            'matched': true,
+            'details': ?details,
+          },
+        ],
+      },
+    ],
+    'relatedSessionIds': const <String>[],
+    'ruleName': rule,
+    'matchedGroups': const [0],
+  };
+
+  static List<JsonMap> _violations(ServerContext c) {
+    JsonMap row(
+      int n,
+      String severity,
+      String rule,
+      String person,
+      String personId,
+      ({String id, String name, String type}) server,
+      Duration ago,
+      JsonMap data, {
+      Duration? acknowledged,
+    }) => {
+      // A UUID, as every id Tracearr gives is: the screens refuse any other
+      // before asking, since the server answers it with a 400.
+      'id': '00000000-0000-4000-8000-00000000000$n',
+      'severity': severity,
+      'created_at': c.ago(ago),
+      'acknowledged_at': acknowledged == null ? null : c.ago(acknowledged),
+      'session_id': null,
+      'rule': {'id': '00000000-0000-4000-9000-00000000000$n', 'name': rule},
+      'server': {'id': server.id, 'name': server.name, 'type': server.type},
+      'user': {
+        'id': personId,
+        'server_user_id': 'account-$person-${server.type}',
+        'username': person,
+        'thumb_url': null,
+        'avatar_url': null,
+      },
+      'data': data,
+    };
+    return [
+      row(
+        1,
+        'warning',
+        'Concurrent streams',
+        WorldPeople.anna,
+        annaId,
+        (id: jellyfinServerId, name: 'nas', type: 'jellyfin'),
+        const Duration(minutes: 12),
+        _evidence(
+          'concurrent_streams',
+          'gt',
+          threshold: 1,
+          actual: 2,
+          rule: 'Concurrent streams',
+        ),
+      ),
+      row(
+        2,
+        'low',
+        'Unknown device',
+        WorldPeople.luca,
+        lucaId,
+        (id: plexServerId, name: 'basement-nas', type: 'plex'),
+        const Duration(hours: 9),
+        _evidence(
+          'is_local_network',
+          'eq',
+          threshold: false,
+          actual: false,
+          rule: 'Unknown device',
+        ),
+      ),
+      row(
+        3,
+        'high',
+        'Impossible travel',
+        WorldPeople.luca,
+        lucaId,
+        (id: embyServerId, name: 'tower', type: 'emby'),
+        const Duration(days: 2),
+        _evidence(
+          'travel_speed_kmh',
+          'gt',
+          threshold: 500,
+          actual: 1700.0 / 1.5,
+          rule: 'Impossible travel',
+          details: const {
+            'distance': 1700.0,
+            'timeDeltaHours': 1.5,
+            'previousLocation': {
+              'lat': 45.07,
+              'lon': 7.69,
+              'city': 'Turin',
+              'country': 'Italy',
+            },
+            'currentLocation': {
+              'lat': 38.72,
+              'lon': -9.14,
+              'city': 'Lisbon',
+              'country': 'Portugal',
+            },
+          },
+        ),
+        acknowledged: const Duration(days: 1, hours: 20),
+      ),
+    ];
+  }
+
+  static JsonMap _top(NetworkRequest r, ServerContext c) => {
+    'data': [
+      for (final row in [
+        {
+          'media_id': 'media-${WorldTitles.sintel.key}',
+          'media_type': 'movie',
+          'title': WorldTitles.sintel.title,
+          'year': WorldTitles.sintel.year,
+          'imdb_id': WorldTitles.sintel.imdbId,
+          'tmdb_id': WorldTitles.sintel.tmdbId,
+          'tvdb_id': null,
+          'plays': 4,
+          'watch_time_ms': 3360000,
+          'unique_users': 2,
+          'last_watched_day': c.ago(Duration.zero).substring(0, 10),
+        },
+        {
+          'media_id': 'media-${WorldTitles.cosmosLaundromat.key}',
+          'media_type': 'show',
+          'title': WorldTitles.cosmosLaundromat.title,
+          'year': WorldTitles.cosmosLaundromat.year,
+          'imdb_id': null,
+          'tmdb_id': WorldTitles.cosmosLaundromat.tmdbId,
+          'tvdb_id': WorldTitles.cosmosLaundromat.tvdbId,
+          'plays': 3,
+          'watch_time_ms': 3600000,
+          'unique_users': 1,
+          'last_watched_day': c.ago(const Duration(days: 1)).substring(0, 10),
+        },
+      ])
+        if (row['media_type'] == (r.query['media_type'] ?? row['media_type']))
+          row,
+    ],
+    'meta': {'nextCursor': null, 'pageSize': 100},
+  };
+
+  /// The event stream, as the recorded 3.1.4 one starts: a `retry` hint, `ready`,
+  /// then each playing stream's full row. A fake answers once and ends, so the
+  /// hint is long: a client that reconnects at the end of it does so rarely.
+  static NetworkReply _events(ServerContext c) {
+    final frames = StringBuffer('retry: 30000\n\n')
+      ..write(
+        'event: ready\ndata: ${jsonEncode({'type': 'ready', 'at': c.ago(Duration.zero), 'data': {}})}\n\n',
+      );
+    for (final row in _streams(c, null)['data'] as List) {
+      frames.write(
+        'event: stream.updated\ndata: ${jsonEncode({'type': 'stream.updated', 'at': c.ago(Duration.zero), 'data': row})}\n\n',
+      );
+    }
+    return NetworkReply(
+      200,
+      body: frames.toString(),
+      contentType: 'text/event-stream; charset=utf-8',
+    );
+  }
+
+  /// A person's figures: a few days of watching, two genres they like.
+  static JsonMap _stats(String id) {
+    final anna = id == annaId;
+    JsonMap window(int plays, Duration time) => {
+      'plays': plays,
+      'watch_time_ms': time.inMilliseconds,
+    };
+    return {
+      'user_id': id,
+      'windows': {
+        'last_7': window(anna ? 4 : 2, Duration(minutes: anna ? 190 : 75)),
+        'last_30': window(anna ? 11 : 6, Duration(minutes: anna ? 520 : 240)),
+        'all_time': window(anna ? 38 : 19, Duration(hours: anna ? 41 : 20)),
+      },
+      'top_genres': [
+        {'genre': 'Animation', 'plays': anna ? 14 : 9},
+        {'genre': 'Science Fiction', 'plays': anna ? 8 : 4},
+      ],
+    };
+  }
+
+  @override
+  NetworkReply? answer(NetworkRequest r, ServerContext c) {
+    if (r.method != 'GET') return null;
+    final servers = [
+      for (final s in _servers)
+        {
+          ...(jsonFixtureMap('tracearr/real_servers.json')['data'] as List)
+                  .first
+              as Map<String, dynamic>,
+          'server_id': s.id,
+          'server_name': s.name,
+          'server_type': s.type,
+          'active_streams': s.streams,
+          'version': s.version,
+        },
+    ];
+    // One violation, with what Tracearr did about it: only the single read
+    // carries the actions.
+    const violationPath = '/api/v2/public/violations/';
+    if (r.path.startsWith(violationPath)) {
+      final id = r.path.substring(violationPath.length);
+      for (final v in _violations(c)) {
+        if (v['id'] == id) {
+          return NetworkReply.json({
+            ...v,
+            'actions': [
+              {
+                'type': 'notify',
+                'success': true,
+                'skipped': false,
+                'skip_reason': null,
+                'error_message': null,
+                'executed_at': v['created_at'],
+              },
+            ],
+          });
+        }
+      }
+      return NetworkReply.json({
+        'statusCode': 404,
+        'error': 'NotFoundError',
+        'message': 'Not Found',
+      }, status: 404);
+    }
+    switch (r.path) {
+      case '/health':
+        return NetworkReply.json({
+          'status': 'ok',
+          'mode': 'ready',
+          'db': true,
+          'redis': true,
+          'geoip': true,
+          'timescale': {'enabled': true, 'healthy': true},
+        });
+      case '/api/v1/public/health':
+        return NetworkReply.json({
+          ...jsonFixtureMap('tracearr/real_health.json'),
+          'version': version,
+          'timestamp': c.ago(Duration.zero),
+          'servers': [
+            for (final s in _servers)
+              {
+                'id': s.id,
+                'name': s.name,
+                'type': s.type,
+                'online': true,
+                'historical': false,
+                'activeStreams': s.streams,
+              },
+          ],
+        });
+      case '/api/v2/public/servers':
+        return NetworkReply.json({
+          'data': servers,
+          'tracearr_version': version,
+        });
+      case '/api/v2/public/streams':
+        final streams = _streams(c, r.query['server_id']);
+        // As Tracearr 3.1.4 answers it: `summary=true` is the summary alone,
+        // with no rows (measured on the lab).
+        return NetworkReply.json(
+          r.query['summary'] == 'true'
+              ? {'summary': streams['summary']}
+              : streams,
+        );
+      case '/api/v2/public/events':
+        return _events(c);
+      case '/api/v1/public/stats/today':
+        return NetworkReply.json({
+          ...jsonFixtureMap('tracearr/real_today.json'),
+          'activeStreams': 3,
+          'todayPlays': 4,
+          'todaySessions': 5,
+          'watchTimeHours': 1.5,
+          'alertsLast24h': 2,
+          'activeUsersToday': 2,
+        });
+      case '/api/v2/public/users':
+        return NetworkReply.json(_paged(r, _users()));
+      case '/api/v2/public/history':
+        // The filters Tracearr's route takes and a screen asks, so a page
+        // narrowed to a person lists that person's viewings and nobody's else.
+        return NetworkReply.json(
+          _paged(r, [
+            for (final row in _history(c))
+              if ((r.query['user_id'] == null ||
+                      (row['user'] as JsonMap)['id'] == r.query['user_id']) &&
+                  (r.query['server_id'] == null ||
+                      row['server_id'] == r.query['server_id']) &&
+                  (r.query['watched'] != 'true' || row['watched'] == true))
+                row,
+          ]),
+        );
+      case '/api/v2/public/violations':
+        final unseen = r.query['acknowledged'] == 'false';
+        final severity = r.query['severity'];
+        final person = r.query['user_id'];
+        return NetworkReply.json(
+          _paged(r, [
+            for (final v in _violations(c))
+              if ((!unseen || v['acknowledged_at'] == null) &&
+                  (severity == null || v['severity'] == severity) &&
+                  (person == null || (v['user'] as JsonMap)['id'] == person))
+                v,
+          ]),
+        );
+      case '/api/v2/public/top-media':
+        return NetworkReply.json(_top(r, c));
+    }
+    // A person, and their figures: `users/:id` and `users/:id/stats`.
+    final person = RegExp(
+      r'^/api/v2/public/users/([^/]+)(/stats)?$',
+    ).firstMatch(r.path);
+    if (person != null) {
+      final id = Uri.decodeComponent(person.group(1)!);
+      final user = _users().where((u) => u['id'] == id).firstOrNull;
+      if (user == null) {
+        return NetworkReply.json({
+          'statusCode': 404,
+          'error': 'NotFoundError',
+          'message': 'User not found',
+        }, status: 404);
+      }
+      return NetworkReply.json(person.group(2) == null ? user : _stats(id));
+    }
+    // Who watched a title: `media/:ref/watchers`, by the forms Tracearr's own
+    // route parses. A title it does not hold is a `404`, which the app reads
+    // as unknown and never as nobody.
+    final watched = RegExp(
+      r'^/api/v2/public/media/([^/]+)/watchers$',
+    ).firstMatch(r.path);
+    if (watched != null) {
+      final rows = _watchedBy(Uri.decodeComponent(watched.group(1)!), c);
+      if (rows == null) {
+        return NetworkReply.json({
+          'statusCode': 404,
+          'error': 'NotFoundError',
+          'message': 'Not Found',
+        }, status: 404);
+      }
+      return NetworkReply.json(rows);
+    }
+    return null;
+  }
+
+  /// Who watched Sintel (Anna four times, Luca once, twelve days ago), the
+  /// series Cosmos Laundromat (Luca, seven of its episodes), and Big Buck
+  /// Bunny, which Tracearr holds and nobody has played; null for any other
+  /// title.
+  static JsonMap? _watchedBy(String ref, ServerContext c) {
+    JsonMap watcher(
+      String id,
+      String name, {
+      required int plays,
+      required double completion,
+      required int daysAgo,
+      int? episodes,
+    }) => {
+      'user': {
+        'server_user_id': 'account-$name',
+        'user_id': id,
+        'username': name,
+        'identity_name': null,
+      },
+      'plays': plays,
+      'watch_time_ms': plays * 600000,
+      'completion_pct': completion,
+      'last_watched_day': c.ago(Duration(days: daysAgo)).split('T').first,
+      'distinct_episodes_watched': episodes,
+    };
+    JsonMap answer(String type, List<JsonMap> watchers) => {
+      'media_id': 'media-$ref',
+      'media_type': type,
+      'window': 'all_time',
+      'watchers': watchers,
+    };
+    if (ref == 'movie:tmdb:${WorldTitles.sintel.tmdbId}') {
+      return answer('movie', [
+        watcher(
+          annaId,
+          WorldPeople.anna,
+          plays: 4,
+          completion: 100,
+          daysAgo: 2,
+        ),
+        watcher(
+          lucaId,
+          WorldPeople.luca,
+          plays: 1,
+          completion: 62,
+          daysAgo: 12,
+        ),
+      ]);
+    }
+    if (ref == 'show:tmdb:${WorldTitles.cosmosLaundromat.tmdbId}' ||
+        ref == 'show:tvdb:${WorldTitles.cosmosLaundromat.tvdbId}') {
+      return answer('show', [
+        watcher(
+          lucaId,
+          WorldPeople.luca,
+          plays: 9,
+          completion: 31.5,
+          daysAgo: 1,
+          episodes: 7,
+        ),
+      ]);
+    }
+    if (ref == 'movie:tmdb:${WorldTitles.bigBuckBunny.tmdbId}') {
+      return answer('movie', const []);
     }
     return null;
   }

@@ -1,0 +1,33 @@
+: connected
+retry: 3000
+
+event: ready
+id: 1
+data: {"type": "ready", "at": "2026-11-06T10:15:00.000Z", "data": {}}
+
+event: stream.started
+id: 2
+data: {"type": "stream.started", "at": "2026-11-06T10:15:05.000Z", "data": {"id": "f0a1b2c3-0002-4aaa-8bbb-000000000002", "server_id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30", "server_name": "Emby Study", "server_type": "emby", "username": "Luca", "user_thumb": null, "user_avatar_url": null, "media_type": "episode", "media_title": "Low Tide", "show_title": "Harbor Lights", "season_number": 2, "episode_number": 5, "year": 2019, "artist_name": null, "album_name": null, "track_number": null, "disc_number": null, "thumb_path": null, "poster_url": "/api/v1/images/proxy?server=9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30&url=%2FItems%2F9981%2FImages%2FPrimary&width=300&height=450", "duration_ms": 2700000, "media_id": "d1d1d1d1-0000-4000-8000-0000000000b2", "show_media_id": "d1d1d1d1-0000-4000-8000-0000000000b3", "imdb_id": null, "tmdb_id": 1396, "tvdb_id": 81189, "rating_key": "9981", "parent_rating_key": null, "grandparent_rating_key": null, "library_id": "tv", "genres": ["Crime"], "state": "paused", "progress_ms": 900000, "started_at": "2026-11-06T10:01:00.000Z", "is_transcode": false, "video_decision": "directplay", "audio_decision": "directplay", "bitrate": 3500, "source_video_codec": "h264", "source_audio_codec": "aac", "source_audio_channels": 2, "source_video_width": 1920, "source_video_height": 1080, "source_video_details": {"bitrate": 3300, "framerate": "25", "dynamicRange": "SDR"}, "source_audio_details": {"bitrate": 192, "channelLayout": "stereo", "language": "eng"}, "stream_video_codec": "h264", "stream_audio_codec": "aac", "stream_video_details": {"bitrate": 3300, "width": 1920, "height": 1080, "framerate": "25", "dynamicRange": "SDR"}, "stream_audio_details": {"bitrate": 192, "channels": 2}, "transcode_info": {"containerDecision": "directplay", "sourceContainer": "mp4", "streamContainer": "mp4"}, "subtitle_info": {}, "resolution": "1080p", "source_video_codec_display": "H.264", "source_audio_codec_display": "AAC", "audio_channels_display": "2.0", "stream_video_codec_display": "H.264", "stream_audio_codec_display": "AAC", "device": "Study Laptop", "player": "Chrome", "product": "Emby Web", "platform": "Windows"}}
+
+: keep-alive
+
+event: stream.progress
+id: 3
+data: {"type": "stream.progress", "at": "2026-11-06T10:15:15.000Z", "data": {"id": "f0a1b2c3-0002-4aaa-8bbb-000000000002", "server_id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30", "state": "playing", "progress_ms": 915000, "bitrate": 3600}}
+
+event: server.health
+id: 4
+data: {"type": "server.health", "at": "2026-11-06T10:15:20.000Z", "data": {"server_id": "2c8a6f10-d3e5-47b9-8c14-5a9e0b7d6f22", "server_name": "Jellyfin Attic", "status": "down", "reason": "unauthorized"}}
+
+event: violation.created
+id: 5
+data: {"type": "violation.created", "at": "2026-11-06T10:15:30.000Z", "data": {"id": "11111111-aaaa-4bbb-8ccc-000000000001", "severity": "high", "created_at": "2026-11-06T08:30:00.000Z", "acknowledged_at": null, "session_id": "f0a1b2c3-0001-4aaa-8bbb-000000000001", "rule": {"id": "aaaaaaaa-0001-4000-8000-000000000001", "name": "Impossible travel"}, "server": {"id": "5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51", "name": "Plex Living Room", "type": "plex"}, "user": {"id": "7a3e91c4-5d28-4b6f-8e10-2f4a6c8d0b13", "server_user_id": "a1b2c3d4-1111-4222-8333-444455556661", "username": "anna", "thumb_url": null, "avatar_url": "/api/v1/images/proxy?server=5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51&url=%2Fusers%2Fanna"}, "data": {"evidence": [{"groupIndex": 0, "matched": true, "match": "all", "conditions": [{"field": "travel_speed_kmh", "operator": "gt", "threshold": 500, "actual": 3413.6, "matched": true, "relatedSessionIds": ["f0a1b2c3-0002-4aaa-8bbb-000000000002"], "details": {"distance": 5120.4, "timeDeltaHours": 1.5, "previousLocation": {"lat": 48.1, "lon": 11.5, "city": "Valmora", "country": "Nordavia"}, "currentLocation": {"lat": -33.9, "lon": 151.2, "city": "Port Aster", "country": "Eastmark"}}}]}], "relatedSessionIds": ["f0a1b2c3-0002-4aaa-8bbb-000000000002"], "ruleName": "Impossible travel", "matchedGroups": [0], "ipAddress": "192.0.2.88"}}}
+
+event: library.scanned
+id: 6
+data: {"type": "library.scanned", "at": "2026-11-06T10:15:31.000Z", "data": {}}
+
+event: stream.stopped
+id: 7
+data: {"type": "stream.stopped", "at": "2026-11-06T10:16:00.000Z", "data": {"id": "f0a1b2c3-0002-4aaa-8bbb-000000000002", "server_id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30", "stream": {"id": "f0a1b2c3-0002-4aaa-8bbb-000000000002", "server_id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30", "server_name": "Emby Study", "server_type": "emby", "username": "Luca", "user_thumb": null, "user_avatar_url": null, "media_type": "episode", "media_title": "Low Tide", "show_title": "Harbor Lights", "season_number": 2, "episode_number": 5, "year": 2019, "artist_name": null, "album_name": null, "track_number": null, "disc_number": null, "thumb_path": null, "poster_url": "/api/v1/images/proxy?server=9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30&url=%2FItems%2F9981%2FImages%2FPrimary&width=300&height=450", "duration_ms": 2700000, "media_id": "d1d1d1d1-0000-4000-8000-0000000000b2", "show_media_id": "d1d1d1d1-0000-4000-8000-0000000000b3", "imdb_id": null, "tmdb_id": 1396, "tvdb_id": 81189, "rating_key": "9981", "parent_rating_key": null, "grandparent_rating_key": null, "library_id": "tv", "genres": ["Crime"], "state": "paused", "progress_ms": 900000, "started_at": "2026-11-06T10:01:00.000Z", "is_transcode": false, "video_decision": "directplay", "audio_decision": "directplay", "bitrate": 3500, "source_video_codec": "h264", "source_audio_codec": "aac", "source_audio_channels": 2, "source_video_width": 1920, "source_video_height": 1080, "source_video_details": {"bitrate": 3300, "framerate": "25", "dynamicRange": "SDR"}, "source_audio_details": {"bitrate": 192, "channelLayout": "stereo", "language": "eng"}, "stream_video_codec": "h264", "stream_audio_codec": "aac", "stream_video_details": {"bitrate": 3300, "width": 1920, "height": 1080, "framerate": "25", "dynamicRange": "SDR"}, "stream_audio_details": {"bitrate": 192, "channels": 2}, "transcode_info": {"containerDecision": "directplay", "sourceContainer": "mp4", "streamContainer": "mp4"}, "subtitle_info": {}, "resolution": "1080p", "source_video_codec_display": "H.264", "source_audio_codec_display": "AAC", "audio_channels_display": "2.0", "stream_video_codec_display": "H.264", "stream_audio_codec_display": "AAC", "device": "Study Laptop", "player": "Chrome", "product": "Emby Web", "platform": "Windows"}}}
+

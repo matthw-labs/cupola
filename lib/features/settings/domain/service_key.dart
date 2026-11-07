@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:cupola/core/service_glyphs.dart';
 import 'package:cupola/core/theme.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_version.dart';
 import 'package:cupola/features/truenas/domain/truenas_version.dart';
 
 enum ServiceKey {
@@ -22,6 +23,8 @@ enum ServiceKey {
   nginxProxyManager,
   jellyfin,
   plex,
+  emby,
+  tracearr,
 }
 
 /// High-level grouping used to organise services across the app.
@@ -73,7 +76,10 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.prowlarr ||
     ServiceKey.sabnzbd ||
     ServiceKey.nzbget => ServiceDomain.downloads,
-    ServiceKey.jellyfin || ServiceKey.plex => ServiceDomain.stream,
+    ServiceKey.jellyfin ||
+    ServiceKey.plex ||
+    ServiceKey.emby ||
+    ServiceKey.tracearr => ServiceDomain.stream,
     ServiceKey.truenas ||
     ServiceKey.dockge ||
     ServiceKey.unraid ||
@@ -116,6 +122,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.unraid => 'Unraid',
     ServiceKey.jellyfin => 'Jellyfin',
     ServiceKey.plex => 'Plex',
+    ServiceKey.emby => 'Emby',
+    ServiceKey.tracearr => 'Tracearr',
   };
 
   /// What the service is for, in a word or two: the line under "Set up X"
@@ -130,7 +138,10 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.prowlarr => 'Indexers',
     ServiceKey.qbittorrent || ServiceKey.transmission => 'Torrent client',
     ServiceKey.sabnzbd || ServiceKey.nzbget => 'Usenet client',
-    ServiceKey.jellyfin || ServiceKey.plex => 'Streaming',
+    ServiceKey.jellyfin || ServiceKey.plex || ServiceKey.emby => 'Streaming',
+    // It watches the media servers rather than serving media: the word is the
+    // one Tracearr uses of itself.
+    ServiceKey.tracearr => 'Monitoring',
     ServiceKey.truenas || ServiceKey.unraid => 'Server',
     ServiceKey.dockge => 'Containers',
     ServiceKey.nginxProxyManager => 'Reverse proxy',
@@ -179,6 +190,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.unraid => ServiceGlyphs.unraid,
     ServiceKey.jellyfin => ServiceGlyphs.jellyfin,
     ServiceKey.plex => ServiceGlyphs.plex,
+    ServiceKey.emby => ServiceGlyphs.emby,
+    ServiceKey.tracearr => ServiceGlyphs.tracearr,
   };
 
   /// What the interface paints for this service: the neutral lamp, the same
@@ -223,6 +236,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.unraid => AppColors.unraid,
     ServiceKey.jellyfin => AppColors.jellyfin,
     ServiceKey.plex => AppColors.plex,
+    ServiceKey.emby => AppColors.emby,
+    ServiceKey.tracearr => AppColors.tracearr,
   };
 
   /// Whether this service authenticates with a single API key rather than a
@@ -261,14 +276,16 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.sabnzbd ||
     ServiceKey.unraid ||
     ServiceKey.jellyfin ||
-    ServiceKey.plex => true,
+    ServiceKey.plex ||
+    ServiceKey.emby ||
+    ServiceKey.tracearr => true,
   };
 
   /// Whether the library this service serves has to be entered through a chosen
   /// person, so the settings screen offers a viewer picker once it connects.
   ///
-  /// True for Jellyfin alone, and structurally rather than by preference: a
-  /// Jellyfin API key authenticates as an administrator with **no user
+  /// True for Jellyfin and Emby, and structurally rather than by preference: a
+  /// MediaBrowser API key authenticates as an administrator with **no user
   /// attached**, so every user-scoped question (resume positions, next up,
   /// unplayed) needs a `userId` supplied explicitly. Plex is excluded because
   /// its token *is* its user and `/library/*` accepts no impersonation
@@ -276,7 +293,93 @@ extension ServiceKeyExtension on ServiceKey {
   /// capability so the shared settings screen inserts the control the same way
   /// it decides on `SearchHeadroomCard.appliesTo`, rather than naming a
   /// `ServiceKey` inline.
-  bool get needsViewerSelection => this == ServiceKey.jellyfin;
+  bool get needsViewerSelection => speaksMediaBrowser;
+
+  /// A media server: it holds libraries and items, says who is playing, and
+  /// a `StreamServerClient` reaches it.
+  ///
+  /// What [ServiceDomain.stream] used to mean in code before the domain held
+  /// anything else: the Stream band is a grouping, this is a capability. A
+  /// site that reads libraries, items, sessions or a server's own player asks
+  /// this, never the domain, so a service that joins the band without being a
+  /// media server is never handed a media server's providers.
+  ///
+  /// An exhaustive switch, so the next service declares what it is.
+  bool get isMediaServer => switch (this) {
+    ServiceKey.jellyfin || ServiceKey.plex || ServiceKey.emby => true,
+    ServiceKey.seerr ||
+    ServiceKey.radarr ||
+    ServiceKey.sonarr ||
+    ServiceKey.lidarr ||
+    ServiceKey.qbittorrent ||
+    ServiceKey.transmission ||
+    ServiceKey.bazarr ||
+    ServiceKey.truenas ||
+    ServiceKey.dockge ||
+    ServiceKey.prowlarr ||
+    ServiceKey.readarr ||
+    ServiceKey.sabnzbd ||
+    ServiceKey.nzbget ||
+    ServiceKey.unraid ||
+    ServiceKey.nginxProxyManager ||
+    ServiceKey.tracearr => false,
+  };
+
+  /// Says who is playing now: its answer becomes rows of Now playing,
+  /// Watching now, a room's figure and its light, and the Stack's counts.
+  ///
+  /// Every media server does, and Tracearr, which only watches media servers
+  /// ([isMediaServer] stays false for it): it is read by its own arm of the
+  /// session plumbing, never through a media server's backend, and its rows
+  /// are merged with the servers' own (`streamActivityProvider`).
+  ///
+  /// An exhaustive switch, so the next service declares whether it does.
+  bool get givesSessions => switch (this) {
+    ServiceKey.jellyfin ||
+    ServiceKey.plex ||
+    ServiceKey.emby ||
+    ServiceKey.tracearr => true,
+    ServiceKey.seerr ||
+    ServiceKey.radarr ||
+    ServiceKey.sonarr ||
+    ServiceKey.lidarr ||
+    ServiceKey.qbittorrent ||
+    ServiceKey.transmission ||
+    ServiceKey.bazarr ||
+    ServiceKey.truenas ||
+    ServiceKey.dockge ||
+    ServiceKey.prowlarr ||
+    ServiceKey.readarr ||
+    ServiceKey.sabnzbd ||
+    ServiceKey.nzbget ||
+    ServiceKey.unraid ||
+    ServiceKey.nginxProxyManager => false,
+  };
+
+  /// Speaks the MediaBrowser API (Emby, and Jellyfin, which forked it): an API key with no
+  /// user behind it (so [needsViewerSelection]), sessions that take Pause and
+  /// a message besides Stop, and a server-wide admin console.
+  bool get speaksMediaBrowser =>
+      this == ServiceKey.jellyfin || this == ServiceKey.emby;
+
+  /// Whether listing the libraries is an administrator's read: Jellyfin
+  /// refuses `/Library/VirtualFolders` to a household member's token. Emby
+  /// answers its `/Library/VirtualFolders/Query` to any signed-in user
+  /// (measured on 4.10.2: a member's token gets the list, and a 403 on Users,
+  /// Devices and Tasks), so there a member's Libraries is a list, not a note
+  /// that she needs an administrator.
+  bool get librariesNeedAdministrator => this == ServiceKey.jellyfin;
+
+  /// Its shell mounts `ConnectionInViewScope`, so the page header names the
+  /// connection the visit has in view and the shell's lens strip stays quiet
+  /// at a tab's root (a second chip would read the location instead and could
+  /// disagree).
+  ///
+  /// The Stream band's shells all do, which is why the strip asked the domain
+  /// before this had a name. It is the band's, not [isMediaServer]'s: a
+  /// service in the band whose shell does not mount the scope is excluded
+  /// here, in this getter, never at the strip.
+  bool get mountsConnectionInView => domain == ServiceDomain.stream;
 
   /// The port this service listens on out of the box.
   ///
@@ -301,8 +404,10 @@ extension ServiceKeyExtension on ServiceKey {
     // hostnames it fronts. The admin interface, which is the only thing
     // carrying an API, listens separately.
     ServiceKey.nginxProxyManager => 81,
-    ServiceKey.jellyfin => 8096,
+    ServiceKey.jellyfin || ServiceKey.emby => 8096,
     ServiceKey.plex => 32400,
+    // The port its container image publishes.
+    ServiceKey.tracearr => 3000,
     ServiceKey.dockge => 5001,
     // Both ship a TLS web UI on the standard port.
     ServiceKey.truenas || ServiceKey.unraid => 443,
@@ -324,7 +429,8 @@ extension ServiceKeyExtension on ServiceKey {
   /// string, a login, a WebSocket call) or is a sign-in pair.
   ///
   /// Jellyfin's is `X-Emby-Token`: its client sends the token there whenever
-  /// the connection's access holds `Authorization` for a proxy.
+  /// the connection's access holds `Authorization` for a proxy. Emby's is the
+  /// same header, always: it has no other.
   ///
   /// Exhaustive, like [usesApiKey], so a new service has to answer.
   String? get credentialHeader => switch (this) {
@@ -337,14 +443,16 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.readarr ||
     ServiceKey.unraid => 'X-Api-Key',
     ServiceKey.plex => 'X-Plex-Token',
-    ServiceKey.jellyfin => 'X-Emby-Token',
+    ServiceKey.jellyfin || ServiceKey.emby => 'X-Emby-Token',
     ServiceKey.sabnzbd ||
     ServiceKey.truenas ||
     ServiceKey.dockge ||
     ServiceKey.qbittorrent ||
     ServiceKey.transmission ||
     ServiceKey.nzbget ||
-    ServiceKey.nginxProxyManager => null,
+    ServiceKey.nginxProxyManager ||
+    // Its key travels as `Authorization: Bearer`, which `ownHeaders` holds.
+    ServiceKey.tracearr => null,
   };
 
   /// Every header this service's own client sets, lower-cased: its
@@ -352,9 +460,9 @@ extension ServiceKeyExtension on ServiceKey {
   /// access header by one of these names would never be sent, because the
   /// service's own header wins (`guardedDio`), so the Access row refuses it.
   ///
-  /// `Authorization` is here for the three services that sign in with it
-  /// (NZBGet and Transmission with Basic, Nginx Proxy Manager with a bearer
-  /// token) and not for Jellyfin, whose token moves to `X-Emby-Token` and
+  /// `Authorization` is here for the four services that sign in with it
+  /// (NZBGet and Transmission with Basic, Nginx Proxy Manager and Tracearr with
+  /// a bearer token) and not for Jellyfin, whose token moves to `X-Emby-Token` and
   /// leaves `Authorization` to the proxy.
   Set<String> get ownHeaders => switch (this) {
     ServiceKey.plex => const {
@@ -370,7 +478,8 @@ extension ServiceKeyExtension on ServiceKey {
       'x-transmission-session-id',
     },
     ServiceKey.nzbget ||
-    ServiceKey.nginxProxyManager => const {'authorization'},
+    ServiceKey.nginxProxyManager ||
+    ServiceKey.tracearr => const {'authorization'},
     ServiceKey.qbittorrent => const {'referer', 'origin'},
     _ => {?credentialHeader?.toLowerCase()},
   };
@@ -407,7 +516,11 @@ extension ServiceKeyExtension on ServiceKey {
     // only ever shown sessions it may control, so no write Cupola draws can be
     // refused (see `jellyfin_client.dart`). What it loses are reads, a read
     // scope `jellyfin_provider.dart` answers.
-    ServiceKey.jellyfin => false,
+    ServiceKey.jellyfin || ServiceKey.emby => false,
+    // The public key reads everything and is the only credential the
+    // connection needs; the owner's session, when it comes, is a second
+    // credential with its own job, not a narrower scope of this one.
+    ServiceKey.tracearr => false,
     // One key compared for equality, or one account with no role: nothing to
     // be narrower than. SABnzbd's NZB key and NZBGet's add-only user are
     // narrower, but they cannot *read* either, which makes them a connection
@@ -477,7 +590,9 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.readarr ||
     ServiceKey.sabnzbd ||
     ServiceKey.unraid ||
-    ServiceKey.jellyfin => 'api_key',
+    ServiceKey.jellyfin ||
+    ServiceKey.emby ||
+    ServiceKey.tracearr => 'api_key',
   };
 
   /// Whether this service may hold more than one instance.
@@ -531,6 +646,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.seerr => 'Settings → General → API Key',
     ServiceKey.sabnzbd => 'Config → General → API Key',
     ServiceKey.jellyfin => 'Dashboard → Advanced → API Keys',
+    ServiceKey.emby => 'Settings → Advanced → API Keys',
+    ServiceKey.tracearr => 'Settings → Data & API → API',
     ServiceKey.truenas => 'Credentials → API Keys',
     ServiceKey.unraid => 'Settings → Management Access → API Keys',
     ServiceKey.plex => 'any item → Get Info → View XML → copy X-Plex-Token',
@@ -578,6 +695,20 @@ extension ServiceKeyExtension on ServiceKey {
     // two, and the modern one is a dead end here: a JWT expires after seven
     // days and can only be refreshed through plex.tv, which this connection
     // never calls. Saying so up front beats a week of working software.
+    // Emby's own wording: the gear opens "Settings" and the key is made with
+    // "New API Key". Like Jellyfin's, it is an administrator's and has no user.
+    ServiceKey.emby =>
+      'Create an API key under Settings → Advanced → API Keys with New '
+          'API Key. The key authenticates as an administrator but carries no '
+          'user of its own, so pick whose watch state to read below once the '
+          'connection works.',
+    // The public key is the one credential, and it is Tracearr's to show: it
+    // sits in the API card with a Generate Key button when none exists yet.
+    ServiceKey.tracearr =>
+      'Requires Tracearr $kTracearrMinVersion or newer. Copy the API key under '
+          'Settings → Data & API → API, or press Generate Key if there is none '
+          'yet. It begins trr_pub_ and only reads, which is all this '
+          'connection does.',
     ServiceKey.plex =>
       'Open any item in Plex Web, choose Get Info → View XML, and copy '
           'the X-Plex-Token from the address bar. This connection talks to '
@@ -646,6 +777,12 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.jellyfin =>
       'The key signs in as an administrator but carries no user of its '
           'own, so pick whose watch state to read in Settings afterwards.',
+    ServiceKey.emby =>
+      'The key signs in as an administrator but carries no user of its '
+          'own, so pick whose watch state to read in Settings afterwards.',
+    ServiceKey.tracearr =>
+      'It needs Tracearr $kTracearrMinVersion or newer, and the key begins '
+          'trr_pub_.',
     ServiceKey.plex =>
       'It must be a long-lived device token: one beginning "eyJ" expires '
           'in 7 days and Cupola cannot renew it without contacting plex.tv.',
@@ -693,6 +830,8 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.unraid => 'GraphQL',
     ServiceKey.jellyfin => 'v10',
     ServiceKey.plex => 'v1',
+    ServiceKey.emby => 'v4',
+    ServiceKey.tracearr => 'v2',
   };
 
   /// The endpoint used to prove a service is answering.
@@ -702,10 +841,10 @@ extension ServiceKeyExtension on ServiceKey {
   /// API), NZBGet (JSON-RPC) and Unraid (GraphQL), each handled by its own
   /// branch in the version loader and in the credential verifier.
   ///
-  /// Jellyfin's and Plex's entries are **reachability probes, not credential
-  /// checks**: both are anonymous endpoints, and neither server reads the
+  /// Jellyfin's, Emby's and Plex's entries are **reachability probes, not
+  /// credential checks**: all are anonymous endpoints, and no server reads the
   /// `X-Api-Key` header the shared `ApiClient` sends, so a 2xx here says nothing
-  /// at all about the pasted credential. That is why those two verify through
+  /// at all about the pasted credential. That is why those three verify through
   /// their own clients first and only fall back to this table to explain a
   /// refusal (see `diagnoseCredentials`) and why the Dashboard's probe
   /// never reads this table for them at all.
@@ -723,6 +862,12 @@ extension ServiceKeyExtension on ServiceKey {
     // most common Stream misconfiguration and the one a generic timeout hides.
     ServiceKey.jellyfin => '/System/Info/Public',
     ServiceKey.plex => '/identity',
+    // Emby answers the same anonymous route under its `/emby` base path.
+    ServiceKey.emby => '/emby/System/Info/Public',
+    // Tracearr's keyless health route: it names the product and no version, so
+    // like the media servers' it proves an address, never a key. The key and
+    // the version are read by its own branches (`/api/v1/public/health`).
+    ServiceKey.tracearr => '/health',
     // Transmission (RPC envelope + session-id handshake) and Nginx Proxy
     // Manager (token exchange) join this group for the same reason: no plain
     // GET can separate "reachable" from "authenticated" for either.
@@ -767,7 +912,9 @@ extension ServiceKeyExtension on ServiceKey {
     // a single Jellyfin or Plex instance mixes films, shows and music, and
     // naming one of them would both misdescribe the server and read as a
     // duplicate of Radarr's or Sonarr's own label.
-    ServiceKey.jellyfin || ServiceKey.plex => 'libraries',
+    ServiceKey.jellyfin || ServiceKey.plex || ServiceKey.emby => 'libraries',
+    // What it watches over: the media servers it monitors.
+    ServiceKey.tracearr => 'servers',
   };
 
   String get routeParam => switch (this) {
@@ -790,7 +937,9 @@ extension ServiceKeyExtension on ServiceKey {
     ServiceKey.nzbget ||
     ServiceKey.unraid ||
     ServiceKey.jellyfin ||
-    ServiceKey.plex => name,
+    ServiceKey.plex ||
+    ServiceKey.emby ||
+    ServiceKey.tracearr => name,
   };
 
   String? extractHost(String? url) {
@@ -810,3 +959,18 @@ extension ServiceKeyExtension on ServiceKey {
     }
   }
 }
+
+/// The media servers, in registry order ([ServiceKeyExtension.isMediaServer]).
+///
+/// The one list a site walks when it means "every media server": never a
+/// literal `[ServiceKey.jellyfin, ServiceKey.plex]`, which a new media server
+/// would silently miss.
+final List<ServiceKey> mediaServers = List.unmodifiable(
+  ServiceKey.values.where((s) => s.isMediaServer),
+);
+
+/// The services that say who is playing now, in registry order
+/// ([ServiceKeyExtension.givesSessions]).
+final List<ServiceKey> sessionServices = List.unmodifiable(
+  ServiceKey.values.where((s) => s.givesSessions),
+);

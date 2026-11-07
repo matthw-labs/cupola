@@ -8,6 +8,7 @@ import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/core/network/host_reach.dart';
 import 'package:cupola/core/status/silence_clock.dart';
 import 'package:cupola/features/dockge/data/dockge_client.dart';
+import 'package:cupola/features/emby/data/emby_client.dart';
 import 'package:cupola/features/jellyfin/data/jellyfin_client.dart';
 import 'package:cupola/features/plex/data/plex_client.dart';
 import 'package:cupola/features/dockge/data/dockge_service.dart';
@@ -27,6 +28,7 @@ import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/npm/data/npm_client.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/transmission/presentation/transmission_provider.dart';
 import 'package:cupola/features/truenas/data/truenas_service.dart';
 import 'package:cupola/features/truenas/data/truenas_ws_client.dart';
@@ -560,18 +562,45 @@ Future<String?> _loadVersion(
     );
   }
 
-  // The two media servers, through their own clients: each authenticates with
+  // The media servers, through their own clients: each authenticates with
   // a header the shared `ApiClient` does not send, and each one's status route
   // is anonymous, so the generic branch below read any token as answering.
-  if (service == ServiceKey.jellyfin) {
-    final client = JellyfinClient(
+  if (service == ServiceKey.jellyfin || service == ServiceKey.emby) {
+    final MediaBrowserClient client = service == ServiceKey.emby
+        ? EmbyClient(
+            baseUrl: reach.url,
+            apiKey: instance.credential,
+            pinnedCertFingerprint: reach.pin,
+            accessHeaders: reach.access.headers(),
+          )
+        : JellyfinClient(
+            baseUrl: reach.url,
+            apiKey: instance.credential,
+            pinnedCertFingerprint: reach.pin,
+            accessHeaders: reach.access.headers(),
+          );
+    return _versionOrNull(
+      () async => await client.checkCredentialAndVersion() ?? '',
+      timeout: const Duration(seconds: 6),
+      close: client.close,
+    );
+  }
+
+  // Tracearr's `/health` is anonymous too: its own authenticated read says the
+  // key is accepted, who answered, and whether the API v2 is there. A version
+  // below the minimum throws, which is the probe's "did not answer as usable".
+  if (service == ServiceKey.tracearr) {
+    final client = TracearrClient(
       baseUrl: reach.url,
       apiKey: instance.credential,
       pinnedCertFingerprint: reach.pin,
       accessHeaders: reach.access.headers(),
     );
     return _versionOrNull(
-      () async => await client.checkCredentialAndVersion() ?? '',
+      () async {
+        final health = await client.checkCredentialAndVersion();
+        return health.parsedVersion?.toString() ?? health.version ?? '';
+      },
       timeout: const Duration(seconds: 6),
       close: client.close,
     );
@@ -591,6 +620,10 @@ Future<String?> _loadVersion(
       close: client.close,
     );
   }
+
+  // Past both arms above, so none is left: a media server on the generic
+  // branch below would be read as answering whatever key it is given.
+  assert(!service.isMediaServer, '${service.name} has no credential probe');
 
   if (service == ServiceKey.nzbget) {
     // The connection's own client, for the reason SABnzbd's is.

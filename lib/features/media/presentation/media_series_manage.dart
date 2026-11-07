@@ -18,7 +18,9 @@ import 'package:cupola/features/media/domain/media_series_manage.dart';
 import 'package:cupola/features/media/domain/media_subtitles.dart';
 import 'package:cupola/features/media/presentation/media_episode_providers.dart';
 import 'package:cupola/features/media/presentation/media_manage_parts.dart';
+import 'package:cupola/features/media/domain/media_key.dart';
 import 'package:cupola/features/media/presentation/media_parts.dart';
+import 'package:cupola/features/media/presentation/media_watched_by.dart';
 import 'package:cupola/features/release_search/domain/release_search_target.dart';
 import 'package:cupola/features/release_search/presentation/release_search_entry.dart';
 import 'package:cupola/features/series/data/sonarr_service.dart';
@@ -54,10 +56,15 @@ class MediaSeriesManage extends ConsumerWidget {
     required this.copies,
     required this.title,
     required this.onChanged,
+    this.mediaKey,
     this.subtitles,
     this.now,
     this.more = const [],
   }) : assert(copies.length > 0, 'nothing to manage');
+
+  /// The title's page, whose Watched by the removal sheet says a line of
+  /// (`Watched by 3 · last 12 days ago`); null says nothing of it.
+  final MediaKey? mediaKey;
 
   /// The page's rows after Sonarr's own: what goes through Seerr.
   final List<Widget> more;
@@ -294,6 +301,7 @@ class MediaSeriesManage extends ConsumerWidget {
       context: context,
       title: removal.title,
       message: removal.message,
+      note: mediaKey == null ? null : mediaWatchedByNote(ref, mediaKey!),
       icon: Icons.delete_outline_rounded,
       cancelLabel: 'Keep it',
       confirmLabel: removal.confirm(deleteFiles: false, exclude: false),

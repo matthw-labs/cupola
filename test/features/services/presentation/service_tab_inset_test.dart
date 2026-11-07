@@ -77,6 +77,18 @@ import 'package:cupola/features/services/presentation/services_provider.dart';
 import 'package:cupola/features/services/domain/service_summary.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/presentation/stream_libraries_screen.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_history.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_stream.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_user.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 import 'package:cupola/features/stream/presentation/widgets/stream_now_playing_section.dart';
 import 'package:cupola/features/transmission/presentation/transmission_provider.dart';
 import 'package:cupola/features/transmission/presentation/transmission_tab_screens.dart';
@@ -1017,6 +1029,53 @@ void main() {
     );
   });
 
+  group('Tracearr\'s tabs clear the glass bars', () {
+    // Every list tab of Tracearr is a `ServiceListPage` whose first read has
+    // not come back: the skeleton is the first content, and it starts below
+    // the tab bar on a notched phone.
+    final pending = _PendingTracearr();
+
+    for (final (name, tab, screen) in const <(String, ServiceTab, Widget)>[
+      (
+        'Live',
+        ServiceTab.live,
+        TracearrLiveScreen(topPadding: _hostedTopPadding),
+      ),
+      (
+        'History',
+        ServiceTab.history,
+        TracearrHistoryScreen(topPadding: _hostedTopPadding),
+      ),
+      (
+        'Users',
+        ServiceTab.users,
+        TracearrUsersScreen(topPadding: _hostedTopPadding),
+      ),
+      (
+        'Violations',
+        ServiceTab.violations,
+        TracearrViolationsScreen(topPadding: _hostedTopPadding),
+      ),
+    ]) {
+      testWidgets('Tracearr $name starts below the tab bar', (tester) async {
+        await pumpHosted(
+          tester,
+          service: ServiceKey.tracearr,
+          tab: tab,
+          overrides: [
+            tracearrClientProvider.overrideWithValue(pending),
+            tracearrLiveProvider.overrideWith(_PendingLive.new),
+            // The feed would open a stream on a client that never answers.
+            tracearrLiveFeedProvider.overrideWith((ref) {}),
+          ],
+          child: screen,
+        );
+
+        expectClearsTheBar(tester, find.byType(ListRowsShimmer));
+      });
+    }
+  });
+
   group('The media servers\' tabs clear the glass bars', () {
     testWidgets('Jellyfin Users starts below the tab bar', (tester) async {
       await pumpHosted(
@@ -1192,3 +1251,36 @@ class _EmptyReadarr extends ReadarrService {
 
 /// A read that never answers, so a screen stays on its loading state.
 Future<T> _pending<T>() => Completer<T>().future;
+
+/// A Tracearr whose every list read is still out.
+class _PendingTracearr extends TracearrClient {
+  _PendingTracearr()
+    : super(baseUrl: 'http://tracearr.test', apiKey: 'trr_pub_test');
+
+  @override
+  Future<TracearrPage<TracearrHistoryEntry>> getHistory({
+    String? cursor,
+    int pageSize = 25,
+    TracearrHistoryFilter filter = const TracearrHistoryFilter(),
+  }) => _pending();
+
+  @override
+  Future<TracearrPage<TracearrUser>> getUsers({
+    String? cursor,
+    int pageSize = 25,
+    bool includeRemoved = false,
+  }) => _pending();
+
+  @override
+  Future<TracearrPage<TracearrViolation>> getViolations({
+    String? cursor,
+    int pageSize = 25,
+    TracearrViolationFilter filter = const TracearrViolationFilter(),
+  }) => _pending();
+}
+
+/// Tracearr's live list that never answers, so Live shows its skeleton.
+class _PendingLive extends TracearrLiveNotifier {
+  @override
+  Future<TracearrStreams> build() => Completer<TracearrStreams>().future;
+}

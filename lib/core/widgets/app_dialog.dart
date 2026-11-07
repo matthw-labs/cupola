@@ -26,12 +26,36 @@ class AppConfirmOption {
   });
 }
 
+/// A line of free text asked for inside [showAppConfirmDialog]: a word for
+/// whoever the action lands on (a message for the viewer whose stream is
+/// stopped).
+///
+/// Optional by nature: the dialog confirms with it empty, and says so in the
+/// [label] (`Message for Anna · optional`), never by refusing to go on.
+class AppConfirmField {
+  const AppConfirmField({required this.label, this.maxLength = 200});
+
+  /// What the field is for, as its floating label.
+  final String label;
+
+  /// The longest text it takes.
+  final int maxLength;
+}
+
 /// Result of [showAppConfirmDialog].
 class AppConfirmResult {
   final bool confirmed;
   final Map<String, bool> options;
 
-  const AppConfirmResult({required this.confirmed, this.options = const {}});
+  /// What was typed in the dialog's [AppConfirmField], trimmed; empty when
+  /// there was none or nothing was typed.
+  final String text;
+
+  const AppConfirmResult({
+    required this.confirmed,
+    this.options = const {},
+    this.text = '',
+  });
 
   static const cancelled = AppConfirmResult(confirmed: false);
 
@@ -142,6 +166,9 @@ typedef AppConfirmLabelFor = String Function(bool Function(String key) checked);
 /// key that might be held down by habit. A call site turns it on only for an
 /// action it can reverse. With the focus on a button, Enter presses that
 /// button; in a multiline field Enter stays a newline.
+///
+/// [note] is one line of what another service knows about the thing the
+/// action touches, drawn quietly under [message]; null draws nothing.
 Future<AppConfirmResult> showAppConfirmDialog({
   required BuildContext context,
   required String title,
@@ -151,10 +178,13 @@ Future<AppConfirmResult> showAppConfirmDialog({
   AppConfirmLabelFor? confirmLabelFor,
   String cancelLabel = 'Cancel',
   List<AppConfirmOption> options = const [],
+  AppConfirmField? field,
+  String? note,
   bool useRootNavigator = true,
   bool enterConfirms = false,
 }) async {
   final values = {for (final o in options) o.key: o.initialValue};
+  var typed = '';
   assert(
     confirmLabelFor == null ||
         confirmLabelFor((key) => values[key] ?? false) == confirmLabel,
@@ -201,6 +231,26 @@ Future<AppConfirmResult> showAppConfirmDialog({
             children: [
               if (message != null && message.isNotEmpty)
                 Text(message, style: theme.textTheme.bodyMedium),
+              // A fact another service holds about what the action touches,
+              // in the secondary ink under the sentence: it informs the
+              // choice and is no part of it (`Watched by 3 · last 12 days
+              // ago`).
+              if (note != null && note.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  note,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+              if (field != null) ...[
+                const SizedBox(height: AppSpacing.md),
+                _ConfirmTextField(
+                  field: field,
+                  onChanged: (value) => typed = value.trim(),
+                ),
+              ],
               if (options.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.md),
                 for (final opt in options)
@@ -238,18 +288,26 @@ Future<AppConfirmResult> showAppConfirmDialog({
               child: Text(cancelLabel),
             ),
             FilledButton(
-              onPressed: () => Navigator.of(
-                context,
-              ).pop(AppConfirmResult(confirmed: true, options: Map.of(values))),
+              onPressed: () => Navigator.of(context).pop(
+                AppConfirmResult(
+                  confirmed: true,
+                  options: Map.of(values),
+                  text: typed,
+                ),
+              ),
               child: Text(label),
             ),
           ],
         );
         if (!enterConfirms) return dialog;
         return _ConfirmScope(
-          onConfirm: () => Navigator.of(
-            context,
-          ).pop(AppConfirmResult(confirmed: true, options: Map.of(values))),
+          onConfirm: () => Navigator.of(context).pop(
+            AppConfirmResult(
+              confirmed: true,
+              options: Map.of(values),
+              text: typed,
+            ),
+          ),
           child: dialog,
         );
       },
@@ -257,6 +315,43 @@ Future<AppConfirmResult> showAppConfirmDialog({
   );
 
   return result ?? AppConfirmResult.cancelled;
+}
+
+/// The field of [showAppConfirmDialog]'s [AppConfirmField]. A widget of its
+/// own so the controller lives exactly as long as the field, as the typed
+/// dialog's does.
+class _ConfirmTextField extends StatefulWidget {
+  const _ConfirmTextField({required this.field, required this.onChanged});
+
+  final AppConfirmField field;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_ConfirmTextField> createState() => _ConfirmTextFieldState();
+}
+
+class _ConfirmTextFieldState extends State<_ConfirmTextField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TextField(
+    controller: _controller,
+    onChanged: widget.onChanged,
+    maxLength: widget.field.maxLength,
+    textInputAction: TextInputAction.done,
+    decoration: InputDecoration(
+      labelText: widget.field.label,
+      // The limit is held, not announced: a counter under a courtesy note
+      // makes a sentence feel like a form.
+      counterText: '',
+    ),
+  );
 }
 
 /// The heavier gate: a confirmation whose button stays inert until [phrase] (

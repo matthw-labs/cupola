@@ -1223,6 +1223,7 @@ class PlexClient implements StreamServerClient {
   /// Throws on a remote failure. The rail and the On deck tab are this one
   /// request and nothing else, so a swallowed failure drew "Nothing
   /// part-watched" about a server that never answered.
+  @override
   Future<List<StreamItem>> getContinueWatching({
     int count = kPlexLibraryPageSize,
     CancelToken? cancelToken,

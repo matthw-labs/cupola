@@ -1,0 +1,24 @@
+{
+  "Items": [
+    {
+      "Name": "Season 1",
+      "ServerId": "a88212fc366d449c8bbe2a34a9e4a91b",
+      "Id": "17",
+      "IndexNumber": 1,
+      "IsFolder": true,
+      "Type": "Season",
+      "UserData": {
+        "UnplayedItemCount": 2,
+        "PlaybackPositionTicks": 0,
+        "PlayCount": 0,
+        "IsFavorite": false,
+        "Played": false
+      },
+      "SeriesName": "Breaking Bad",
+      "SeriesId": "16",
+      "ImageTags": {},
+      "BackdropImageTags": []
+    }
+  ],
+  "TotalRecordCount": 1
+}

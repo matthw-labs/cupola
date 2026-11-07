@@ -40,7 +40,7 @@ The sheet adds no node of its own; the header reads as its text, and the close b
 
 Each sheet is drawn in the dark and the light room; the picker also on the desktop.
 
-- A picker with icon, accent and subtitle; qBittorrent's Add torrent form; `showScrollable` with its close button; no title and no accent; `showHandle: false`; a long title and subtitle.
+- A picker with icon, accent and subtitle; qBittorrent's Add torrent form; `showScrollable` with its close button; no title and no accent; `showHandle: false`; a long title and subtitle; Play with (`PlayWithSheet`, the body of the sheet `playWith` opens) for an Emby title (Emby, Emby in the browser) and, for contrast, a Jellyfin one (its apps and Jellyfin in the browser).
 - Text at 200%: the picker, and the long title and subtitle with the close button.
 - Desktop: the sheet in a window under 720; where there is room, the picker, the Add torrent form and the long list as dialogs, and the picker as a dialog at 200%.
 

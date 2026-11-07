@@ -1,0 +1,226 @@
+{
+  "data": [
+    {
+      "id": "f0a1b2c3-0001-4aaa-8bbb-000000000001",
+      "server_id": "5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51",
+      "server_name": "Plex Living Room",
+      "server_type": "plex",
+      "username": "Anna",
+      "user_thumb": "/library/users/anna/thumb",
+      "user_avatar_url": "/api/v1/images/proxy?server=5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51&url=%2Fusers%2Fanna%2Favatar",
+      "media_type": "movie",
+      "media_title": "The Lantern Keeper",
+      "show_title": null,
+      "season_number": null,
+      "episode_number": null,
+      "year": 2021,
+      "artist_name": null,
+      "album_name": null,
+      "track_number": null,
+      "disc_number": null,
+      "thumb_path": "/library/metadata/4410/thumb/1700000000",
+      "poster_url": "/api/v1/images/proxy?server=5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51&url=%2Flibrary%2Fmetadata%2F4410%2Fthumb%2F1700000000&width=300&height=450",
+      "duration_ms": 7080000,
+      "media_id": "d1d1d1d1-0000-4000-8000-0000000000a1",
+      "show_media_id": null,
+      "imdb_id": "tt0000001",
+      "tmdb_id": 603,
+      "tvdb_id": null,
+      "rating_key": "4410",
+      "parent_rating_key": null,
+      "grandparent_rating_key": null,
+      "library_id": "1",
+      "genres": [
+        "Drama",
+        "Fantasy"
+      ],
+      "state": "playing",
+      "progress_ms": 2610000,
+      "started_at": "2026-11-06T09:42:10.000Z",
+      "is_transcode": true,
+      "video_decision": "transcode",
+      "audio_decision": "copy",
+      "bitrate": 8200,
+      "source_video_codec": "hevc",
+      "source_audio_codec": "eac3",
+      "source_audio_channels": 6,
+      "source_video_width": 3840,
+      "source_video_height": 2160,
+      "source_video_details": {
+        "bitrate": 42000,
+        "framerate": "23.976",
+        "dynamicRange": "HDR10",
+        "aspectRatio": 1.78,
+        "profile": "main 10",
+        "level": "5.1",
+        "colorSpace": "bt2020",
+        "colorDepth": 10
+      },
+      "source_audio_details": {
+        "bitrate": 640,
+        "channelLayout": "5.1",
+        "language": "eng",
+        "sampleRate": 48000
+      },
+      "stream_video_codec": "h264",
+      "stream_audio_codec": "eac3",
+      "stream_video_details": {
+        "bitrate": 8000,
+        "width": 1920,
+        "height": 1080,
+        "framerate": "23.976",
+        "dynamicRange": "SDR"
+      },
+      "stream_audio_details": {
+        "bitrate": 640,
+        "channels": 6,
+        "language": "eng"
+      },
+      "transcode_info": {
+        "containerDecision": "transcode",
+        "sourceContainer": "mkv",
+        "streamContainer": "mpegts",
+        "hwRequested": true,
+        "hwDecoding": "videotoolbox",
+        "hwEncoding": "videotoolbox",
+        "speed": 1.4,
+        "throttled": false,
+        "reasons": [
+          "Video codec not supported",
+          "Video resolution above the client limit"
+        ]
+      },
+      "subtitle_info": {
+        "decision": "burn",
+        "codec": "srt",
+        "language": "ita",
+        "forced": false
+      },
+      "resolution": "1080p",
+      "source_video_codec_display": "HEVC",
+      "source_audio_codec_display": "EAC3",
+      "audio_channels_display": "5.1",
+      "stream_video_codec_display": "H.264",
+      "stream_audio_codec_display": "EAC3",
+      "device": "Living Room TV",
+      "player": "Plex for LG",
+      "product": "Plex for LG",
+      "platform": "webOS"
+    },
+    {
+      "id": "f0a1b2c3-0002-4aaa-8bbb-000000000002",
+      "server_id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30",
+      "server_name": "Emby Study",
+      "server_type": "emby",
+      "username": "Luca",
+      "user_thumb": null,
+      "user_avatar_url": null,
+      "media_type": "episode",
+      "media_title": "Low Tide",
+      "show_title": "Harbor Lights",
+      "season_number": 2,
+      "episode_number": 5,
+      "year": 2019,
+      "artist_name": null,
+      "album_name": null,
+      "track_number": null,
+      "disc_number": null,
+      "thumb_path": null,
+      "poster_url": "/api/v1/images/proxy?server=9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30&url=%2FItems%2F9981%2FImages%2FPrimary&width=300&height=450",
+      "duration_ms": 2700000,
+      "media_id": "d1d1d1d1-0000-4000-8000-0000000000b2",
+      "show_media_id": "d1d1d1d1-0000-4000-8000-0000000000b3",
+      "imdb_id": null,
+      "tmdb_id": 1396,
+      "tvdb_id": 81189,
+      "rating_key": "9981",
+      "parent_rating_key": null,
+      "grandparent_rating_key": null,
+      "library_id": "tv",
+      "genres": [
+        "Crime"
+      ],
+      "state": "paused",
+      "progress_ms": 900000,
+      "started_at": "2026-11-06T10:01:00.000Z",
+      "is_transcode": false,
+      "video_decision": "directplay",
+      "audio_decision": "directplay",
+      "bitrate": 3500,
+      "source_video_codec": "h264",
+      "source_audio_codec": "aac",
+      "source_audio_channels": 2,
+      "source_video_width": 1920,
+      "source_video_height": 1080,
+      "source_video_details": {
+        "bitrate": 3300,
+        "framerate": "25",
+        "dynamicRange": "SDR"
+      },
+      "source_audio_details": {
+        "bitrate": 192,
+        "channelLayout": "stereo",
+        "language": "eng"
+      },
+      "stream_video_codec": "h264",
+      "stream_audio_codec": "aac",
+      "stream_video_details": {
+        "bitrate": 3300,
+        "width": 1920,
+        "height": 1080,
+        "framerate": "25",
+        "dynamicRange": "SDR"
+      },
+      "stream_audio_details": {
+        "bitrate": 192,
+        "channels": 2
+      },
+      "transcode_info": {
+        "containerDecision": "directplay",
+        "sourceContainer": "mp4",
+        "streamContainer": "mp4"
+      },
+      "subtitle_info": {},
+      "resolution": "1080p",
+      "source_video_codec_display": "H.264",
+      "source_audio_codec_display": "AAC",
+      "audio_channels_display": "2.0",
+      "stream_video_codec_display": "H.264",
+      "stream_audio_codec_display": "AAC",
+      "device": "Study Laptop",
+      "player": "Chrome",
+      "product": "Emby Web",
+      "platform": "Windows"
+    }
+  ],
+  "summary": {
+    "total": 2,
+    "transcodes": 1,
+    "audio_transcodes": 0,
+    "direct_streams": 0,
+    "direct_plays": 1,
+    "total_bitrate": "11.7 Mbps",
+    "by_server": [
+      {
+        "server_id": "5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51",
+        "server_name": "Plex Living Room",
+        "total": 1,
+        "transcodes": 1,
+        "audio_transcodes": 0,
+        "direct_streams": 0,
+        "direct_plays": 0,
+        "total_bitrate": "8.2 Mbps"
+      },
+      {
+        "server_id": "9e7d2a44-31bc-4f08-a5d9-7c6b8e1f2a30",
+        "server_name": "Emby Study",
+        "total": 1,
+        "transcodes": 0,
+        "audio_transcodes": 0,
+        "direct_streams": 0,
+        "direct_plays": 1,
+        "total_bitrate": "3.5 Mbps"
+      }
+    ]
+  }
+}

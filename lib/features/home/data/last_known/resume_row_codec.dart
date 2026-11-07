@@ -29,11 +29,9 @@ ResumeRow? resumeRowFromJson(Object? json) {
   final connectionName = fields.text('connectionName');
   final item = streamItemFromJson(fields.raw('item'));
   if (fields.isBroken || item == null || instanceId == null) return null;
-  if (service != ServiceKey.jellyfin && service != ServiceKey.plex) {
-    return null;
-  }
+  if (service == null || !service.isMediaServer) return null;
   return (
-    service: service!,
+    service: service,
     instanceId: instanceId,
     connectionName: connectionName,
     item: item,

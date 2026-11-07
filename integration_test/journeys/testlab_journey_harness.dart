@@ -106,6 +106,8 @@ class LabEndpoints {
     ServiceKey.sabnzbd: (proxy: 28082, direct: 8082),
     ServiceKey.nzbget: (proxy: 26789, direct: 6789),
     ServiceKey.jellyfin: (proxy: 28096, direct: 8096),
+    ServiceKey.emby: (proxy: 28098, direct: 8097),
+    ServiceKey.tracearr: (proxy: 23000, direct: 3010),
     ServiceKey.plex: (proxy: 23240, direct: 32400),
     ServiceKey.dockge: (proxy: 25001, direct: 5001),
     ServiceKey.nginxProxyManager: (proxy: 28181, direct: 8181),
@@ -427,7 +429,16 @@ class Lab {
   static const Map<ServiceKey, String> _secretNames = {
     ServiceKey.seerr: 'CUPOLA_TESTLAB_SEERR_API_KEY',
     ServiceKey.jellyfin: 'CUPOLA_TESTLAB_JELLYFIN_TOKEN',
+    ServiceKey.emby: 'CUPOLA_TESTLAB_EMBY_TOKEN',
     ServiceKey.plex: 'CUPOLA_TESTLAB_PLEX_TOKEN',
+    ServiceKey.tracearr: 'CUPOLA_TESTLAB_TRACEARR_KEY',
+  };
+
+  /// The names the bootstrap gave the user a key-only server is read as. An
+  /// Emby API key belongs to no one, so the connection also names the
+  /// administrator it browses as; a Jellyfin token is a user's own.
+  static const Map<ServiceKey, String> _viewerNames = {
+    ServiceKey.emby: 'CUPOLA_TESTLAB_EMBY_USER_ID',
   };
 
   /// The names the bootstrap gave the pair of a service, when it wrote one.
@@ -481,12 +492,14 @@ class Lab {
         credential: apiKey,
       );
     }
+    final viewerName = _viewerNames[service];
     if (_secretNames[service] case final name?) {
       return ServiceInstance(
         id: id,
         service: service,
         url: url,
         credential: credentials.require(name),
+        viewerId: viewerName == null ? '' : credentials.require(viewerName),
       );
     }
     final pair = _pairNames[service];

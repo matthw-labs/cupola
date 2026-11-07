@@ -84,6 +84,12 @@ import 'package:cupola/features/settings/domain/connection_address.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_person_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_item_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
 import 'package:cupola/features/transmission/presentation/transmission_overview_screen.dart';
@@ -936,6 +942,8 @@ void main() {
         ServiceRoutes.npmOverview: NpmOverviewScreen,
         ServiceRoutes.jellyfinOverview: StreamOverviewScreen,
         ServiceRoutes.plexOverview: StreamOverviewScreen,
+        ServiceRoutes.embyOverview: StreamOverviewScreen,
+        ServiceRoutes.tracearrOverview: TracearrOverviewScreen,
       };
 
       for (final entry in overviews.entries) {
@@ -1284,6 +1292,7 @@ void main() {
       for (final entry in {
         ServiceRoutes.jellyfin: ServiceRoutes.jellyfinOverview,
         ServiceRoutes.plex: ServiceRoutes.plexOverview,
+        ServiceRoutes.emby: ServiceRoutes.embyOverview,
       }.entries) {
         router.go(entry.key);
         await tester.pumpAndSettle();
@@ -1301,6 +1310,53 @@ void main() {
       }
     });
 
+    testWidgets(
+      'Tracearr, in the band and not a media server, lands on its own '
+      'Overview',
+      (tester) async {
+        final container = await _pumpRouter(tester);
+        final router = container.read(routerProvider);
+
+        router.go(ServiceRoutes.tracearr);
+        await tester.pumpAndSettle();
+
+        expect(router.state.uri.toString(), ServiceRoutes.tracearrOverview);
+        expect(find.byType(TracearrOverviewScreen), findsOneWidget);
+        expect(find.byType(StreamOverviewScreen), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'a Tracearr person resolves from the path alone, under the tab it was '
+      'opened from, and a blank id goes back to Users',
+      (tester) async {
+        final container = await _pumpRouter(tester);
+        final router = container.read(routerProvider);
+
+        for (final location in [
+          '/stack/tracearr/users/9d7d8f7d-0e17-4f3a',
+          '/stack/tracearr/live/person/9d7d8f7d-0e17-4f3a',
+          '/stack/tracearr/history/person/9d7d8f7d-0e17-4f3a',
+          '/stack/tracearr/violations/person/9d7d8f7d-0e17-4f3a',
+          '/stack/tracearr/overview/person/9d7d8f7d-0e17-4f3a',
+        ]) {
+          router.go(location);
+          await tester.pumpAndSettle();
+
+          expect(router.state.uri.toString(), location);
+          final screen = tester.widget<TracearrPersonScreen>(
+            find.byType(TracearrPersonScreen),
+          );
+          expect(screen.userId, '9d7d8f7d-0e17-4f3a', reason: location);
+        }
+
+        router.go('/stack/tracearr/users/%20');
+        await tester.pumpAndSettle();
+        expect(router.state.uri.toString(), ServiceRoutes.tracearrUsers);
+        expect(find.byType(TracearrPersonScreen), findsNothing);
+      },
+    );
+
     testWidgets('every tab on the bar has a branch that resolves', (
       tester,
     ) async {
@@ -1310,7 +1366,7 @@ void main() {
       final container = await _pumpRouter(tester);
       final router = container.read(routerProvider);
 
-      for (final service in [ServiceKey.jellyfin, ServiceKey.plex]) {
+      for (final service in mediaServers) {
         for (final tab in tabsFor(service)!) {
           final location =
               '${ServiceRoutes.forService(service)}/${tab.segment}';
@@ -1942,6 +1998,42 @@ void main() {
         ServiceTab.tasks: find.byType(JellyfinTasksScreen),
         ServiceTab.activity: find.byType(JellyfinActivityScreen),
       },
+      ServiceKey.emby: {
+        ServiceTab.overview: find.byWidgetPredicate(
+          (widget) =>
+              widget is StreamOverviewScreen &&
+              widget.service == ServiceKey.emby,
+          description: 'StreamOverviewScreen(emby)',
+        ),
+        ServiceTab.libraries: find.byWidgetPredicate(
+          (widget) =>
+              widget is StreamLibrariesScreen &&
+              widget.service == ServiceKey.emby,
+          description: 'StreamLibrariesScreen(emby)',
+        ),
+        // Jellyfin's four screens, told which server they are on.
+        for (final entry in {
+          ServiceTab.users: JellyfinUsersScreen,
+          ServiceTab.devices: JellyfinDevicesScreen,
+          ServiceTab.tasks: JellyfinTasksScreen,
+          ServiceTab.activity: JellyfinActivityScreen,
+        }.entries)
+          entry.key: find.byWidgetPredicate(
+            (widget) =>
+                widget.runtimeType == entry.value &&
+                _serviceOf(widget) == ServiceKey.emby,
+            description: '${entry.value}(emby)',
+          ),
+      },
+      // Its own five screens: Tracearr is in the Stream band and is not a media
+      // server.
+      ServiceKey.tracearr: {
+        ServiceTab.overview: find.byType(TracearrOverviewScreen),
+        ServiceTab.live: find.byType(TracearrLiveScreen),
+        ServiceTab.history: find.byType(TracearrHistoryScreen),
+        ServiceTab.users: find.byType(TracearrUsersScreen),
+        ServiceTab.violations: find.byType(TracearrViolationsScreen),
+      },
       ServiceKey.plex: {
         ServiceTab.overview: find.byWidgetPredicate(
           (widget) =>
@@ -2201,3 +2293,13 @@ Future<ProviderContainer> _pumpRouter(
 
   return container;
 }
+
+/// The server one of Jellyfin's four tab screens is told it is on, or null for
+/// any other widget.
+ServiceKey? _serviceOf(Widget widget) => switch (widget) {
+  JellyfinUsersScreen(:final service) ||
+  JellyfinDevicesScreen(:final service) ||
+  JellyfinTasksScreen(:final service) ||
+  JellyfinActivityScreen(:final service) => service,
+  _ => null,
+};

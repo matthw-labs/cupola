@@ -70,6 +70,49 @@ Future<AppConfirmResult> _approveByEnter(BuildContext context) =>
       enterConfirms: true,
     );
 
+/// Tracearr's Stop: a verb, the other button saying the stream goes on, and
+/// an optional word for the viewer.
+Future<AppConfirmResult> _stop(BuildContext context) => showAppConfirmDialog(
+  context: context,
+  useRootNavigator: false,
+  title: 'Stop this stream?',
+  message: 'Anna is watching Nosferatu. They can start it again straight away.',
+  icon: Icons.stop_circle_outlined,
+  confirmLabel: 'Stop stream',
+  cancelLabel: 'Keep playing',
+  field: const AppConfirmField(label: 'Message for Anna\u00A0· optional'),
+);
+
+/// Removing a movie from Radarr, with what Tracearr knows of who watched it:
+/// a quiet line under the sentence, and nothing of it when Tracearr is silent.
+Future<AppConfirmResult> _removeWatched(
+  BuildContext context, {
+  String? note = 'Watched by 3\u00A0· last 12 days ago',
+}) => showAppConfirmDialog(
+  context: context,
+  useRootNavigator: false,
+  title: 'Remove Big Buck Bunny from Radarr?',
+  message: 'Radarr stops looking for it.',
+  note: note,
+  icon: Icons.delete_outline_rounded,
+  cancelLabel: 'Keep it',
+  confirmLabel: 'Remove from Radarr',
+  confirmLabelFor: (checked) =>
+      checked('files') ? 'Remove and delete 1.2 GB' : 'Remove from Radarr',
+  options: const [
+    AppConfirmOption(
+      key: 'files',
+      label: 'Also delete 1.2 GB of files',
+      subtitle: 'Its folder on your server. This cannot be undone.',
+    ),
+    AppConfirmOption(
+      key: 'exclude',
+      label: "Don't add it again",
+      subtitle: "Keeps Radarr's import lists from bringing it back",
+    ),
+  ],
+);
+
 Future<AppConfirmResult> _grab(BuildContext context) => showAppConfirmDialog(
   context: context,
   useRootNavigator: false,
@@ -174,6 +217,24 @@ void main() {
         height: 300,
       ),
       _scene(
+        'With a field · Stop this stream? · an optional word for the viewer, '
+        'the other button saying the stream goes on',
+        _stop,
+        height: 400,
+      ),
+      _scene(
+        'With a note · the removal of a movie · Watched by 3 and when, from '
+        'Tracearr, quiet under the sentence and above the options',
+        _removeWatched,
+        height: 520,
+      ),
+      _scene(
+        'With a note · nobody has watched it: said only when Tracearr '
+        'answered for the title',
+        (context) => _removeWatched(context, note: 'Nobody has watched it'),
+        height: 520,
+      ),
+      _scene(
         'Standard with an icon · Approve this request? · the icon in onSurface',
         _approve,
         height: 320,
@@ -230,6 +291,13 @@ void main() {
         'both buttons at twice the reading size',
         _grab,
         height: 640,
+        textScale: catalogTextScale,
+      ),
+      _scene(
+        'Text at 200% · the dialog with a field: the label, the message and '
+        'both buttons',
+        _stop,
+        height: 1100,
         textScale: catalogTextScale,
       ),
       _scene(

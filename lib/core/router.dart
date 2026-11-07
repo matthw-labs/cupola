@@ -124,6 +124,13 @@ import 'package:cupola/features/transmission/presentation/transmission_tab_scree
 import 'package:cupola/features/nzbget/presentation/nzbget_overview_screen.dart';
 import 'package:cupola/features/nzbget/presentation/nzbget_screen.dart';
 import 'package:cupola/features/nzbget/presentation/nzbget_tab_screens.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_person_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_libraries_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
 import 'package:cupola/features/stream/presentation/stream_item_screen.dart';
@@ -1317,6 +1324,76 @@ RouteBase _npmRoutes() => _serviceRoutes(
   },
 );
 
+/// Tracearr: the guardian of the media servers, in the Stream band and not one
+/// of them, so it is not [_streamRoutes]: it has no libraries and no item tree,
+/// and five tabs of its own.
+///
+/// Its shell mounts `ConnectionInViewScope` like the Stream band's (the page
+/// header names the connection the visit has in view). Live and History rows
+/// open a title, which is why Tracearr is in
+/// `ServiceRoutes.mediaMountServices`: the title's page lands under the tab it
+/// was opened from, and Back returns to the row.
+RouteBase _tracearrRoutes() => _serviceRoutes(
+  ServiceKey.tracearr,
+  scope: (state, shell) => ConnectionInViewScope(
+    service: ServiceKey.tracearr,
+    location: state.uri,
+    child: shell,
+  ),
+  roots: {
+    ServiceTab.overview: (state) =>
+        const TracearrOverviewScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.live: (state) =>
+        const TracearrLiveScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.history: (state) =>
+        const TracearrHistoryScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.users: (state) =>
+        const TracearrUsersScreen(topPadding: _serviceTabTopPadding),
+    ServiceTab.violations: (state) => TracearrViolationsScreen(
+      topPadding: _serviceTabTopPadding,
+      // From a person's page: that person's violations only.
+      userId: state.uri.queryParameters['user'],
+      // From a notification of several: the Tracearr they came off.
+      instanceId: state.uri.queryParameters['i'],
+    ),
+  },
+  // A violation resolves from the path alone, so a card in Needs you and a
+  // notification open it cold (`?i=` names the Tracearr connection it came
+  // off). A person's page sits under the tab it was opened from so Back returns
+  // to the row (`ServiceRoutes.tracearrPerson`): `users/:id` under Users, the
+  // spelling a deep link uses, and `person/:id` under the others. The id is
+  // Tracearr's own and the page resolves from it alone.
+  inside: {
+    ServiceTab.users: [_tracearrPerson(':id')],
+    ServiceTab.overview: [_tracearrPerson('person/:id')],
+    ServiceTab.live: [_tracearrPerson('person/:id')],
+    ServiceTab.history: [_tracearrPerson('person/:id')],
+    ServiceTab.violations: [
+      _tracearrPerson('person/:id'),
+      _page(
+        ':id',
+        (state) => TracearrViolationScreen(
+          violationId: state.pathParameters['id']!,
+          instanceId: state.uri.queryParameters['i'],
+        ),
+        redirect: (context, state) =>
+            (state.pathParameters['id']?.trim().isEmpty ?? true)
+            ? ServiceRoutes.tracearrViolations
+            : null,
+      ),
+    ],
+  },
+);
+
+GoRoute _tracearrPerson(String path) => _page(
+  path,
+  (state) => TracearrPersonScreen(userId: state.pathParameters['id']!),
+  redirect: (context, state) =>
+      (state.pathParameters['id']?.trim().isEmpty ?? true)
+      ? ServiceRoutes.tracearrUsers
+      : null,
+);
+
 /// The route spellings of one media server, by key.
 ///
 /// A switch returning the four constants rather than interpolating them from
@@ -1324,8 +1401,8 @@ RouteBase _npmRoutes() => _serviceRoutes(
 /// `const`: an enum instance's field is not a compile-time constant in Dart:
 /// and an earlier attempt at composing a path here shipped one containing a
 /// literal dollar sign that no analyzer could see. The wildcard throws because
-/// this file has exactly two media servers and a third arriving silently is
-/// worse than a build that stops.
+/// this file names each media server and one arriving silently is worse than a
+/// build that stops.
 ({String root, String overview, String libraries, String itemBase})
 _streamPaths(ServiceKey service) => switch (service) {
   ServiceKey.jellyfin => (
@@ -1340,16 +1417,23 @@ _streamPaths(ServiceKey service) => switch (service) {
     libraries: ServiceRoutes.plexLibraries,
     itemBase: ServiceRoutes.plexItemBase,
   ),
+  ServiceKey.emby => (
+    root: ServiceRoutes.emby,
+    overview: ServiceRoutes.embyOverview,
+    libraries: ServiceRoutes.embyLibraries,
+    itemBase: ServiceRoutes.embyItemBase,
+  ),
   _ => throw UnsupportedError('${service.name} is not a media server'),
 };
 
-/// Jellyfin and Plex: one shell each, one branch per tab, one builder for both.
+/// Jellyfin, Plex and Emby: one shell each, one branch per tab, one builder
+/// for all.
 ///
-/// **One function for two services, because the screens are one family.** Every
+/// **One function for every media server, because the screens are one family.** Every
 /// Stream surface is written against `StreamServerClient` and takes the service
-/// as a parameter, so there is nothing per-service to fork here. The two bars
-/// are genuinely different: Jellyfin has Users, Devices, Tasks and Activity;
-/// Plex has On deck, Activities, Devices and Playlists, and that difference
+/// as a parameter, so there is nothing per-service to fork here. The bars
+/// are genuinely different: Jellyfin and Emby have Users, Devices, Tasks and
+/// Activity; Plex has On deck, Activities, Devices and Playlists, and that difference
 /// lives in `tabsFor`, which this reads. Forking the routes to express it would
 /// put the same list in two places and let them drift.
 ///
@@ -1520,6 +1604,28 @@ Widget _streamCapabilityScreen(
     (ServiceKey.jellyfin, ServiceTab.activity) => JellyfinActivityScreen(
       topPadding: _serviceTabTopPadding,
       instanceId: instanceId,
+    ),
+    // Emby's four are Jellyfin's screens: the same page over the same client
+    // surface, told which server it is on.
+    (ServiceKey.emby, ServiceTab.users) => JellyfinUsersScreen(
+      topPadding: _serviceTabTopPadding,
+      instanceId: instanceId,
+      service: ServiceKey.emby,
+    ),
+    (ServiceKey.emby, ServiceTab.devices) => JellyfinDevicesScreen(
+      topPadding: _serviceTabTopPadding,
+      instanceId: instanceId,
+      service: ServiceKey.emby,
+    ),
+    (ServiceKey.emby, ServiceTab.tasks) => JellyfinTasksScreen(
+      topPadding: _serviceTabTopPadding,
+      instanceId: instanceId,
+      service: ServiceKey.emby,
+    ),
+    (ServiceKey.emby, ServiceTab.activity) => JellyfinActivityScreen(
+      topPadding: _serviceTabTopPadding,
+      instanceId: instanceId,
+      service: ServiceKey.emby,
     ),
     (ServiceKey.plex, ServiceTab.onDeck) => PlexOnDeckScreen(
       topPadding: _serviceTabTopPadding,
@@ -1739,6 +1845,8 @@ RouteBase _branchRootFor(NavTab tab) => switch (tab) {
       _npmRoutes(),
       _streamRoutes(ServiceKey.jellyfin),
       _streamRoutes(ServiceKey.plex),
+      _streamRoutes(ServiceKey.emby),
+      _tracearrRoutes(),
     ],
   ),
   NavTab.activity => GoRoute(
@@ -1900,6 +2008,10 @@ RouteBase _branchRootFor(NavTab tab) => switch (tab) {
               focusAway: state.uri.queryParameters['away'] == '1',
               foundFrom: state.uri.queryParameters['from'],
               foundName: state.uri.queryParameters['known'],
+              prefillUrl: state.uri.queryParameters['url'],
+              prefillAccess: state.extra is ConnectionAccess
+                  ? state.extra as ConnectionAccess
+                  : null,
             ),
           );
         },

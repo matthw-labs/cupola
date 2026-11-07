@@ -2,15 +2,23 @@ import 'package:cupola/core/utils/dot_separator.dart';
 import 'package:cupola/core/utils/dynamic_map_utils.dart';
 import 'package:cupola/core/utils/episode_code.dart';
 
+/// [parts] trimmed, the empty ones left out, joined by [separator].
+///
+/// With [distinct], a part that says what an earlier one already said (the
+/// same words, ignoring case) is left out: a player and a product that a
+/// client names alike read once.
 String joinDisplayParts(
   Iterable<String?> parts, {
   String separator = dotSeparator,
+  bool distinct = false,
 }) {
-  return parts
+  final kept = parts
       .whereType<String>()
       .map((part) => part.trim())
-      .where((part) => part.isNotEmpty)
-      .join(separator);
+      .where((part) => part.isNotEmpty);
+  if (!distinct) return kept.join(separator);
+  final seen = <String>{};
+  return kept.where((part) => seen.add(part.toLowerCase())).join(separator);
 }
 
 List<String> extractArrStatusMessages(dynamic rawMessages) {

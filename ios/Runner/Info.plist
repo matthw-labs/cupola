@@ -105,14 +105,15 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
-	<!-- The Jellyfin apps Cupola can hand an item to: asked with canLaunchUrl
-	     before the viewer is offered them. iOS hides a scheme that is not
-	     listed here. -->
+	<!-- The media apps Cupola can hand an item to (the Jellyfin apps and Emby's
+	     own): asked with canLaunchUrl before the viewer is offered them. iOS
+	     hides a scheme that is not listed here. -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>swiftfin</string>
 		<string>streamyfin</string>
 		<string>fladder</string>
+		<string>emby</string>
 	</array>
 	<!-- An invite to a Seerr opens the app: cupola://invite?… (from the
 	     camera reading its QR, or a link tapped where it is a link). Flutter

@@ -29,7 +29,7 @@
 ///
 /// The arithmetic is done on the *rendered* strings rather than on the numbers
 /// behind them, because [ServiceKpi] is where the figures already are and the
-/// alternative is threading a second, numeric channel through all seventeen
+/// alternative is threading a second, numeric channel through all nineteen
 /// builders. For counts that is exact. For rates it inherits the resolution the
 /// ladder in `byte_format.dart` prints (one decimal, whole from 100 up), which
 /// is the resolution the card shows anyway, so the sum is as precise as the

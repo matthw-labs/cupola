@@ -1,0 +1,34 @@
+{
+    "data": [
+        {
+            "media_id": "2ce2102a-0737-481b-8034-22dfc56e0f72",
+            "media_type": "movie",
+            "title": "Big Buck Bunny",
+            "year": 2008,
+            "imdb_id": null,
+            "tmdb_id": null,
+            "tvdb_id": null,
+            "plays": 1,
+            "watch_time_ms": 180021,
+            "unique_users": 1,
+            "last_watched_day": "2026-11-06"
+        },
+        {
+            "media_id": "13925ec5-c7a3-42ef-9cb9-38118462c8de",
+            "media_type": "movie",
+            "title": "The Matrix",
+            "year": 1999,
+            "imdb_id": null,
+            "tmdb_id": null,
+            "tvdb_id": null,
+            "plays": 1,
+            "watch_time_ms": 62000,
+            "unique_users": 1,
+            "last_watched_day": "2026-11-06"
+        }
+    ],
+    "meta": {
+        "nextCursor": null,
+        "pageSize": 100
+    }
+}

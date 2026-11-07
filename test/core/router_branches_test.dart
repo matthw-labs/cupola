@@ -38,14 +38,14 @@ const _secondSeerr = ServiceInstance(
 /// actually mounted, and while the migration was in flight the gap between the
 /// two was its remaining work.
 ///
-/// **The gap is closed**: all sixteen are mounted, so the list is now tied to
+/// **The gap is closed**: all eighteen tabbed services are mounted, so the list is now tied to
 /// the map by its own case below, and what it guards has changed with it. A
 /// hand-kept list that silently covered eight of thirteen is exactly how these
 /// invariants stopped being asserted for five services that had landed: every
 /// case here loops over this list, so a service missing from it is a service
 /// whose branch order, nesting and detail placement nothing checks.
 ///
-/// Sixteen and not seventeen because TrueNAS is the console exception by
+/// Eighteen and not nineteen because TrueNAS is the console exception by
 /// design: ten sections do not fit a bar, and `tabsFor` returns null for it.
 const List<ServiceKey> _tabbedServices = [
   ServiceKey.seerr,
@@ -61,6 +61,8 @@ const List<ServiceKey> _tabbedServices = [
   ServiceKey.prowlarr,
   ServiceKey.jellyfin,
   ServiceKey.plex,
+  ServiceKey.emby,
+  ServiceKey.tracearr,
   ServiceKey.dockge,
   ServiceKey.unraid,
   ServiceKey.nginxProxyManager,
@@ -69,7 +71,7 @@ const List<ServiceKey> _tabbedServices = [
 /// Every page pushed from inside a tab's branch, by the branch that owns it, in
 /// the order the router declares them.
 ///
-/// One table for all sixteen rather than one per record type, because the rule
+/// One table for all nineteen rather than one per record type, because the rule
 /// is one rule: a page pushed *inside* its tab survives a switch away from the
 /// service and back, and a Hero still flies because the list it came from is
 /// under it on the same Navigator. Beside the branch it would be neither.
@@ -104,6 +106,23 @@ _tabDetailPaths = [
   (service: ServiceKey.jellyfin, tab: ServiceTab.libraries, path: ':id'),
   (service: ServiceKey.plex, tab: ServiceTab.libraries, path: 'item/:id'),
   (service: ServiceKey.plex, tab: ServiceTab.libraries, path: ':id'),
+  (service: ServiceKey.emby, tab: ServiceTab.libraries, path: 'item/:id'),
+  (service: ServiceKey.emby, tab: ServiceTab.libraries, path: ':id'),
+  // A person's page, under the tab it is opened from so Back returns to the
+  // row (`ServiceRoutes.tracearrPerson`): `users/:id` under Users, the spelling
+  // a deep link uses, and `person/:id` under the four other tabs.
+  (service: ServiceKey.tracearr, tab: ServiceTab.users, path: ':id'),
+  (service: ServiceKey.tracearr, tab: ServiceTab.overview, path: 'person/:id'),
+  (service: ServiceKey.tracearr, tab: ServiceTab.live, path: 'person/:id'),
+  (service: ServiceKey.tracearr, tab: ServiceTab.history, path: 'person/:id'),
+  (
+    service: ServiceKey.tracearr,
+    tab: ServiceTab.violations,
+    path: 'person/:id',
+  ),
+  // A violation, opened from Violations' list, the Overview and Needs you; a
+  // title opens under every tab like everywhere else (`_mediaPaths`).
+  (service: ServiceKey.tracearr, tab: ServiceTab.violations, path: ':id'),
   // The new-stack editor is not a detail, and it is here for the reason one
   // would be: it is reached from the Stacks list's own header and from nowhere
   // else, so Stacks is the tab that owns it. The compose editor of an existing

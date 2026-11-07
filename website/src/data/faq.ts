@@ -11,7 +11,7 @@ const untested = s.filter((x) => x.tested === 'untested').map((x) => x.name);
 export const faq = {
   arrApp: {
     q: 'Is there a Radarr or Sonarr app for iPhone and Android?',
-    a: 'Yes. Cupola is a free, open-source app for Radarr, Sonarr, Lidarr and Readarr on iPhone, Android and Mac. It also covers Seerr, the download clients, Jellyfin, Plex and the server they run on. See <a href="/radarr-sonarr-app/">Radarr and Sonarr on your phone</a>.',
+    a: 'Yes. Cupola is a free, open-source app for Radarr, Sonarr, Lidarr and Readarr on iPhone, Android and Mac. It also covers Seerr, the download clients, Jellyfin, Plex, Emby, Tracearr and the server they run on. See <a href="/radarr-sonarr-app/">Radarr and Sonarr on your phone</a>.',
   },
   account: {
     q: 'Does Cupola need a server or an account?',
@@ -23,7 +23,7 @@ export const faq = {
   },
   player: {
     q: 'Is Cupola a media player?',
-    a: 'No. You still watch in Jellyfin, Plex or your usual player. Cupola finds, requests and downloads, and shows who is watching, with pause and stop.',
+    a: 'No. You still watch in Jellyfin, Plex, Emby or your usual player. Cupola finds, requests and downloads, and shows who is watching, with pause and stop.',
   },
   free: {
     q: 'Is Cupola free?',
@@ -35,7 +35,7 @@ export const faq = {
   },
   household: {
     q: 'Can my family request movies without access to Radarr?',
-    a: 'Yes. They sign in to Seerr with their own account (email, Jellyfin or Plex) and get a simpler Cupola: what is ready to watch, Discover and their requests. Invite them from Seerr with a link or a QR code. See <a href="/seerr-requests/">requests with Seerr</a>.',
+    a: 'Yes. They sign in to Seerr with their own account (email, Jellyfin, Emby or Plex) and get a simpler Cupola: what is ready to watch, Discover and their requests. Invite them from Seerr with a link or a QR code. See <a href="/seerr-requests/">requests with Seerr</a>.',
   },
   leaves: {
     q: 'What data leaves my network?',

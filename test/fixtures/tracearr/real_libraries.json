@@ -1,0 +1,34 @@
+{
+    "data": [
+        {
+            "server_id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+            "server_type": "emby",
+            "library_id": "3",
+            "item_count": 4,
+            "movie_count": 4,
+            "episode_count": 0,
+            "show_count": 0,
+            "track_count": 0,
+            "total_file_size": 5654129,
+            "resolutions": {
+                "1080p": 1,
+                "sd": 3
+            }
+        },
+        {
+            "server_id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+            "server_type": "emby",
+            "library_id": "5",
+            "item_count": 3,
+            "movie_count": 0,
+            "episode_count": 2,
+            "show_count": 1,
+            "track_count": 0,
+            "total_file_size": 45834948,
+            "resolutions": {
+                "1080p": 2,
+                "unknown": 1
+            }
+        }
+    ]
+}

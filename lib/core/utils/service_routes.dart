@@ -70,6 +70,8 @@ class ServiceRoutes {
   static const unraid = '$stack/unraid';
   static const jellyfin = '$stack/jellyfin';
   static const plex = '$stack/plex';
+  static const emby = '$stack/emby';
+  static const tracearr = '$stack/tracearr';
 
   /// The two the file was missing. Both services shipped with their callers
   /// building `'/services/transmission'` and `'/services/npm'` by hand, which
@@ -133,6 +135,70 @@ class ServiceRoutes {
   static const jellyfinTasks = '$jellyfin/tasks';
   static const jellyfinActivity = '$jellyfin/activity';
 
+  // Emby is Jellyfin's ancestor and keeps its bar, spelled out here for the same
+  // reason as the two above: a literal each, so the constants stay `const`.
+  static const embyOverview = '$emby/overview';
+  static const embyLibraries = '$emby/libraries';
+  static const embyItemBase = '$embyLibraries/item';
+  static const embyUsers = '$emby/users';
+  static const embyDevices = '$emby/devices';
+  static const embyTasks = '$emby/tasks';
+  static const embyActivity = '$emby/activity';
+
+  // Tracearr watches the media servers and is not one: no libraries, no item
+  // tree, five tabs of its own. A literal each, tied to the tab segments by a
+  // test, for the reason the blocks above are.
+  static const tracearrOverview = '$tracearr/overview';
+  static const tracearrLive = '$tracearr/live';
+  static const tracearrHistory = '$tracearr/history';
+  static const tracearrUsers = '$tracearr/users';
+  static const tracearrViolations = '$tracearr/violations';
+
+  /// A person's page, opened from the page at [from], under the tab [from] is
+  /// in so Back returns to the row it was opened from, as a title's page does
+  /// (`mediaMountFor`): `/stack/tracearr/users/:id` from the Users tab (the
+  /// spelling a deep link uses), `/stack/tracearr/<tab>/person/:id` from any
+  /// other tab of Tracearr, and the Users spelling from anywhere else.
+  ///
+  /// The id is Tracearr's own, one segment, so a link resolves from the path
+  /// alone.
+  static String tracearrPerson(String id, {required String from}) {
+    final encoded = Uri.encodeComponent(id);
+    return switch (Uri.parse(from).pathSegments) {
+      ['stack', 'tracearr', final tab, ...]
+          when const {
+            'overview',
+            'live',
+            'history',
+            'violations',
+          }.contains(tab) =>
+        '$tracearr/$tab/person/$encoded',
+      _ => '$tracearrUsers/$encoded',
+    };
+  }
+
+  /// One violation, inside the Violations tab. The id is a path segment, so a
+  /// deep link (a Needs you card, a notification) resolves from the path
+  /// alone. [instanceId] names the Tracearr connection it was read from
+  /// (`?i=`), only when given: a stale or missing one reads the lens.
+  static String tracearrViolation(String id, {String? instanceId}) =>
+      _withQuery('$tracearrViolations/${Uri.encodeComponent(id)}', {
+        'i': instanceId,
+      });
+
+  /// The Violations tab narrowed to one person (`?user=`), which is where a
+  /// person's page leads with its Violations button. [userId] is Tracearr's
+  /// own id for the person (`TracearrUser.id`), a UUID: a value that is not one
+  /// is ignored by the tab, since the server answers a 400 to it.
+  static String tracearrViolationsOf(String userId) =>
+      _withQuery(tracearrViolations, {'user': userId});
+
+  /// The Violations tab of one Tracearr connection (`?i=`), which is where a
+  /// notification of several violations opens: the tab reads the lens, and
+  /// the screen brings the connection the link names under it.
+  static String tracearrViolationsOn(String instanceId) =>
+      _withQuery(tracearrViolations, {'i': instanceId});
+
   static const plexOverview = '$plex/overview';
 
   /// The same two roles [jellyfinLibraries] carries, and the same move: the
@@ -167,6 +233,8 @@ class ServiceRoutes {
   }) => _streamLibrary(jellyfinLibraries, id, title, instanceId);
   static String plexLibrary(String id, {String? title, String? instanceId}) =>
       _streamLibrary(plexLibraries, id, title, instanceId);
+  static String embyLibrary(String id, {String? title, String? instanceId}) =>
+      _streamLibrary(embyLibraries, id, title, instanceId);
 
   static String _streamLibrary(
     String base,
@@ -183,8 +251,9 @@ class ServiceRoutes {
 
   /// One item at any depth of the tree: film, show, season or episode.
   ///
-  /// Jellyfin ids are GUIDs and a Plex `ratingKey` is documented as an opaque
-  /// string that only *often* looks numeric, so neither can go through
+  /// Jellyfin ids are GUIDs, an Emby id is a short number and a Plex
+  /// `ratingKey` is documented as an opaque string that only *often* looks
+  /// numeric, so none of them can go through
   /// `RouteUtils.safeIntParam`. Both are single path segments containing no `/`,
   /// which is why this stays a path route rather than taking
   /// [truenasDataset]'s query-parameter escape hatch.
@@ -195,23 +264,55 @@ class ServiceRoutes {
       _withQuery('$jellyfinItemBase/$id', {'i': instanceId});
   static String plexItem(String id, {String? instanceId}) =>
       _withQuery('$plexItemBase/$id', {'i': instanceId});
+  static String embyItem(String id, {String? instanceId}) =>
+      _withQuery('$embyItemBase/$id', {'i': instanceId});
 
-  /// [jellyfinItem] or [plexItem], by [service].
+  /// [jellyfinLibrary], [plexLibrary] or [embyLibrary], by [service].
+  static String streamLibrary(
+    ServiceKey service,
+    String id, {
+    String? title,
+    String? instanceId,
+  }) => switch (service) {
+    ServiceKey.jellyfin => jellyfinLibrary(
+      id,
+      title: title,
+      instanceId: instanceId,
+    ),
+    ServiceKey.plex => plexLibrary(id, title: title, instanceId: instanceId),
+    ServiceKey.emby => embyLibrary(id, title: title, instanceId: instanceId),
+    _ => throw _notAMediaServer(service),
+  };
+
+  /// [jellyfinItem], [plexItem] or [embyItem], by [service].
   static String streamItem(
     ServiceKey service,
     String id, {
     String? instanceId,
-  }) => service == ServiceKey.jellyfin
-      ? jellyfinItem(id, instanceId: instanceId)
-      : plexItem(id, instanceId: instanceId);
+  }) => switch (service) {
+    ServiceKey.jellyfin => jellyfinItem(id, instanceId: instanceId),
+    ServiceKey.plex => plexItem(id, instanceId: instanceId),
+    ServiceKey.emby => embyItem(id, instanceId: instanceId),
+    _ => throw _notAMediaServer(service),
+  };
 
   /// A media server's page of playbacks, on connection [instanceId] when
   /// given (`?i=`), else on the active one.
   static String streamActivity(ServiceKey service, {String? instanceId}) =>
       _withQuery(
-        service == ServiceKey.plex ? plexActivities : jellyfinActivity,
+        switch (service) {
+          ServiceKey.jellyfin => jellyfinActivity,
+          ServiceKey.plex => plexActivities,
+          ServiceKey.emby => embyActivity,
+          _ => throw _notAMediaServer(service),
+        },
         {'i': instanceId},
       );
+
+  /// The error a media server route is asked for [service] with, which names
+  /// it: the other arm of a ternary would have silently routed it to Plex.
+  static ArgumentError _notAMediaServer(ServiceKey service) =>
+      ArgumentError.value(service.name, 'service', 'has no media server route');
 
   // ── TrueNAS sections ──────────────────────────────────────────────────────
   static const truenasDashboard = '$truenas/dashboard';
@@ -668,6 +769,9 @@ class ServiceRoutes {
     ServiceKey.sonarr,
     ServiceKey.jellyfin,
     ServiceKey.plex,
+    ServiceKey.emby,
+    // Its Live and History rows open the title they are about.
+    ServiceKey.tracearr,
   };
 
   /// Where a title opened from [path] lands: under the service tab [path] is
@@ -819,6 +923,16 @@ class ServiceRoutes {
     'from': sourceId,
     'known': name,
   });
+
+  /// The form to add a connection of [service] at [address]: the remedy of an
+  /// address that turned out to be another service's (`Set up Emby`).
+  ///
+  /// Always a **new** connection, never an edit: the service may already have
+  /// one, and writing this address over it would be silent corruption. Only
+  /// the address travels in the location; the key never does, and a gateway's
+  /// access, which is secret, rides beside the push as its `extra`.
+  static String addAt(ServiceKey service, {required String address}) =>
+      _withQuery(settingsFor(service), {'new': '1', 'url': address});
 
   /// The settings form of one saved connection of [service], where a
   /// too-narrow credential is replaced.

@@ -21,22 +21,22 @@ import 'package:cupola/features/home/domain/featured.dart';
 import 'package:cupola/features/home/domain/home_module.dart';
 import 'package:cupola/features/home/presentation/widgets/home_module_frame.dart';
 import 'package:cupola/features/home/presentation/widgets/home_module_parts.dart';
-import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/media/presentation/open_media.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/services/domain/services_semantics.dart';
 import 'package:cupola/features/services/domain/source_coverage.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/shell/domain/settings_return.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 
 /// Continue watching: up to three titles started and not finished, on every
-/// Jellyfin and Plex, each opening its page.
+/// media server, each opening its page.
 ///
 /// Absent when nothing is in progress and every server answered, when its
 /// only title is already Featured's first slide, and without a media server
-/// (Set up next names Jellyfin). A Jellyfin whose household member nobody
-/// chose asks who you are, once.
+/// (Set up next names one). A server whose household member nobody chose
+/// asks who you are, once.
 class HomeContinueWatchingModule extends ConsumerWidget {
   const HomeContinueWatchingModule({super.key});
 
@@ -83,6 +83,7 @@ class HomeContinueWatchingModule extends ConsumerWidget {
     final asking = resume.viewerMissing.isEmpty
         ? null
         : _WhoAreYou(
+            service: _askingService(settings, resume.viewerMissing.first),
             instanceId: resume.viewerMissing.first,
             name: resume.viewerMissing.length > 1
                 ? null
@@ -120,7 +121,7 @@ class HomeContinueWatchingModule extends ConsumerWidget {
         .toList(growable: false);
     final servers = {
       for (final row in shown) row.service.title,
-      if (asking != null) ServiceKey.jellyfin.title,
+      if (asking != null) asking.service.title,
     }.join(dotSeparator);
     final note = coverage.failed.isEmpty
         ? null
@@ -219,9 +220,9 @@ class ContinueWatchingRow extends ConsumerWidget {
     final title = resumeTitle(item);
     final detail = resumeDetail(item);
     final left = resumeLeft(item);
-    final server = row.service == ServiceKey.jellyfin
-        ? ref.watch(jellyfinClientForProvider(row.instanceId))
-        : ref.watch(plexClientForProvider(row.instanceId));
+    final server = ref.watch(
+      streamBackendOf(row.service).clientFor(row.instanceId),
+    );
     final image = item.posterPath == null
         ? null
         : server.imageFor(item.posterPath!, width: 360);
@@ -326,22 +327,36 @@ class ContinueWatchingRow extends ConsumerWidget {
   }
 }
 
-/// The question a Jellyfin with no household member chosen asks, once:
+/// The service whose connection [instanceId] is, which a server that asks who
+/// you are speaks as. A connection removed since the read falls back to the
+/// first service that asks.
+ServiceKey _askingService(SettingsModel settings, String instanceId) =>
+    settings.instanceById(instanceId)?.service ??
+    mediaServers.firstWhere((s) => s.needsViewerSelection);
+
+/// The question a media server with no household member chosen asks, once:
 /// `Which Jellyfin user are you?`, to the connection's form where the picker
 /// is.
 class _WhoAreYou extends ConsumerWidget {
-  const _WhoAreYou({required this.instanceId, required this.name});
+  const _WhoAreYou({
+    required this.service,
+    required this.instanceId,
+    required this.name,
+  });
+
+  /// The service asking, named in the question.
+  final ServiceKey service;
 
   final String instanceId;
 
-  /// What tells the connection apart, while Jellyfin has more than one.
+  /// What tells the connection apart, while the service has more than one.
   final String? name;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final room = CupolaRoom.of(context);
-    final jellyfin = [ServiceKey.jellyfin.title, ?name].join(' ');
-    final question = 'Which $jellyfin user are you?';
+    final server = [service.title, ?name].join(' ');
+    final question = 'Which $server user are you?';
     const line = 'A server key sees every user; pick yours once';
     return Semantics(
       button: true,
@@ -353,10 +368,7 @@ class _WhoAreYou extends ConsumerWidget {
         onTap: () => openSettings(
           context,
           ref,
-          to: ServiceRoutes.settingsForConnection(
-            ServiceKey.jellyfin,
-            instanceId,
-          ),
+          to: ServiceRoutes.settingsForConnection(service, instanceId),
         ),
         child: Container(
           constraints: const BoxConstraints(minHeight: 44),

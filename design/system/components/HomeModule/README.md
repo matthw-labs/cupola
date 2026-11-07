@@ -134,11 +134,11 @@ answering` already answers) or before anything answered (no space is held for it
 
 ## Continue watching, Coming up, Arrived
 
-- **Continue watching**: up to three titles started and not finished, on every Jellyfin and Plex. A row is a 112×63
+- **Continue watching**: up to three titles started and not finished, on every Jellyfin, Plex and Emby. A row is a 112×63
   picture (the episode's still, a movie's art), the series in `row` 600 (a movie's title), `S2 E3 · The Second Cycle`
   (a movie's year), `5 min left` in ink, and an ink bar: how far somebody got is not a status. At a large reading size
-  the words go under the picture. The line under the name is the server. A Jellyfin set up with a server key and
-  nobody chosen asks once, in an outlined row: `Which Jellyfin user are you?` · `A server key sees every user; pick yours
+  the words go under the picture. The line under the name is the server. A Jellyfin or Emby set up with a server key and
+  nobody chosen asks once, in an outlined row: `Which Jellyfin user are you?` (`Which Emby user are you?` on an Emby) · `A server key sees every user; pick yours
   once`, to that connection's form where the picker is. Absent when nothing is in progress and every server answered,
   and when its only title is already Featured's first slide (while Featured is on the Home).
 - **Coming up**: what comes out or airs from today to three days on, three rows (`CalendarRow.home`: the day leading,
@@ -183,6 +183,21 @@ under it, a hairline between rows. A 4pt bar (`HomeRowBar`) says how far somethi
   `Living room TV · 9 min left` (`Paused` while the player holds it), an ink bar: watching is not a status. The line
   under the name is the server (`Jellyfin`). Absent when nobody watches; a server that did not answer keeps it in place.
   Read again every 30 s while the Home is seen.
+  - **With Tracearr** the list is one: a playback the server and Tracearr both describe is one row, the server's (what
+    Tracearr adds: its reasons for a transcode where the server gave none, the person's picture in the disc over the
+    initial). A playback only Tracearr sees (a server Cupola is not connected to) is appended and leads its line with
+    `Plex · through Tracearr`, so a line cut at the end keeps the mark; it has no Stop, Play or Watch, and a tap opens
+    Tracearr's Live. The header names the servers once, the through ones after the others (`Jellyfin · Plex · through
+    Tracearr`). Tracearr alone makes the module exist (`Needs Jellyfin, Plex, Emby or Tracearr` in Edit Home).
+  - **Tracearr silent**: the servers' rows stay, and one line over them says `Tracearr did not answer.` and
+    `What only Tracearr sees is not shown.` (red, as any server that did not answer; amber for a refused key).
+  - **A Plex row's disc** is also the way to the person's page in Tracearr, where Tracearr knows them (Plex has no
+    Users tab to hold that door; a screen reader gets it as `Open Luca in Tracearr`, an action of the row). Every row
+    keeps one 44pt slot for its disc, 36pt of it the disc and 8pt the gap before the text, and the door takes the whole
+    slot as its target, so a row with a door has its text where the rows without one have it. The person is found by
+    the viewer's id on the server; a name is tried only for a session that carries no id.
+  - **See all N** opens the first media server's own page among the rows, the list it counts; Tracearr's Live only when
+    every row is one only Tracearr sees.
 
 ## Stack health, Storage, Discover shelf
 
@@ -221,7 +236,7 @@ Everything comes from her own Seerr session; no fault, no service named but her 
 - **Ready to watch** (`HomeReadyToWatchModule`): her Featured, drawn by [FeaturedPager](../FeaturedPager/README.md)
   with one slide. The newest thing she asked for that arrived in the last seven days: `● Ready to watch · since
   18:40` above the title, `You asked for it on Sunday · TMDB 7.1` under it, `Watch on Jellyfin` (Seerr's link to it in
-  the player its server is set up with, `Watch on Plex`, `Watch` when Seerr does not say) and `Details`. The room takes
+  the player its server is set up with, `Watch on Plex`, `Watch on Emby`, `Watch` when Seerr does not say) and `Details`. The room takes
   the title's light. A second arrival is one line under it, `Also ready · Sintel` · `On the server since Wednesday`.
   Nothing arrived: the module is absent and Your requests leads. At a cold start it draws what it last drew (see
   *Last known*): the same title, so the room keeps its light, and Watch where it was; an arrival the week has left
@@ -249,7 +264,7 @@ Everything comes from her own Seerr session; no fault, no service named but her 
   `Seerr knows it · key found` (`Prowlarr knows it · paste its key`), opening the service's form filled in from the
   source (`ServiceRoutes.addFound`). Then the services the stack lacks, each with what it adds (`Set up Jellyfin · Play,
   Continue watching and Now playing`), ordered by how much; a service a known server stands for is not suggested again.
-  A Plex stands for Jellyfin, any download client for the four. Each row carries its service's mark in a 36pt tile.
+  A Plex or an Emby stands for Jellyfin, any download client for the four. Each row carries its service's mark in a 36pt tile.
   Absent when nothing is missing. Each row opens its form in Settings, whose way back leads to the Home.
 - **EditHomeRow**: the last thing on the operator's Home, a dashed `edge` around `Edit Home · Reorder and hide
   modules`, opening `/home/edit`.
@@ -265,7 +280,7 @@ need you. Review`), announced when it appears. Each Set up next row is one butto
 Each sheet is drawn in the dark and the light room: the frame ready, loading, silent and needing a service; Needs
 you led by a group, by one fault and by a silent service; Set up next over Radarr, Sonarr and Seerr, and with what Seerr and Prowlarr know first; Downloads moving
 with one stuck and one queued, with qBittorrent silent, and with nothing moving; Requests with one row answered; Now playing with two
-playbacks; Continue watching with two titles and asking who you are; Coming up over three days, and with Lidarr silent
+playbacks, and with an Emby playback beside a Jellyfin one; Continue watching with two titles and asking who you are; Coming up over three days, and with Lidarr silent
 and nothing by Friday; Arrived over a week, with Radarr 4K silent, and as last drawn at a cold start under the Home's line; Stack health with three faults, with Radarr
 silent, and checking; Storage with a disk in trouble, and with TrueNAS silent; Storage and Discover shelf asking for
 their services; the Edit Home row; text at 200% with Downloads, with Stack health, Storage and Discover shelf asking for

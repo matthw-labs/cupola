@@ -13,6 +13,7 @@ import 'package:cupola/features/settings/domain/connection_address.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_owner_session.dart';
 
 /// The Android half of the secure store.
 ///
@@ -273,6 +274,22 @@ class SettingsService {
       secureApiKey: 'secure_plex_token',
       clientId: 'plex_client_id',
     ),
+    // The viewer id is Jellyfin's pattern: an Emby API key has no user, so the
+    // household member the lenses read as is chosen once and kept beside it.
+    ServiceKey.emby: _ServiceStorageKeys(
+      url: 'emby_url',
+      legacyApiKey: '',
+      secureApiKey: 'secure_emby_api_key',
+      userId: 'emby_user_id',
+    ),
+    // The public `trr_pub_` key alone: it reads everything, and has no user
+    // behind it to pick. Without this entry the enum walks at startup would
+    // dereference a missing one.
+    ServiceKey.tracearr: _ServiceStorageKeys(
+      url: 'tracearr_url',
+      legacyApiKey: '',
+      secureApiKey: 'secure_tracearr_api_key',
+    ),
   };
 
   final SharedPreferences _prefs;
@@ -455,6 +472,7 @@ class SettingsService {
       await _prefs.remove(primary.awayUrlStorageKey);
       await _prefs.remove(primary.awayAccessStorageKey);
       await _prefs.remove(primary.accountStorageKey);
+      await _prefs.remove(primary.ownerStorageKey);
     }
 
     for (final storageKeys in _serviceStorageKeys.values) {
@@ -507,13 +525,18 @@ class SettingsService {
     // easy to forget and that nothing would fail without.
     final usernames = _loadUsernames();
     final trustedCertificates = await _loadTrustedCertificates(serviceSettings);
-    final jellyfinKeys = _serviceStorageKeys[ServiceKey.jellyfin]!;
-    final jellyfinUserId = _prefs.getString(jellyfinKeys.userId!) ?? '';
+    // Every service that reads as a household member keeps one beside its
+    // address (Jellyfin and Emby: an API key has no user behind it).
+    final viewers = {
+      for (final service in ServiceKey.values)
+        if (_serviceStorageKeys[service]!.userId case final key?)
+          service: _prefs.getString(key) ?? '',
+    };
     final plexClientId = await _loadOrCreatePlexClientId();
 
     // Only the values with no `ServiceKey` to hang them on are named here;
     // everything per-service is folded in below, through the same registry that
-    // produced it. Naming all 17 services a third time in a constructor literal
+    // produced it. Naming all 19 services a third time in a constructor literal
     // is the hazard `copyWithCredentials` was written to kill; see its doc.
     var model = SettingsModel(
       plexClientId: plexClientId,
@@ -538,13 +561,13 @@ class SettingsService {
     }
 
     // Applied after the loop rather than in the constructor, because the viewer
-    // now belongs to a Jellyfin *instance* and the loop above is what creates
-    // one. Setting it first would have nowhere to land, and doing it here
-    // cannot conjure an instance out of nothing either: an unconfigured
-    // Jellyfin has no address, so `_upsertPrimary` declines to mint one and the
+    // now belongs to a media server *instance* and the loop above is what
+    // creates one. Setting it first would have nowhere to land, and doing it
+    // here cannot conjure an instance out of nothing either: an unconfigured
+    // server has no address, so `_upsertPrimary` declines to mint one and the
     // orphaned id is dropped rather than resurrected.
-    if (jellyfinUserId.isNotEmpty) {
-      model = model.copyWithViewer(ServiceKey.jellyfin, jellyfinUserId);
+    for (final MapEntry(key: service, value: viewerId) in viewers.entries) {
+      if (viewerId.isNotEmpty) model = model.copyWithViewer(service, viewerId);
     }
 
     final roster = _readRoster();
@@ -555,10 +578,12 @@ class SettingsService {
     // path above knows of them.
     final instances = [
       for (final instance in ordered)
-        await _withAccount(
-          instance.copyWith(
-            access: await _loadAccess(instance),
-            away: await _loadAway(instance),
+        await _withOwner(
+          await _withAccount(
+            instance.copyWith(
+              access: await _loadAccess(instance),
+              away: await _loadAway(instance),
+            ),
           ),
         ),
     ];
@@ -1090,6 +1115,7 @@ class SettingsService {
         );
       }
       await _saveAccount(instance);
+      await _saveOwner(instance);
     }
 
     final live = {for (final instance in settings.instances) instance.id};
@@ -1183,6 +1209,8 @@ class SettingsService {
     // A removed Seerr connection must not leave a live session in the
     // keychain.
     await _saveAccount(instance.copyWith(clearAccount: true));
+    // The same for a Tracearr owner's bearer.
+    await _saveOwner(instance.copyWith(clearOwner: true));
   }
 
   // === Seerr accounts ======================================================
@@ -1255,6 +1283,76 @@ class SettingsService {
         permissions: number(decoded['permissions']),
         checkedAt: checkedAt is String ? DateTime.tryParse(checkedAt) : null,
         session: await _loadApiKey(instance.sessionStorageKey),
+      ),
+    );
+  }
+
+  // === Tracearr owners =====================================================
+  //
+  // A Tracearr connection the owner signed in on keeps the kind, the login,
+  // the name and the session's dates in `SharedPreferences` under
+  // `<id>_owner`, as JSON, and the bearer alone in secure storage under
+  // `secure_<id>_owner_session`. No password and no Plex token, ever. The
+  // public key keeps its own slot: the owner is an addition to it.
+
+  /// Writes [instance]'s owner, or removes it and its token when it has none.
+  Future<void> _saveOwner(ServiceInstance instance) async {
+    // Only a Tracearr has one: a save of any other connection touches nothing.
+    if (instance.service != ServiceKey.tracearr) return;
+    final owner = instance.owner;
+    if (owner == null) {
+      await _prefs.remove(instance.ownerStorageKey);
+      await _secureStore.delete(key: instance.ownerSessionStorageKey);
+      return;
+    }
+    await _prefs.setString(
+      instance.ownerStorageKey,
+      jsonEncode({
+        'kind': owner.kind.name,
+        'login': owner.login,
+        'displayName': owner.displayName,
+        if (owner.expiresAt case final expiresAt?)
+          'expiresAt': expiresAt.toUtc().toIso8601String(),
+        if (owner.checkedAt case final checkedAt?)
+          'checkedAt': checkedAt.toUtc().toIso8601String(),
+      }),
+    );
+    if (owner.token.isEmpty) {
+      await _secureStore.delete(key: instance.ownerSessionStorageKey);
+    } else {
+      await _secureStore.write(
+        key: instance.ownerSessionStorageKey,
+        value: owner.token,
+      );
+    }
+  }
+
+  /// [instance] with its stored Tracearr owner, when it has one. An owner
+  /// that does not parse costs the owner and never the connection.
+  Future<ServiceInstance> _withOwner(ServiceInstance instance) async {
+    if (instance.service != ServiceKey.tracearr) return instance;
+    final raw = _prefs.getString(instance.ownerStorageKey);
+    if (raw == null || raw.isEmpty) return instance;
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } on FormatException {
+      return instance;
+    }
+    if (decoded is! Map) return instance;
+    final kind = TracearrOwnerKind.byName(decoded['kind'] as String?);
+    if (kind == null) return instance;
+    String text(Object? value) => value is String ? value : '';
+    DateTime? date(Object? value) =>
+        value is String ? DateTime.tryParse(value) : null;
+    return instance.copyWith(
+      owner: TracearrOwnerSession(
+        kind: kind,
+        login: text(decoded['login']),
+        displayName: text(decoded['displayName']),
+        expiresAt: date(decoded['expiresAt']),
+        checkedAt: date(decoded['checkedAt']),
+        token: await _loadApiKey(instance.ownerSessionStorageKey),
       ),
     );
   }

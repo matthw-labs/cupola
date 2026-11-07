@@ -509,6 +509,22 @@ const _allowed = <({String file, String literal, String reason})>[
     reason: 'Unraid Connect is the plugin\'s name, as above',
   ),
   (
+    file: 'lib/features/services/domain/service_tab.dart',
+    literal: 'Live',
+    reason:
+        "the name of Tracearr's tab of streams in flight, the place and not a "
+        'state: the word the brand book bans is a state word ("Live" for '
+        '"Playing"), and Activity is already the tab of a media server\'s '
+        'sessions',
+  ),
+  (
+    file: 'lib/features/tracearr/domain/models/tracearr_server.dart',
+    literal: 'online',
+    reason:
+        "the name of the field Tracearr's health read uses for a server it "
+        'reaches, read off the wire; never shown',
+  ),
+  (
     file: 'lib/features/discover/data/seerr_service.dart',
     literal: 'pending',
     reason:

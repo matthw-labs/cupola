@@ -10,7 +10,10 @@ import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/core/providers/provider_retry.dart';
 import 'package:cupola/core/status/arr_queue_snapshot.dart';
 import 'package:cupola/core/status/lexicon.dart';
+import 'package:cupola/core/utils/dot_separator.dart';
+import 'package:cupola/core/utils/duration_format.dart';
 import 'package:cupola/core/utils/percent_format.dart';
+import 'package:cupola/core/utils/string_utils.dart';
 import 'package:cupola/features/settings/domain/connection_presentation.dart';
 import 'package:cupola/features/bazarr/presentation/bazarr_provider.dart';
 import 'package:cupola/features/bazarr/domain/models/bazarr_models.dart';
@@ -23,6 +26,7 @@ import 'package:cupola/features/music/data/lidarr_service.dart';
 import 'package:cupola/features/music/domain/models/lidarr_artist.dart';
 import 'package:cupola/features/series/domain/models/sonarr_series.dart';
 import 'package:cupola/features/jellyfin/domain/models/jellyfin_models.dart';
+import 'package:cupola/features/emby/presentation/emby_provider.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/plex/presentation/plex_capability.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
@@ -54,6 +58,13 @@ import 'package:cupola/features/npm/domain/models/npm_models.dart';
 import 'package:cupola/features/npm/presentation/npm_provider.dart';
 import 'package:cupola/features/transmission/domain/models/transmission_models.dart';
 import 'package:cupola/features/transmission/presentation/transmission_provider.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_page.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_media_stats.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_server.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_provider.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_provider.dart';
 import 'package:cupola/features/truenas/presentation/truenas_provider.dart';
 import 'package:cupola/features/truenas/domain/models/dashboard.dart';
 import 'package:cupola/features/unraid/domain/models/unraid_models.dart';
@@ -112,6 +123,8 @@ final serviceKpiProvider = FutureProvider.autoDispose
           return _transmissionKpis(ref);
         case ServiceKey.nginxProxyManager:
           return _npmKpis(ref);
+        case ServiceKey.tracearr:
+          return _tracearrKpis(ref);
         // Providers, not the clients directly: the figures need a failure that
         // survives the fetch, and the provider layer is what makes that
         // shareable with the Overview, invalidatable with the rest and
@@ -122,12 +135,13 @@ final serviceKpiProvider = FutureProvider.autoDispose
         // What a refusal means is asked through the container, captured now:
         // the answer is needed after the reads, past an `await`, where this
         // `autoDispose` provider's `ref` must not be used.
-        case ServiceKey.jellyfin:
+        case ServiceKey.jellyfin || ServiceKey.emby:
           final container = ref.container;
-          return _jellyfinKpis(
-            ref.watch(jellyfinSessionsProvider.future),
-            ref.watch(jellyfinStrictLibrariesProvider.future),
-            kind: () => container.read(jellyfinCredentialKindProvider.future),
+          final providers = mediaBrowserProvidersOf(service);
+          return _mediaBrowserKpis(
+            ref.watch(providers.sessions.future),
+            ref.watch(providers.strictLibraries.future),
+            kind: () => container.read(providers.credentialKind.future),
           );
         case ServiceKey.plex:
           final container = ref.container;
@@ -208,6 +222,13 @@ List<ProviderOrFamily> serviceKpiSources(ServiceKey service) =>
       ServiceKey.jellyfin => [
         jellyfinSessionsProvider,
         jellyfinStrictLibrariesProvider,
+      ],
+      ServiceKey.emby => [embySessionsProvider, embyStrictLibrariesProvider],
+      ServiceKey.tracearr => [
+        tracearrLiveProvider,
+        tracearrTodayProvider,
+        tracearrUnseenViolationsProvider,
+        tracearrServersProvider,
       ],
       ServiceKey.plex => [plexSessionsProvider, plexStrictLibrariesProvider],
     };
@@ -304,8 +325,13 @@ final serviceKpiForProvider = FutureProvider.autoDispose
           key.instanceId,
         ),
         ServiceKey.nginxProxyManager => await _npmKpisFor(ref, key.instanceId),
-        ServiceKey.jellyfin => await _jellyfinKpisFor(ref, key.instanceId),
+        ServiceKey.jellyfin || ServiceKey.emby => await _mediaBrowserKpisFor(
+          ref,
+          key.service,
+          key.instanceId,
+        ),
         ServiceKey.plex => await _plexKpisFor(ref, key.instanceId),
+        ServiceKey.tracearr => await _tracearrKpisFor(ref, key.instanceId),
       };
       // `noProviderRetry`, like the provider above it. The lens path awaits
       // `serviceKpiProvider(...).future`, which settles into a stable error
@@ -514,7 +540,7 @@ String _notAnswering(ServiceKey service, Object? error) =>
     '${service.title}\u00A0· '
     '${failureLabel(classifyConnectionFailure(error), credential: refusedCredentialOf(service), gateway: accessGatewayOf(error))}';
 
-/// The shared KPI set for a media server, identical for Jellyfin and Plex.
+/// The shared KPI set for a media server, identical for Jellyfin, Emby and Plex.
 ///
 /// Three metrics, and the order is load-bearing in two ways that
 /// `resolveServiceSignalPair` depends on.
@@ -634,13 +660,13 @@ Future<List<ServiceKpi>> _plexKpis(
   }
 }
 
-/// Jellyfin's figures.
+/// The figures of a MediaBrowser server, Jellyfin or Emby.
 ///
 /// A library list refused to a household member's token, which [kind] says
 /// it is, reads `—`; its own playback still counts, and says it is its own,
 /// as its Now playing does.
 /// Any other failure takes the rail, as before.
-Future<List<ServiceKpi>> _jellyfinKpis(
+Future<List<ServiceKpi>> _mediaBrowserKpis(
   Future<List<StreamSession>> sessions,
   Future<List<StreamLibrary>> libraries, {
   required Future<JellyfinCredentialKind> Function() kind,
@@ -668,19 +694,23 @@ Future<List<ServiceKpi>> _jellyfinKpis(
   }
 }
 
-Future<List<ServiceKpi>> _jellyfinKpisFor(Ref ref, String instanceId) {
-  final client = ref.watch(jellyfinClientForProvider(instanceId));
+Future<List<ServiceKpi>> _mediaBrowserKpisFor(
+  Ref ref,
+  ServiceKey service,
+  String instanceId,
+) {
+  final providers = mediaBrowserProvidersOf(service);
+  final client = ref.watch(providers.client.forConnection(instanceId));
   final container = ref.container;
-  return _jellyfinKpis(
+  return _mediaBrowserKpis(
     ref.watch(
       streamSessionsForProvider((
-        service: ServiceKey.jellyfin,
+        service: service,
         instanceId: instanceId,
       )).future,
     ),
     client.getLibrariesOrThrow(),
-    kind: () =>
-        container.read(jellyfinCredentialKindForProvider(instanceId).future),
+    kind: () => container.read(providers.credentialKindFor(instanceId).future),
   );
 }
 
@@ -1789,6 +1819,125 @@ List<ServiceKpi> _npmKpisFrom(
     ),
   ];
 }
+
+/// Tracearr's rail: what is playing, what was played today, what broke a rule
+/// and has not been looked at, and how many of its servers it reaches.
+///
+/// **Each figure is its own read.** Tracearr answers four routes and a rail
+/// that went to an em dash whole because one of them failed would lose the
+/// three it could still say; a figure whose source did not answer reads `—`,
+/// never `0`. When none answered the failure takes the rail, as every other
+/// rail's does, so the page says the server did not answer once, not four
+/// times. The unseen figure is a **floor** (`25+`) when more follow the first
+/// page, since the API gives no total.
+///
+/// **Streams now counts the rows Live draws** (`tracearrLiveProvider`, the
+/// list the Overview's Playing section also reads), so the rail and the section
+/// cannot disagree after an event moves the list. Only the count is selected:
+/// a progress tick, which moves no row, must not rebuild the rail.
+Future<List<ServiceKpi>> _tracearrKpis(Ref ref) => _tracearrKpisFrom(
+  ref.watch(tracearrLiveProvider.selectAsync((live) => live.streams.length)),
+  ref.watch(tracearrTodayProvider.future),
+  ref.watch(tracearrUnseenViolationsProvider.future),
+  ref.watch(tracearrServersProvider.future),
+);
+
+Future<List<ServiceKpi>> _tracearrKpisFor(Ref ref, String instanceId) {
+  final client = ref.watch(tracearrClientForProvider(instanceId));
+  return _tracearrKpisFrom(
+    client.getStreams().then((live) => live.streams.length),
+    client.getToday(),
+    client.getViolations(
+      pageSize: kTracearrCountPage,
+      filter: const TracearrViolationFilter.unseen(),
+    ),
+    client.getServers(),
+  );
+}
+
+Future<List<ServiceKpi>> _tracearrKpisFrom(
+  Future<int> streams,
+  Future<TracearrToday> today,
+  Future<TracearrPage<TracearrViolation>> unseen,
+  Future<TracearrServers> servers,
+) async {
+  final results = await Future.wait<Object?>([
+    _failureOr(streams),
+    _failureOr(today),
+    _failureOr(unseen),
+    _failureOr(servers),
+  ]);
+  final failures = results.whereType<_ReadFailed>().toList();
+  if (failures.length == results.length) throw failures.first.error;
+  T? read<T>(int index) => switch (results[index]) {
+    final T value => value,
+    _ => null,
+  };
+
+  final playing = read<int>(0);
+  final day = read<TracearrToday>(1);
+  final unseenPage = read<TracearrPage<TracearrViolation>>(2);
+  final watched = read<TracearrServers>(3);
+  final unseenCount = unseenPage == null
+      ? null
+      : tracearrUnseenCount(unseenPage);
+  // Servers kept for their history are not watched any more, so they are
+  // neither of the two numbers.
+  final polled = watched?.servers.where((s) => !s.historical).toList();
+  final reached = polled?.where((s) => s.isUp).length;
+
+  return [
+    _figure(
+      label: 'Streams now',
+      value: playing == null ? null : '$playing',
+      icon: Icons.play_circle_outline_rounded,
+      tone: playing == null ? null : _activityIf(playing > 0),
+    ),
+    // Plays and the time they took, as the spec has it. The day is cut at UTC
+    // midnight: Tracearr wants an IANA zone name for its own cut and the app
+    // has no source of one (no plugin in the tree gives the device's), so for
+    // a household away from UTC this is not their calendar day until a zone
+    // can be asked for.
+    _figure(
+      label: 'Today',
+      value: day == null
+          ? null
+          : day.watchTime == Duration.zero
+          ? countLabel(day.todayPlays, 'play')
+          : '${countLabel(day.todayPlays, 'play')}$dotSeparator'
+                '${formatTimeSpan(day.watchTime)}',
+      icon: Icons.today_rounded,
+    ),
+    _figure(
+      label: 'Unseen',
+      value: unseenCount == null
+          ? null
+          : unseenCount.isFloor
+          ? Lexicon.floor(unseenCount.count)
+          : '${unseenCount.count}',
+      icon: Icons.flag_outlined,
+      // Information, never a fault: a rule was broken and nobody looked, which
+      // is the person's to read and not something that stopped working.
+      tone: unseenCount == null ? null : _activityIf(unseenCount.count > 0),
+    ),
+    _figure(
+      label: 'Servers',
+      value: polled == null ? null : '$reached of ${polled.length}',
+      icon: Icons.dns_outlined,
+      tone: polled == null ? null : _faultIf(reached! < polled.length),
+    ),
+  ];
+}
+
+/// A read that failed, carried as a value so its siblings are still awaited.
+final class _ReadFailed {
+  const _ReadFailed(this.error);
+
+  final Object error;
+}
+
+Future<Object?> _failureOr(Future<Object?> read) =>
+    read.then<Object?>((value) => value, onError: (Object e) => _ReadFailed(e));
 
 Future<List<ServiceKpi>> _unraidKpis(Ref ref) async {
   final results = await Future.wait([

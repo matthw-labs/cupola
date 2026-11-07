@@ -247,6 +247,25 @@ void main() {
     expect(confirmed, isTrue);
   });
 
+  testWidgets('the typed confirmation opens with its field ready to type in', (
+    tester,
+  ) async {
+    await _open(
+      tester,
+      AppTheme.darkTheme(),
+      (context) => showAppTypedConfirmDialog(
+        context,
+        title: 'Shut down nas?',
+        message: 'Everything on this host stops.',
+        phrase: 'nas',
+        confirmLabel: 'Shut down server',
+      ),
+    );
+
+    final focused = FocusManager.instance.primaryFocus?.context;
+    expect(focused?.findAncestorWidgetOfExactType<TextField>(), isNotNull);
+  });
+
   testWidgets('a long title is shown whole, and the buttons stay in view', (
     tester,
   ) async {

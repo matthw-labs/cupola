@@ -27,15 +27,41 @@ import 'package:cupola/core/widgets/status_badge.dart';
 class ServiceRecordRow extends StatelessWidget {
   const ServiceRecordRow({
     super.key,
-    required this.icon,
+    required IconData this.icon,
     required this.tone,
     required this.title,
     required this.detail,
     required this.trailing,
     required this.semanticLabel,
-  });
+    this.footer,
+  }) : art = null;
 
-  final IconData icon;
+  /// A record about a title: its [art] (a poster, `ServiceOverviewArt`) stands
+  /// where the glyph does, and the [tone] still colours the trailing figure.
+  ///
+  /// A named constructor and not an optional widget beside the glyph: a row
+  /// has one leading mark, and which one is a decision of the call site.
+  const ServiceRecordRow.poster({
+    super.key,
+    required Widget this.art,
+    required this.tone,
+    required this.title,
+    required this.detail,
+    required this.trailing,
+    required this.semanticLabel,
+    this.footer,
+  }) : icon = null;
+
+  final IconData? icon;
+
+  /// What sits under the detail, inside the body: a row of chips (the kinds of
+  /// server a person has an account on). Part of the one sentence the row
+  /// speaks, so the caller words it into [semanticLabel] and the footer is
+  /// silenced with the rest.
+  final Widget? footer;
+
+  /// The picture that leads a [ServiceRecordRow.poster].
+  final Widget? art;
   final StatusTone tone;
   final String title;
   final String detail;
@@ -62,7 +88,7 @@ class ServiceRecordRow extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) => Row(
               children: [
-                Icon(icon, color: color),
+                art ?? Icon(icon, color: color),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Column(
@@ -74,15 +100,23 @@ class ServiceRecordRow extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: AppTheme.rowTitle(theme.brightness),
                       ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        detail,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: CupolaThemeColors.of(context).dimText,
+                      // A record with nothing to add under its title says so by
+                      // leaving the line out, not by holding an empty one.
+                      if (detail.isNotEmpty) ...[
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          detail,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: CupolaThemeColors.of(context).dimText,
+                          ),
                         ),
-                      ),
+                      ],
+                      if (footer case final footer?) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        footer,
+                      ],
                     ],
                   ),
                 ),

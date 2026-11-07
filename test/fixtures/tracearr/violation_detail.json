@@ -1,0 +1,94 @@
+{
+  "id": "11111111-aaaa-4bbb-8ccc-000000000001",
+  "severity": "high",
+  "created_at": "2026-11-06T08:30:00.000Z",
+  "acknowledged_at": null,
+  "session_id": "f0a1b2c3-0001-4aaa-8bbb-000000000001",
+  "rule": {
+    "id": "aaaaaaaa-0001-4000-8000-000000000001",
+    "name": "Impossible travel"
+  },
+  "server": {
+    "id": "5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51",
+    "name": "Plex Living Room",
+    "type": "plex"
+  },
+  "user": {
+    "id": "7a3e91c4-5d28-4b6f-8e10-2f4a6c8d0b13",
+    "server_user_id": "a1b2c3d4-1111-4222-8333-444455556661",
+    "username": "anna",
+    "thumb_url": null,
+    "avatar_url": "/api/v1/images/proxy?server=5b1f3c2e-8a40-4d57-9b6e-0c1a2f3d4e51&url=%2Fusers%2Fanna"
+  },
+  "data": {
+    "evidence": [
+      {
+        "groupIndex": 0,
+        "matched": true,
+        "match": "all",
+        "conditions": [
+          {
+            "field": "travel_speed_kmh",
+            "operator": "gt",
+            "threshold": 500,
+            "actual": 3413.6,
+            "matched": true,
+            "relatedSessionIds": [
+              "f0a1b2c3-0002-4aaa-8bbb-000000000002"
+            ],
+            "details": {
+              "distance": 5120.4,
+              "timeDeltaHours": 1.5,
+              "previousLocation": {
+                "lat": 48.1,
+                "lon": 11.5,
+                "city": "Valmora",
+                "country": "Nordavia"
+              },
+              "currentLocation": {
+                "lat": -33.9,
+                "lon": 151.2,
+                "city": "Port Aster",
+                "country": "Eastmark"
+              }
+            }
+          }
+        ]
+      }
+    ],
+    "relatedSessionIds": [
+      "f0a1b2c3-0002-4aaa-8bbb-000000000002"
+    ],
+    "ruleName": "Impossible travel",
+    "matchedGroups": [
+      0
+    ],
+    "ipAddress": "192.0.2.88"
+  },
+  "actions": [
+    {
+      "type": "notify",
+      "success": true,
+      "skipped": false,
+      "skip_reason": null,
+      "error_message": null,
+      "executed_at": "2026-11-06T08:30:01.000Z"
+    },
+    {
+      "type": "terminate_stream",
+      "success": false,
+      "skipped": false,
+      "skip_reason": null,
+      "error_message": "Plex Living Room did not answer",
+      "executed_at": "2026-11-06T08:30:02.000Z"
+    },
+    {
+      "type": "notify_admins",
+      "success": false,
+      "skipped": true,
+      "skip_reason": "cooldown",
+      "error_message": null,
+      "executed_at": "2026-11-06T08:30:02.000Z"
+    }
+  ]
+}

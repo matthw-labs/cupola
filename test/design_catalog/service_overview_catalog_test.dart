@@ -30,13 +30,31 @@ import 'package:cupola/features/settings/domain/connection_address.dart';
 import 'package:cupola/features/settings/domain/service_instance.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
+import 'package:cupola/features/tracearr/data/tracearr_owner_accounts.dart';
+import 'package:cupola/features/tracearr/data/tracearr_owner_client.dart';
+import 'package:cupola/features/tracearr/data/tracearr_violation_owner.dart';
+import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_person_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
+import 'package:cupola/demo/world/fakes/media_fakes.dart' show TracearrFake;
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_provider.dart';
 
 import 'package:cupola/features/onboarding/data/onboarding_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
+
 import '../test_helpers/fake_secure_settings_store.dart';
 import '../test_helpers/fake_services.dart';
+import '../test_helpers/profiles/profiles.dart';
 import 'catalog.dart';
+import 'emby_world.dart';
+import 'tracearr_world.dart';
 
 /// Radarr with an address away: at home on the home network's name, away
 /// on a public one.
@@ -350,6 +368,116 @@ class _StatusClient extends ApiClient {
   void close({bool force = false}) {}
 }
 
+const _oneTracearr = SettingsModel(
+  instances: [
+    ServiceInstance(
+      id: 'tracearr',
+      service: ServiceKey.tracearr,
+      label: '',
+      url: 'https://tracearr.lan:3000',
+      credential: 'trr_pub_k',
+    ),
+  ],
+);
+
+/// Made up: the places are invented, but the `data` is the shape Tracearr 3.1.4
+/// writes (the speed condition and its details). One action went through, one
+/// failed and one was skipped.
+TracearrViolation _travel() => TracearrViolation.fromJson({
+  'id': 'v1',
+  'severity': 'high',
+  'created_at': catalogNow.subtract(const Duration(hours: 2)).toIso8601String(),
+  'acknowledged_at': null,
+  'session_id': 'session-1',
+  'rule': {'id': 'rule-1', 'name': 'Impossible travel'},
+  'server': {'id': 'server-1', 'name': 'Plex Living Room', 'type': 'plex'},
+  'user': {'id': 'person-1', 'username': 'Anna'},
+  'data': {
+    'evidence': [
+      {
+        'groupIndex': 0,
+        'matched': true,
+        'conditions': [
+          {
+            'field': 'travel_speed_kmh',
+            'operator': 'gt',
+            'threshold': 500,
+            'actual': 3413.6,
+            'matched': true,
+            'details': {
+              'distance': 5120.4,
+              'timeDeltaHours': 1.5,
+              'previousLocation': {'city': 'Valmora', 'country': 'Nordavia'},
+              'currentLocation': {'city': 'Port Aster', 'country': 'Eastmark'},
+            },
+          },
+        ],
+      },
+    ],
+  },
+  'actions': [
+    {'type': 'notify', 'success': true, 'skipped': false},
+    {
+      'type': 'terminate_stream',
+      'success': false,
+      'skipped': false,
+      'error_message': 'Plex Living Room did not answer',
+    },
+    {
+      'type': 'notify_admins',
+      'success': false,
+      'skipped': true,
+      'skip_reason': 'cooldown',
+    },
+  ],
+});
+
+/// A rule Cupola does not read, acknowledged an hour ago.
+TracearrViolation _unknownRule() => TracearrViolation.fromJson({
+  'id': 'v2',
+  'severity': 'low',
+  'created_at': catalogNow.subtract(const Duration(days: 1)).toIso8601String(),
+  'acknowledged_at': catalogNow
+      .subtract(const Duration(hours: 1))
+      .toIso8601String(),
+  'rule': {'id': 'rule-2', 'name': 'Night owl'},
+  'server': {'id': 'server-2', 'name': 'Jellyfin Attic', 'type': 'jellyfin'},
+  'user': {'id': 'person-2', 'username': 'Luca'},
+  'data': {'city': 'Valmora', 'hour': 3},
+  'actions': <Object>[],
+});
+
+/// Nobody has signed in as the owner, or somebody has.
+class _OwnerStub implements TracearrViolationOwner {
+  @override
+  Future<TracearrOwnerOutcome> acknowledge(String violationId) async =>
+      TracearrOwnerOutcome.done;
+
+  @override
+  Future<TracearrOwnerOutcome> dismiss(String violationId) async =>
+      TracearrOwnerOutcome.done;
+}
+
+Widget _violation(
+  TracearrViolation violation, {
+  bool owner = false,
+  bool singleSignOn = false,
+}) => _Isolated([
+  sharedPreferencesProvider.overrideWithValue(_prefs),
+  secureSettingsStoreProvider.overrideWithValue(FakeSecureSettingsStore()),
+  initialSettingsProvider.overrideWithValue(_oneTracearr),
+  initialOnboardingCompletedProvider.overrideWithValue(true),
+  initialActiveInstancesProvider.overrideWithValue(const {}),
+  tracearrViolationProvider.overrideWith((ref, key) async => violation),
+  if (owner)
+    tracearrViolationOwnerProvider.overrideWith((ref, id) => _OwnerStub()),
+  if (singleSignOn)
+    tracearrOwnerWaysProvider.overrideWith(
+      (ref, id) async =>
+          const TracearrOwnerWays(local: false, plex: false, oidc: true),
+    ),
+], TracearrViolationScreen(violationId: violation.id));
+
 late SharedPreferences _prefs;
 
 /// One scene's own root container.
@@ -522,7 +650,93 @@ void main() {
   catalogCard(
     'ServiceOverview',
     width: 1328,
+    // One world for the Emby room and for Tracearr, which watches that Emby.
+    overrides: () => startEmbyWorld(
+      Profiles.p1
+          .withConnection(WorldConnections.emby)
+          .withConnection(WorldConnections.tracearr),
+    ),
     scenes: [
+      CatalogScene(
+        'StreamOverviewScreen(service: emby) · an Emby room · the identity '
+        'line and readouts, Now playing with the one session, and the '
+        'Libraries the server lists, all read from the fake Emby',
+        (_) => const EmbyWorldScope(
+          child: StreamOverviewScreen(service: ServiceKey.emby, topPadding: 0),
+        ),
+        width: 390,
+        height: 700,
+      ),
+      CatalogScene(
+        'TracearrOverviewScreen · the readouts (Streams now, Today with its '
+        'plays and time, Unseen as a floor, Servers 2 of 3), Monitored '
+        'servers with one refused Tracearr\'s token (amber, Fix it in '
+        'Tracearr), Playing now, the latest violations and Most watched this '
+        'week',
+        (_) => tracearrWorldScene(
+          const TracearrOverviewScreen(topPadding: 0),
+          overrides: tracearrOverviewOverrides,
+        ),
+        width: 390,
+        height: 1440,
+        id: 'tracearr-overview',
+      ),
+      CatalogScene(
+        'TracearrLiveScreen · the summary line over three streams: one '
+        'transcode with the server\'s reason, one paused, one direct',
+        (_) => tracearrWorldScene(const TracearrLiveScreen()),
+        width: 390,
+        height: 560,
+        id: 'tracearr-live',
+      ),
+      CatalogScene(
+        'Tracearr session sheet · the transcode: how it reaches the viewer, '
+        'source against output, the facts, and Open title, Go to the person '
+        'and Stop stream',
+        (_) => tracearrWorldScene(
+          const TracearrSheetOver(behind: TracearrLiveScreen()),
+        ),
+        width: 390,
+        height: 844,
+        id: 'tracearr-session-sheet',
+      ),
+      CatalogScene(
+        'TracearrHistoryScreen · day by day, with the filter row showing a '
+        'remembered filter (Anna, Last 7 days, Only watched) and Clear',
+        (_) => tracearrWorldScene(
+          const TracearrHistoryScreen(),
+          overrides: tracearrRememberedHistory,
+        ),
+        width: 390,
+        height: 820,
+        id: 'tracearr-history',
+      ),
+      CatalogScene(
+        'TracearrUsersScreen · one row a person with a chip for each kind of '
+        'server, and Include removed',
+        (_) => tracearrWorldScene(const TracearrUsersScreen()),
+        width: 390,
+        height: 560,
+        id: 'tracearr-users',
+      ),
+      CatalogScene(
+        'TracearrPersonScreen · Anna: 7 days, 30 days and all time, what she '
+        'likes, her latest viewings and the Violations link',
+        (_) => tracearrWorldScene(
+          const TracearrPersonScreen(userId: TracearrFake.annaId),
+        ),
+        width: 390,
+        height: 720,
+        id: 'tracearr-person',
+      ),
+      CatalogScene(
+        'TracearrViolationsScreen · Unseen, with the severity pills and a row '
+        'a violation: blue while nobody has read it',
+        (_) => tracearrWorldScene(const TracearrViolationsScreen()),
+        width: 390,
+        height: 680,
+        id: 'tracearr-violations',
+      ),
       CatalogScene(
         'RadarrOverviewScreen · loaded · identity, readouts, then Coming up, '
         'Needs attention, Recently added and History in one scroll',
@@ -682,6 +896,46 @@ void main() {
             tester.element(section),
           ).read(_sonarrAttention.notifier).stopAnswering();
         },
+      ),
+      CatalogScene(
+        'TracearrViolationScreen · an unseen violation: the rule blue, the '
+        'two places and the distance, the automatic actions with the failed '
+        'one amber, and Acknowledge and Dismiss dimmed (no owner signed in)',
+        (_) => _violation(_travel()),
+        width: 390,
+        height: 1500,
+        id: 'tracearr-violation-unseen-travel',
+      ),
+      CatalogScene(
+        'TracearrViolationScreen · a rule Cupola does not read, already '
+        'acknowledged, the owner signed in: its name and the way to open '
+        'Tracearr, Dismiss at full ink and no Acknowledge',
+        (_) => _violation(_unknownRule(), owner: true),
+        width: 390,
+        height: 1100,
+        id: 'tracearr-violation-unknown-rule',
+      ),
+      CatalogScene(
+        'TracearrViolationScreen · single sign-on is the only way into this '
+        'Tracearr and nobody is signed in: the one blue line with its remedy '
+        'where the controls would be, and no dimmed control that cannot be '
+        'kept',
+        (_) => _violation(_travel(), singleSignOn: true),
+        width: 390,
+        height: 1500,
+        id: 'tracearr-violation-single-sign-on',
+      ),
+      CatalogScene(
+        'Text at 200% · TracearrOverviewScreen: the readouts, the servers and '
+        'the rows wrap and none is cut',
+        (_) => tracearrWorldScene(
+          const TracearrOverviewScreen(topPadding: 0),
+          overrides: tracearrOverviewOverrides,
+        ),
+        width: 390,
+        height: 2100,
+        textScale: catalogTextScale,
+        id: 'tracearr-overview-200',
       ),
       CatalogScene(
         'Text at 200% · RadarrOverviewScreen, the library timed out: the amber '

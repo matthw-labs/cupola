@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:cupola/core/status/media_status.dart';
 import 'package:cupola/core/utils/dot_separator.dart';
+import 'package:cupola/features/media/domain/media_key.dart';
 
 /// How the server is delivering the bytes.
 ///
@@ -123,6 +124,24 @@ class StreamSession {
   /// none, or for what is neither a movie nor an episode.
   final String? titleId;
 
+  /// The server's own id of the item being played: the episode's, where
+  /// [titleId] is its series'. What Tracearr calls the `rating_key` of the
+  /// row, so two sources that describe one playback can be told to be one
+  /// (`streamActivityProvider`). Null when the server sent none.
+  final String? itemId;
+
+  /// The viewer's id on the server (Jellyfin's `UserId`, Plex's `User.id`):
+  /// what an account of a person in Tracearr is matched by
+  /// (`accounts.external_user_id`). Null when the server sent none.
+  final String? userId;
+
+  /// The page of the title in Cupola, when the source already holds the ids
+  /// that name it (Tracearr always does for a movie and a series), so the
+  /// artwork of its public record is read without asking a media server for
+  /// the ids. Null for a media server's own session: its ids are one read away
+  /// (`StreamServerClient.getTitleKey`).
+  final MediaKey? titleKey;
+
   const StreamSession({
     required this.id,
     required this.userName,
@@ -139,7 +158,33 @@ class StreamSession {
     this.remaining,
     this.titleId,
     this.backdropPath,
+    this.itemId,
+    this.userId,
+    this.titleKey,
   });
+
+  /// The same playback with another account of why it is not sent untouched:
+  /// what a second source says about the delivery, put on the first one's row.
+  StreamSession withTranscodeReasons(List<String> reasons) => StreamSession(
+    id: id,
+    userName: userName,
+    title: title,
+    subtitle: subtitle,
+    deviceLabel: deviceLabel,
+    posterPath: posterPath,
+    backdropPath: backdropPath,
+    playMethod: playMethod,
+    transcodeReasons: reasons,
+    bitrate: bitrate,
+    bitrateIsNominal: bitrateIsNominal,
+    progress: progress,
+    isPaused: isPaused,
+    remaining: remaining,
+    titleId: titleId,
+    itemId: itemId,
+    userId: userId,
+    titleKey: titleKey,
+  );
 
   /// Whether this session is the reason you would look at the board.
   bool get needsAttention => playMethod.isTranscode;

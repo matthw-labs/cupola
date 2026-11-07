@@ -2,8 +2,6 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:cupola/core/providers/provider_retry.dart';
-import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/services/presentation/connection_in_view.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
@@ -12,8 +10,9 @@ import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/models/stream_library.dart';
 import 'package:cupola/features/stream/domain/stream_server_client.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
+import 'package:cupola/features/stream/presentation/stream_backend.dart';
 
-/// The connection a Jellyfin or Plex page was asked to read, from its route's
+/// The connection a media server page was asked to read, from its route's
 /// `?i=`.
 ///
 /// Empty is the service's active connection: an old link, a deep link, a page
@@ -97,49 +96,41 @@ String streamConnectionIdOf(
 
 /// A media server's client for one named connection; empty is the active one.
 ///
-/// The active connection's own id collapses onto [jellyfinServerProvider] or
-/// [plexServerProvider], so a page opened without `?i=` and one opened with
-/// the active connection's id read one client, and an override of either
-/// still reaches both. Every other connection takes its own client, which
-/// takes its address, access and certificate pin from that connection's route
-/// (`watchTransport`).
+/// The active connection's own id collapses onto the service's lens client
+/// ([StreamBackend.lensClient]: `jellyfinServerProvider`, `plexServerProvider`),
+/// so a page opened without `?i=` and one opened with the active connection's
+/// id read one client, and an override of either still reaches both. Every
+/// other connection takes its own client, which takes its address, access and
+/// certificate pin from that connection's route (`watchTransport`).
 final streamClientForProvider =
     Provider.family<StreamServerClient, StreamConnection>((ref, key) {
-      final isJellyfin = key.service == ServiceKey.jellyfin;
+      final backend = streamBackendOf(key.service);
       final lens = ref.watch(activeInstanceProvider(key.service))?.id ?? '';
       if (key.instanceId.isEmpty || key.instanceId == lens) {
-        return isJellyfin
-            ? ref.watch(jellyfinServerProvider)
-            : ref.watch(plexServerProvider);
+        return ref.watch(backend.lensClient);
       }
-      return isJellyfin
-          ? ref.watch(jellyfinClientForProvider(key.instanceId))
-          : ref.watch(plexClientForProvider(key.instanceId));
+      return ref.watch(backend.clientFor(key.instanceId));
     });
 
 /// The libraries of one named connection of a media server; empty is the
 /// active one.
 ///
-/// The lens's own connection collapses onto [jellyfinLibrariesProvider] or
-/// [plexLibrariesProvider], so the Overview, the Libraries tab and anything an
-/// override of either reaches read one answer. Every other connection asks
-/// its own client. `retry: noProviderRetry`, like the providers it derives
-/// from: a dark server is a Retry, not a spinner held through ten attempts.
+/// The lens's own connection collapses onto the service's libraries provider
+/// ([StreamBackend.libraries]), so the Overview, the Libraries tab and anything
+/// an override of it reaches read one answer. Every other connection asks its
+/// own client. `retry: noProviderRetry`, like the providers it derives from: a
+/// dark server is a Retry, not a spinner held through ten attempts.
 final streamLibrariesForProvider =
     FutureProvider.family<List<StreamLibrary>, StreamConnection>((
       ref,
       key,
     ) async {
+      final backend = streamBackendOf(key.service);
       final lens = ref.watch(activeInstanceProvider(key.service))?.id ?? '';
-      final isJellyfin = key.service == ServiceKey.jellyfin;
       if (key.instanceId.isEmpty || key.instanceId == lens) {
-        return isJellyfin
-            ? ref.watch(jellyfinLibrariesProvider.future)
-            : ref.watch(plexLibrariesProvider.future);
+        return ref.watch(backend.libraries.future);
       }
-      final StreamServerClient client = isJellyfin
-          ? ref.watch(jellyfinClientForProvider(key.instanceId))
-          : ref.watch(plexClientForProvider(key.instanceId));
+      final client = ref.watch(backend.clientFor(key.instanceId));
       return client.getLibraries();
     }, retry: noProviderRetry);
 
@@ -154,12 +145,10 @@ typedef StreamItemKey = ({
 /// names, the active one when empty.
 final streamItemForProvider = FutureProvider.autoDispose
     .family<StreamItem?, StreamItemKey>((ref, key) {
-      final isJellyfin = key.service == ServiceKey.jellyfin;
+      final backend = streamBackendOf(key.service);
       final lens = ref.watch(activeInstanceProvider(key.service))?.id ?? '';
       if (key.instanceId.isEmpty || key.instanceId == lens) {
-        return isJellyfin
-            ? ref.watch(jellyfinItemProvider(key.itemId).future)
-            : ref.watch(plexItemProvider(key.itemId).future);
+        return ref.watch(backend.item(key.itemId).future);
       }
       final client = ref.watch(
         streamClientForProvider((
@@ -192,12 +181,10 @@ final streamLibraryItemCountProvider = FutureProvider.autoDispose
 /// [streamItemForProvider].
 final streamChildrenForProvider = FutureProvider.autoDispose
     .family<List<StreamItem>, StreamItemKey>((ref, key) {
-      final isJellyfin = key.service == ServiceKey.jellyfin;
+      final backend = streamBackendOf(key.service);
       final lens = ref.watch(activeInstanceProvider(key.service))?.id ?? '';
       if (key.instanceId.isEmpty || key.instanceId == lens) {
-        return isJellyfin
-            ? ref.watch(jellyfinItemChildrenProvider(key.itemId).future)
-            : ref.watch(plexChildrenProvider(key.itemId).future);
+        return ref.watch(backend.children(key.itemId).future);
       }
       final client = ref.watch(
         streamClientForProvider((
@@ -220,30 +207,18 @@ void refreshStreamSessions(
   ref.invalidate(
     streamSessionsForProvider((service: service, instanceId: instanceId)),
   );
-  ref.invalidate(
-    service == ServiceKey.jellyfin
-        ? jellyfinSessionsProvider
-        : plexSessionsProvider,
-  );
+  ref.invalidate(streamBackendOf(service).sessions);
 }
 
 /// Asks again for one item: its own read and the active connection's cache
 /// it collapses onto.
 void refreshStreamItem(WidgetRef ref, StreamItemKey key) {
   ref.invalidate(streamItemForProvider(key));
-  ref.invalidate(
-    key.service == ServiceKey.jellyfin
-        ? jellyfinItemProvider(key.itemId)
-        : plexItemProvider(key.itemId),
-  );
+  ref.invalidate(streamBackendOf(key.service).item(key.itemId));
 }
 
 /// Asks again for what is inside one item, like [refreshStreamItem].
 void refreshStreamChildren(WidgetRef ref, StreamItemKey key) {
   ref.invalidate(streamChildrenForProvider(key));
-  ref.invalidate(
-    key.service == ServiceKey.jellyfin
-        ? jellyfinItemChildrenProvider(key.itemId)
-        : plexChildrenProvider(key.itemId),
-  );
+  ref.invalidate(streamBackendOf(key.service).children(key.itemId));
 }

@@ -34,7 +34,7 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 /// ## Why this is not the picker that was removed
 ///
 /// The dashboard used to carry a chevron next to the title opening a list of
-/// all seventeen services. The Portal replaced it and it was deleted, which is
+/// all nineteen services. The Portal replaced it and it was deleted, which is
 /// what freed this spot. The two are not the same control and must not become
 /// it: the Portal answers *where do I go*, this answers *which one of these am
 /// I looking at*. The boundary is one rule: **this never lists another

@@ -80,6 +80,8 @@ PROXIES: dict[str, tuple[str, int, int]] = {
     "sabnzbd": ("sabnzbd", 8080, 28082),
     "nzbget": ("nzbget", 6789, 26789),
     "jellyfin": ("jellyfin", 8096, 28096),
+    "emby": ("emby", 8096, 28098),
+    "tracearr": ("tracearr", 3000, 23000),
     "plex": ("plex", 32400, 23240),
     "dockge": ("dockge", 5001, 25001),
     "npm": ("nginx-proxy-manager", 81, 28181),
@@ -750,9 +752,9 @@ def reset(name: str = "golden") -> dict[str, Any]:
 def play(arguments: argparse.Namespace) -> dict[str, Any]:
     """Start a playback on the lab, and pause or stop it on request.
 
-    Jellyfin is the real one: the helper opens a session with a dedicated
-    device, then the helper's own pause/stop reports move it. Plex is the
-    spike: its session comes from a part read, and the app's Stop is behind
+    Jellyfin and Emby are the real ones: the helper opens a session with a
+    dedicated device, then the helper's own pause/stop reports move it. Plex is
+    the spike: its session comes from a part read, and the app's Stop is behind
     Plex Pass, so only the helper's stop and a declared refusal exist.
     """
 
@@ -761,9 +763,9 @@ def play(arguments: argparse.Namespace) -> dict[str, Any]:
     env.setdefault(
         "CUPOLA_TESTLAB_CREDENTIALS_FILE", str(STATE_ROOT / "credentials.env")
     )
-    if arguments.server == "jellyfin":
+    if arguments.server in ("jellyfin", "emby"):
         device = arguments.device or "cupola-play"
-        script = TESTLAB_DIR / "jellyfin_play.py"
+        script = TESTLAB_DIR / f"{arguments.server}_play.py"
         common = [
             sys.executable,
             str(script),
@@ -782,7 +784,7 @@ def play(arguments: argparse.Namespace) -> dict[str, Any]:
         if arguments.stop:
             subprocess.run([*common, "--stop"], check=True, env=env)
         return {
-            "server": "jellyfin",
+            "server": arguments.server,
             "title": arguments.title,
             "device": device,
             "paused": arguments.pause,
@@ -1242,7 +1244,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "app-config", help="write the app's configuration for a profile"
     )
     app_config_parser.add_argument(
-        "profile", help="the profile to configure the app for: P1 to P9"
+        "profile", help="the profile to configure the app for: P1 to P10"
     )
     app_config_parser.add_argument(
         "--apply",
@@ -1258,7 +1260,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     play_parser.add_argument("title")
     play_parser.add_argument(
-        "--server", choices=("jellyfin", "plex"), default="jellyfin"
+        "--server", choices=("jellyfin", "emby", "plex"), default="jellyfin"
     )
     play_parser.add_argument(
         "--user", choices=("admin", "viewer"), default="viewer"

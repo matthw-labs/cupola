@@ -262,13 +262,14 @@ class WindowChrome extends ConsumerWidget {
       orElse: () => ServiceKey.seerr,
     );
     if (service.routeParam != crumbSegments[1]) return null;
-    // A media server's tab names the connection it reads in its own header,
-    // which reads what the visit has in view. This strip only has the
-    // location, which at a tab's root carries the link the tab was opened
-    // from or none, and so would name the lens, or a connection chosen since
-    // in the lens sheet: a second, wrong, reading beside the right one. A page
-    // pushed from a tab is one connection's, and its location says which.
-    if (service.domain == ServiceDomain.stream &&
+    // A service whose shell mounts `ConnectionInViewScope` (a media server's)
+    // names the connection it reads in its own tab header, which reads what the
+    // visit has in view. This strip only has the location, which at a tab's
+    // root carries the link the tab was opened from or none, and so would name
+    // the lens, or a connection chosen since in the lens sheet: a second,
+    // wrong, reading beside the right one. A page pushed from a tab is one
+    // connection's, and its location says which.
+    if (service.mountsConnectionInView &&
         isServiceTabRoot(service, location.path)) {
       return null;
     }

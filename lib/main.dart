@@ -31,6 +31,7 @@ import 'package:cupola/demo/demo_door.dart';
 import 'package:cupola/demo/demo_session.dart';
 import 'package:cupola/demo/world/artwork.dart';
 import 'package:cupola/features/discover/data/seerr_accounts.dart';
+import 'package:cupola/features/tracearr/data/tracearr_owner_accounts.dart';
 import 'package:cupola/features/outside/data/outside_background.dart';
 import 'package:cupola/features/outside/data/outside_keeper.dart';
 import 'package:cupola/features/release_search/data/release_search_bootstrap.dart';
@@ -245,6 +246,9 @@ class CupolaApp extends ConsumerWidget {
     // Each Seerr account's permissions, read again at start and when the
     // app comes back with them stale.
     ref.watch(seerrAccountKeeperProvider);
+    // The Tracearr owner's session, read once a day of use so Tracearr keeps
+    // it alive.
+    ref.watch(tracearrOwnerKeeperProvider);
     // Moves each connection with an address away from home to the address
     // that answers: at start, on resume, when one stops answering.
     ref.watch(routeProbeProvider);

@@ -24,7 +24,7 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 /// identity (its mark in a tile and its name), and one trailing action.
 ///
 /// The dot + title used to be a button opening a dropdown picker of all
-/// seventeen services (the dashboard's own switcher). The Portal made it a
+/// nineteen services (the dashboard's own switcher). The Portal made it a
 /// second, worse copy of the same instrument (drag the nav bar up from
 /// anywhere, land on the real matrix), so the picker is gone and the title
 /// went back to being what it looks like: the name of the room you are in.

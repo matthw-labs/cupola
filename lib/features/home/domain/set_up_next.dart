@@ -69,7 +69,7 @@ List<SetUpSuggestion> setUpNextOf(
         line: 'Requests, Discover, ratings and cast',
         found: null,
       ),
-    if (!any(const [ServiceKey.jellyfin, ServiceKey.plex]))
+    if (!any(mediaServers))
       (
         service: ServiceKey.jellyfin,
         title: Lexicon.setUp(ServiceKey.jellyfin.title),

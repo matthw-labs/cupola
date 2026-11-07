@@ -50,17 +50,22 @@ enum HomeModule {
     services: [
       ServiceKey.jellyfin,
       ServiceKey.plex,
+      ServiceKey.emby,
       ServiceKey.radarr,
       ServiceKey.sonarr,
     ],
   ),
 
   /// What somebody started and did not finish.
+  ///
+  /// [services] is spelled out because an enum argument is const; the guard
+  /// `test/features/home/domain/home_module_services_test.dart` holds it to
+  /// `mediaServers`.
   continueWatching(
     audience: Audience.operator,
     label: 'Continue watching',
     line: 'What you started and did not finish',
-    services: [ServiceKey.jellyfin, ServiceKey.plex],
+    services: [ServiceKey.jellyfin, ServiceKey.plex, ServiceKey.emby],
   ),
 
   /// What comes out or airs from today to three days on.
@@ -111,11 +116,20 @@ enum HomeModule {
   ),
 
   /// Who is watching what, and on which screen.
+  ///
+  /// [services] is spelled out because an enum argument is const; the guard
+  /// `test/features/home/domain/home_module_services_test.dart` holds it to
+  /// `sessionServices`.
   nowPlaying(
     audience: Audience.operator,
     label: 'Now playing',
     line: 'Who is watching, and on which screen',
-    services: [ServiceKey.jellyfin, ServiceKey.plex],
+    services: [
+      ServiceKey.jellyfin,
+      ServiceKey.plex,
+      ServiceKey.emby,
+      ServiceKey.tracearr,
+    ],
   ),
 
   /// Every service's light on one slab: the Stack tab, folded. Off until the

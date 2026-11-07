@@ -1,0 +1,294 @@
+{
+    "data": [
+        {
+            "id": "6d471af5-ed90-4a35-a094-427140b545cd",
+            "severity": "warning",
+            "created_at": "2026-11-06T17:22:07.795Z",
+            "acknowledged_at": null,
+            "session_id": "761f7b6d-7777-471b-8013-8a60969d08d9",
+            "rule": {
+                "id": "0252eb78-4db9-483b-a34b-7cc20589d45d",
+                "name": "Too many streams at once"
+            },
+            "server": {
+                "id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+                "name": "Casa Emby",
+                "type": "emby"
+            },
+            "user": {
+                "id": "9d7d8f7d-0e17-4f3a-a169-bbc545d802c2",
+                "server_user_id": "7760cf43-f9bd-4964-9d7d-f2c5e2185def",
+                "username": "Anna",
+                "thumb_url": null,
+                "avatar_url": null
+            },
+            "data": {
+                "edgeKey": null,
+                "evidence": [
+                    {
+                        "match": "any",
+                        "matched": true,
+                        "conditions": [
+                            {
+                                "field": "concurrent_streams",
+                                "actual": 2,
+                                "matched": true,
+                                "operator": "gt",
+                                "threshold": 1,
+                                "relatedSessionIds": [
+                                    "d0d24438-6cca-4823-91f2-1ddf79926962"
+                                ]
+                            }
+                        ],
+                        "groupIndex": 0
+                    }
+                ],
+                "ruleName": "Too many streams at once",
+                "ipAddress": "192.0.2.10",
+                "triggerId": "1f1c0b6e-9c1a-4b2e-8d7a-000000001001",
+                "mediaTitle": "The Matrix",
+                "sessionKey": "0123456789abcdef0123456789abcdef",
+                "matchedGroups": [
+                    0
+                ],
+                "relatedSessionIds": [
+                    "d0d24438-6cca-4823-91f2-1ddf79926962"
+                ]
+            }
+        },
+        {
+            "id": "34b4f6a7-105d-47e1-99a5-ace6b41169b6",
+            "severity": "warning",
+            "created_at": "2026-11-06T17:13:23.420Z",
+            "acknowledged_at": null,
+            "session_id": "dfa359c9-cbad-4be7-8998-b2886fb18d16",
+            "rule": {
+                "id": "0252eb78-4db9-483b-a34b-7cc20589d45d",
+                "name": "Too many streams at once"
+            },
+            "server": {
+                "id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+                "name": "Casa Emby",
+                "type": "emby"
+            },
+            "user": {
+                "id": "9d7d8f7d-0e17-4f3a-a169-bbc545d802c2",
+                "server_user_id": "7760cf43-f9bd-4964-9d7d-f2c5e2185def",
+                "username": "Anna",
+                "thumb_url": null,
+                "avatar_url": null
+            },
+            "data": {
+                "edgeKey": null,
+                "evidence": [
+                    {
+                        "match": "any",
+                        "matched": true,
+                        "conditions": [
+                            {
+                                "field": "concurrent_streams",
+                                "actual": 2,
+                                "matched": true,
+                                "operator": "gt",
+                                "threshold": 1,
+                                "relatedSessionIds": [
+                                    "a69280cd-190d-49be-841d-7289a749d46e"
+                                ]
+                            }
+                        ],
+                        "groupIndex": 0
+                    }
+                ],
+                "ruleName": "Too many streams at once",
+                "ipAddress": "192.0.2.10",
+                "triggerId": "1f1c0b6e-9c1a-4b2e-8d7a-000000001001",
+                "mediaTitle": "The Matrix",
+                "sessionKey": "0123456789abcdef0123456789abcdef",
+                "matchedGroups": [
+                    0
+                ],
+                "relatedSessionIds": [
+                    "a69280cd-190d-49be-841d-7289a749d46e"
+                ]
+            }
+        },
+        {
+            "id": "7ff9b1a0-df6c-4e20-8b2d-cc8b64d56512",
+            "severity": "warning",
+            "created_at": "2026-11-06T17:03:26.130Z",
+            "acknowledged_at": null,
+            "session_id": "fca241e1-3cd5-4f46-88d9-0f1d02865e02",
+            "rule": {
+                "id": "0252eb78-4db9-483b-a34b-7cc20589d45d",
+                "name": "Too many streams at once"
+            },
+            "server": {
+                "id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+                "name": "Casa Emby",
+                "type": "emby"
+            },
+            "user": {
+                "id": "9d7d8f7d-0e17-4f3a-a169-bbc545d802c2",
+                "server_user_id": "7760cf43-f9bd-4964-9d7d-f2c5e2185def",
+                "username": "Anna",
+                "thumb_url": null,
+                "avatar_url": null
+            },
+            "data": {
+                "edgeKey": null,
+                "evidence": [
+                    {
+                        "match": "any",
+                        "matched": true,
+                        "conditions": [
+                            {
+                                "field": "concurrent_streams",
+                                "actual": 4,
+                                "matched": true,
+                                "operator": "gt",
+                                "threshold": 1,
+                                "relatedSessionIds": [
+                                    "27908f0b-a98f-4c1a-a67f-5e30c42a457a",
+                                    "af31f1d5-ff41-4805-8cd9-0301745713a0",
+                                    "92c0dc78-796f-4fa9-9a58-0b75665c7f5a"
+                                ]
+                            }
+                        ],
+                        "groupIndex": 0
+                    }
+                ],
+                "ruleName": "Too many streams at once",
+                "ipAddress": "192.0.2.10",
+                "triggerId": "1f1c0b6e-9c1a-4b2e-8d7a-000000001001",
+                "mediaTitle": "The Matrix",
+                "sessionKey": "0123456789abcdef0123456789abcdef",
+                "matchedGroups": [
+                    0
+                ],
+                "relatedSessionIds": [
+                    "27908f0b-a98f-4c1a-a67f-5e30c42a457a",
+                    "af31f1d5-ff41-4805-8cd9-0301745713a0",
+                    "92c0dc78-796f-4fa9-9a58-0b75665c7f5a"
+                ]
+            }
+        },
+        {
+            "id": "ba26d75b-27b8-4950-8a72-d90fb713527c",
+            "severity": "warning",
+            "created_at": "2026-11-06T17:03:26.067Z",
+            "acknowledged_at": null,
+            "session_id": "92c0dc78-796f-4fa9-9a58-0b75665c7f5a",
+            "rule": {
+                "id": "0252eb78-4db9-483b-a34b-7cc20589d45d",
+                "name": "Too many streams at once"
+            },
+            "server": {
+                "id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+                "name": "Casa Emby",
+                "type": "emby"
+            },
+            "user": {
+                "id": "9d7d8f7d-0e17-4f3a-a169-bbc545d802c2",
+                "server_user_id": "7760cf43-f9bd-4964-9d7d-f2c5e2185def",
+                "username": "Anna",
+                "thumb_url": null,
+                "avatar_url": null
+            },
+            "data": {
+                "edgeKey": null,
+                "evidence": [
+                    {
+                        "match": "any",
+                        "matched": true,
+                        "conditions": [
+                            {
+                                "field": "concurrent_streams",
+                                "actual": 3,
+                                "matched": true,
+                                "operator": "gt",
+                                "threshold": 1,
+                                "relatedSessionIds": [
+                                    "27908f0b-a98f-4c1a-a67f-5e30c42a457a",
+                                    "af31f1d5-ff41-4805-8cd9-0301745713a0"
+                                ]
+                            }
+                        ],
+                        "groupIndex": 0
+                    }
+                ],
+                "ruleName": "Too many streams at once",
+                "ipAddress": "192.0.2.10",
+                "triggerId": "1f1c0b6e-9c1a-4b2e-8d7a-000000001001",
+                "mediaTitle": "Big Buck Bunny",
+                "sessionKey": "0123456789abcdef0123456789abcdef",
+                "matchedGroups": [
+                    0
+                ],
+                "relatedSessionIds": [
+                    "27908f0b-a98f-4c1a-a67f-5e30c42a457a",
+                    "af31f1d5-ff41-4805-8cd9-0301745713a0"
+                ]
+            }
+        },
+        {
+            "id": "91dcbee8-94d2-4f14-8b25-29934418a0ce",
+            "severity": "warning",
+            "created_at": "2026-11-06T16:54:37.526Z",
+            "acknowledged_at": null,
+            "session_id": "af31f1d5-ff41-4805-8cd9-0301745713a0",
+            "rule": {
+                "id": "0252eb78-4db9-483b-a34b-7cc20589d45d",
+                "name": "Too many streams at once"
+            },
+            "server": {
+                "id": "5d81be5e-a172-4cba-9ed8-3f16e054e83f",
+                "name": "Casa Emby",
+                "type": "emby"
+            },
+            "user": {
+                "id": "9d7d8f7d-0e17-4f3a-a169-bbc545d802c2",
+                "server_user_id": "7760cf43-f9bd-4964-9d7d-f2c5e2185def",
+                "username": "Anna",
+                "thumb_url": null,
+                "avatar_url": null
+            },
+            "data": {
+                "edgeKey": null,
+                "evidence": [
+                    {
+                        "match": "any",
+                        "matched": true,
+                        "conditions": [
+                            {
+                                "field": "concurrent_streams",
+                                "actual": 2,
+                                "matched": true,
+                                "operator": "gt",
+                                "threshold": 1,
+                                "relatedSessionIds": [
+                                    "27908f0b-a98f-4c1a-a67f-5e30c42a457a"
+                                ]
+                            }
+                        ],
+                        "groupIndex": 0
+                    }
+                ],
+                "ruleName": "Too many streams at once",
+                "ipAddress": "192.0.2.10",
+                "triggerId": "1f1c0b6e-9c1a-4b2e-8d7a-000000001001",
+                "mediaTitle": "The Matrix",
+                "sessionKey": "0123456789abcdef0123456789abcdef",
+                "matchedGroups": [
+                    0
+                ],
+                "relatedSessionIds": [
+                    "27908f0b-a98f-4c1a-a67f-5e30c42a457a"
+                ]
+            }
+        }
+    ],
+    "meta": {
+        "nextCursor": null,
+        "pageSize": 50
+    }
+}

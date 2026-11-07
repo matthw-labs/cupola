@@ -515,6 +515,8 @@ StreamSession? jellyfinStreamSessionFromJson(Map<String, dynamic> session) {
       StreamItemKind.movie => nowPlaying['Id']?.toString(),
       _ => null,
     }?.ifEmptyNull(),
+    itemId: nowPlaying['Id']?.toString().ifEmptyNull(),
+    userId: session['UserId']?.toString().ifEmptyNull(),
   );
 }
 

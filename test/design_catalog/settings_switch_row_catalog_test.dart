@@ -34,6 +34,13 @@ Widget _states(BuildContext context) => _group([
     value: false,
     onChanged: (_) {},
   ),
+  SettingsSwitchRow(
+    icon: Icons.flag_outlined,
+    title: 'Flagged by Tracearr',
+    description: 'When someone breaks a rule Tracearr watches.',
+    value: false,
+    onChanged: (_) {},
+  ),
 ]);
 
 Widget _withNote(BuildContext context) => _group([
@@ -83,7 +90,8 @@ void main() {
     'SettingsSwitchRow',
     scenes: [
       CatalogScene(
-        'SettingsSwitchRow · on and off, in a group',
+        'SettingsSwitchRow · on and off, in a group (Notifications: Needs you, '
+        'Ready to watch, Flagged by Tracearr)',
         _states,
         width: 390,
       ),

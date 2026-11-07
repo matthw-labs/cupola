@@ -80,7 +80,7 @@ void main() {
       r'\bbrandAccent\b|DesignTokens\.colorService[A-Z]\w*|'
       r'AppColors\.(?:seerr|radarr|sonarr|lidarr|qbittorrent|transmission|'
       r'nginxProxyManager|bazarr|truenas|dockge|prowlarr|readarr|sabnzbd|'
-      r'nzbget|unraid|jellyfin|plex)\b',
+      r'nzbget|unraid|jellyfin|plex|emby)\b',
     );
     final offenders = <String>[];
     for (final file in libFiles) {

@@ -143,7 +143,7 @@ class _DesktopShellState extends ConsumerState<DesktopShell>
   /// "every" covers.
   ///
   /// The announcement comes with it. The work is invisible on a pane of
-  /// seventeen rows: the ones that re-enter their checking state are usually
+  /// nineteen rows: the ones that re-enter their checking state are usually
   /// off screen, and a command whose only feedback is below the fold is a
   /// command people press twice.
   void _refreshAll() {

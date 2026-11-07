@@ -22,7 +22,8 @@ The profiles are the ones of the world's catalogue
 * P1 the full household, P2 the requester, P3 the first day, P4 the arr stack
   without Seerr, P5 the arrs known only through Seerr, P6 two of a kind, P7
   the household away from home, P8 behind the gateway, P9 the household and a
-  friend's Seerr.
+  friend's Seerr, P10 the household's two media servers, Jellyfin and Emby,
+  and the Tracearr that watches them.
 
 Two of them need something the lab has to be told about:
 
@@ -144,7 +145,9 @@ SERVICES: dict[str, Service] = {
         "nginxProxyManager", "npm", "password", pair=True
     ),
     "jellyfin": Service("jellyfin", "jellyfin", "api_key", viewer=True),
+    "emby": Service("emby", "emby", "api_key", viewer=True),
     "plex": Service("plex", "plex", "token"),
+    "tracearr": Service("tracearr", "tracearr", "api_key"),
 }
 
 #: The proxy in front of each service. The app talks to the proxy's port, so
@@ -267,6 +270,18 @@ def instances_for(profile: str) -> list[Instance]:
                 if instance.service not in ("radarr", "sonarr", "seerr")
             ],
         ]
+    if profile == "P10":
+        # Two media servers side by side: Jellyfin and Emby on the same media,
+        # each with a viewer of its own, which is what the Home's Now playing
+        # and the lens over two servers are read against. Tracearr watches
+        # both, so Now playing draws its streams in the same list and a title
+        # says who watched it.
+        return [
+            Instance("seerr", "seerr"),
+            Instance("jellyfin", "jellyfin"),
+            Instance("emby", "emby"),
+            Instance("tracearr", "tracearr"),
+        ]
     if profile == "P9":
         # The household, plus Sara's Seerr, where the operator signs in with
         # an account of his own that may only request.
@@ -291,6 +306,7 @@ PROFILES: dict[str, str] = {
     "P7": "Full household, away from home",
     "P8": "Behind the gateway",
     "P9": "Full household and a friend's Seerr",
+    "P10": "Jellyfin and Emby side by side, watched by Tracearr",
 }
 
 
@@ -352,8 +368,16 @@ def credential_of(service: Service) -> tuple[str, str]:
         return values.get("CUPOLA_TESTLAB_SEERR_API_KEY", ""), ""
     if service.key == "jellyfin":
         return values.get("CUPOLA_TESTLAB_JELLYFIN_TOKEN", ""), ""
+    if service.key == "emby":
+        # An API key, which no user owns: the viewer below is what the app
+        # reads the server as.
+        return values.get("CUPOLA_TESTLAB_EMBY_TOKEN", ""), ""
     if service.key == "plex":
         return values.get("CUPOLA_TESTLAB_PLEX_TOKEN", ""), ""
+    if service.key == "tracearr":
+        # The public `trr_pub_` key. The owner's sign-in (for Acknowledge and
+        # Dismiss) is a thing the person does in the app, not configuration.
+        return values.get("CUPOLA_TESTLAB_TRACEARR_KEY", ""), ""
     if service.pair:
         prefix = {
             "qbittorrent": "CUPOLA_TESTLAB_QBITTORRENT",
@@ -370,10 +394,15 @@ def credential_of(service: Service) -> tuple[str, str]:
 
 
 def viewer_of(service: Service) -> str:
-    """The viewer of [service], for the one service that has one."""
+    """The viewer of [service], for the services that have one.
+
+    Jellyfin's token is a user's and names that user; Emby's key belongs to no
+    one, so the administrator's id is what the app is told to read as.
+    """
     if not service.viewer:
         return ""
-    return testlab.credentials().get("CUPOLA_TESTLAB_JELLYFIN_USER_ID", "")
+    name = f"CUPOLA_TESTLAB_{service.key.upper()}_USER_ID"
+    return testlab.credentials().get(name, "")
 
 
 def sign_in(url: str, email: str, password: str) -> dict[str, Any]:
