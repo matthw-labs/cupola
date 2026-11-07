@@ -1895,11 +1895,10 @@ Future<List<ServiceKpi>> _tracearrKpisFrom(
       icon: Icons.play_circle_outline_rounded,
       tone: playing == null ? null : _activityIf(playing > 0),
     ),
-    // Plays and the time they took, as the spec has it. The day is cut at UTC
-    // midnight: Tracearr wants an IANA zone name for its own cut and the app
-    // has no source of one (no plugin in the tree gives the device's), so for
-    // a household away from UTC this is not their calendar day until a zone
-    // can be asked for.
+    // Plays and the time they took, as the spec has it, for the device's own
+    // day: the read carries the device's IANA zone (`deviceTimeZoneProvider`),
+    // and falls back to Tracearr's UTC day only when there is none or Tracearr
+    // refuses it.
     _figure(
       label: 'Today',
       value: day == null
