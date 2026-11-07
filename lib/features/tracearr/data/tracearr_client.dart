@@ -302,12 +302,26 @@ class TracearrClient {
 
   /// Today's figures. [timezone] is an IANA name (`Europe/Rome`): without it
   /// Tracearr cuts the day at UTC midnight.
+  ///
+  /// Tracearr refuses a zone it does not know with a 400 and no figures. A
+  /// device's zone is not ours to vouch for, so a refused one is read again
+  /// without it: the day from UTC midnight beats no day at all.
   Future<TracearrToday> getToday({String? serverId, String? timezone}) async {
-    final response = await _api.get(
-      '$_v1/stats/today',
-      queryParameters: {'serverId': ?serverId, 'timezone': ?timezone},
-    );
-    return TracearrToday.fromJson(response.data);
+    Future<TracearrToday> read(String? zone) async {
+      final response = await _api.get(
+        '$_v1/stats/today',
+        queryParameters: {'serverId': ?serverId, 'timezone': ?zone},
+      );
+      return TracearrToday.fromJson(response.data);
+    }
+
+    if (timezone == null) return read(null);
+    try {
+      return await read(timezone);
+    } on DioException catch (error) {
+      if (error.response?.statusCode != 400) rethrow;
+      return read(null);
+    }
   }
 
   /// One page of history, newest first. Start with no [cursor] and pass back
