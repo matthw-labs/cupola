@@ -59,6 +59,7 @@ export 'media_prose_section.dart';
 export 'media_chip_section.dart';
 export 'media_detail_back_button.dart';
 export 'media_detail_placeholder_view.dart';
+export 'media_poster_caption.dart';
 export 'media_poster_card.dart';
 export 'media_info_card.dart';
 export 'media_metadata_line.dart';

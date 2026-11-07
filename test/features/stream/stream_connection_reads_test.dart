@@ -18,11 +18,11 @@ import 'package:cupola/features/jellyfin/domain/models/jellyfin_models.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/plex/domain/models/plex_models.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
-import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/models/stream_library.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart';
-import 'package:cupola/features/stream/presentation/stream_overview_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+
+import 'package:cupola/features/stream/presentation/stream_watching.dart';
 
 import '../../test_helpers/profiles/profiles.dart';
 
@@ -40,7 +40,6 @@ class _Read {
     required this.overridePlain,
     required this.family,
     required this.path,
-    this.autoDispose = false,
   });
 
   final String name;
@@ -54,9 +53,6 @@ class _Read {
 
   /// What the connection's own server is asked for.
   final String path;
-
-  /// Whether the provider is `autoDispose`, which must be held while read.
-  final bool autoDispose;
 }
 
 void main() {
@@ -192,15 +188,6 @@ void main() {
   group('Plex', () {
     final reads = <_Read>[
       _Read(
-        'on deck, the tab',
-        marker: <StreamItem>[],
-        overridePlain: (marker) => plexOnDeckTabProvider.overrideWith(
-          (ref) async => marker as List<StreamItem>,
-        ),
-        family: (c, id) => c.read(plexOnDeckTabForProvider(id).future),
-        path: '/hubs/continueWatching',
-      ),
-      _Read(
         'devices',
         marker: <PlexDevice>[],
         overridePlain: (marker) => plexDevicesProvider.overrideWith(
@@ -232,16 +219,6 @@ void main() {
         ),
         path: '/library/sections',
       ),
-      _Read(
-        'on deck, the Overview\'s rail',
-        marker: <StreamItem>[],
-        overridePlain: (marker) => plexOnDeckProvider.overrideWith(
-          (ref) async => marker as List<StreamItem>,
-        ),
-        family: (c, id) => c.read(plexOnDeckForProvider(id).future),
-        path: '/hubs/continueWatching',
-        autoDispose: true,
-      ),
     ];
 
     for (final read in reads) {
@@ -252,13 +229,6 @@ void main() {
           overrides: [read.overridePlain(read.marker)],
         );
         final container = harness.container();
-        // An `autoDispose` read is held while it is read.
-        if (read.autoDispose) {
-          for (final id in ['', WorldIds.plex, WorldIds.plexCabin]) {
-            container.listen(plexOnDeckForProvider(id), (_, _) {});
-          }
-        }
-
         expect(await read.family(container, ''), same(read.marker));
         expect(await read.family(container, WorldIds.plex), same(read.marker));
         expect(harness.network.requestsTo(WorldIds.plex), isEmpty);
@@ -278,13 +248,6 @@ void main() {
           ),
         );
         final container = harness.container();
-        if (read.autoDispose) {
-          container.listen(
-            plexOnDeckForProvider(WorldIds.plexCabin),
-            (_, _) {},
-          );
-        }
-
         await expectLater(
           read
               .family(container, WorldIds.plexCabin)
@@ -293,5 +256,45 @@ void main() {
         );
       });
     }
+
+    test('on deck and what was added are asked of the connection named, '
+        'and a dark one fails at once', () async {
+      final harness = await ProfileHarness.start(_twoPlex);
+      final container = harness.container();
+      for (final shelf in streamWatchingShelvesOf(ServiceKey.plex)) {
+        final key = (
+          service: ServiceKey.plex,
+          instanceId: WorldIds.plexCabin,
+          shelf: shelf,
+        );
+        container.listen(streamWatchingProvider(key), (_, _) {});
+        await container.read(streamWatchingProvider(key).future);
+      }
+      expect(
+        harness.network.requestsTo(WorldIds.plexCabin).map((r) => r.path),
+        containsAll(['/hubs/continueWatching', '/library/recentlyAdded']),
+      );
+      expect(harness.network.requestsTo(WorldIds.plex), isEmpty);
+
+      final dark = await ProfileHarness.start(
+        _twoPlex.withBehaviour(
+          WorldIds.plexCabin,
+          ConnectionBehaviour.didNotAnswer,
+        ),
+      );
+      final darkContainer = dark.container();
+      final key = (
+        service: ServiceKey.plex,
+        instanceId: WorldIds.plexCabin,
+        shelf: StreamWatchingShelf.continueWatching,
+      );
+      darkContainer.listen(streamWatchingProvider(key), (_, _) {});
+      await expectLater(
+        darkContainer
+            .read(streamWatchingProvider(key).future)
+            .timeout(const Duration(milliseconds: 500)),
+        throwsA(isNot(isA<TimeoutException>())),
+      );
+    });
   });
 }

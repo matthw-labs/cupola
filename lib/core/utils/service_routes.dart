@@ -207,10 +207,6 @@ class ServiceRoutes {
   static const plexLibraries = '$plex/libraries';
   static const plexItemBase = '$plexLibraries/item';
 
-  /// `on-deck`, hyphenated, because that is how Plex writes it and the app does
-  /// not rename another product's furniture: `ServiceTab.onDeck.segment` is
-  /// the one tab segment that is not simply its enum name.
-  static const plexOnDeck = '$plex/on-deck';
   static const plexActivities = '$plex/activities';
   static const plexDevices = '$plex/devices';
   static const plexPlaylists = '$plex/playlists';

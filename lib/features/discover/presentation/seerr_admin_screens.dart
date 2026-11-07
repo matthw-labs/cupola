@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/providers/async_value_kept.dart';
+
 import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/capability/role_gate.dart';
 import 'package:cupola/core/capability/role_gate_copy.dart';
@@ -53,7 +55,7 @@ class _SeerrIssuesScreenState extends ConsumerState<SeerrIssuesScreen> {
     final partial = issues.asData?.value;
     return ServiceListPage<SeerrIssue>.unsummarised(
       service: ServiceKey.seerr,
-      value: issues.whenData((result) => result.items),
+      value: issues.whenDataKept((result) => result.items),
       serviceName: 'Seerr issues',
       onRetry: () => ref.invalidate(seerrIssuesProvider(_filter)),
       emptyIcon: Icons.report_problem_outlined,
@@ -158,7 +160,7 @@ class SeerrUsersScreen extends ConsumerWidget {
     final partial = users.asData?.value;
     return ServiceListPage<SeerrUser>.unsummarised(
       service: ServiceKey.seerr,
-      value: users.whenData((result) => result.items),
+      value: users.whenDataKept((result) => result.items),
       serviceName: 'Seerr users',
       onRetry: () => ref.invalidate(seerrUsersProvider),
       emptyIcon: Icons.people_outline_rounded,

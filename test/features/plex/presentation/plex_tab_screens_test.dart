@@ -12,6 +12,7 @@ import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
+import 'package:cupola/features/stream/presentation/stream_watching.dart';
 
 final _configured = const SettingsModel(
   plexClientId: 'cupola-test',
@@ -23,10 +24,6 @@ void main() {
   ) async {
     var reads = 0;
     final providerOverrides = <Override>[
-      plexOnDeckTabProvider.overrideWith((ref) async {
-        reads++;
-        return const [];
-      }),
       plexSessionsProvider.overrideWith((ref) async {
         reads++;
         return const [];
@@ -42,7 +39,6 @@ void main() {
     ];
 
     for (final screen in const <Widget>[
-      PlexOnDeckScreen(),
       PlexActivitiesScreen(),
       PlexDevicesScreen(),
       PlexPlaylistsScreen(),
@@ -60,44 +56,54 @@ void main() {
     expect(reads, 0);
   });
 
-  testWidgets('on deck renders the owner watch state as one button', (
-    tester,
-  ) async {
+  testWidgets('activities draw on deck and what was added under Now '
+      'playing, the on deck rows with how far in', (tester) async {
     await _pump(
       tester,
-      screen: const PlexOnDeckScreen(),
+      screen: const PlexActivitiesScreen(),
       overrides: [
-        plexOnDeckTabProvider.overrideWith(
-          (ref) async => const [
-            StreamItem(
-              id: '42',
-              title: 'Severance',
-              subtitle: 'S02E05',
-              kind: StreamItemKind.episode,
-              posterPath: null,
-              year: null,
-              runtimeMs: 1000,
-              isPlayed: false,
-              resumeOffsetMs: 300,
-              unplayedChildCount: null,
-            ),
-          ],
+        plexSessionsProvider.overrideWith((ref) async => const []),
+        streamWatchingProvider.overrideWith(
+          (ref, key) async => switch (key.shelf) {
+            StreamWatchingShelf.continueWatching => const [
+              StreamItem(
+                id: '42',
+                title: 'Severance',
+                subtitle: 'S02E05',
+                kind: StreamItemKind.episode,
+                posterPath: null,
+                year: null,
+                runtimeMs: 1000,
+                isPlayed: false,
+                resumeOffsetMs: 300,
+                unplayedChildCount: null,
+              ),
+            ],
+            _ => const [],
+          },
         ),
       ],
     );
 
+    expect(find.text('Now playing'), findsOneWidget);
+    expect(find.text('On deck'), findsOneWidget);
     expect(find.text('Severance'), findsOneWidget);
-    expect(find.text('S02E05\u00A0· 30% in'), findsOneWidget);
-    expect(find.semantics.byLabel('Severance'), findsOneWidget);
+    // Plex has no Next up of its own: its on deck is both halves.
+    expect(find.text('Next up'), findsNothing);
+    await tester.scrollUntilVisible(find.text('Recently added'), 200);
+    expect(find.text('Nothing added lately'), findsOneWidget);
   });
 
-  testWidgets('an answered empty on-deck hub rests without a fake count', (
+  testWidgets('an answered empty on deck rests without a fake count', (
     tester,
   ) async {
     await _pump(
       tester,
-      screen: const PlexOnDeckScreen(),
-      overrides: [plexOnDeckTabProvider.overrideWith((ref) async => const [])],
+      screen: const PlexActivitiesScreen(),
+      overrides: [
+        plexSessionsProvider.overrideWith((ref) async => const []),
+        streamWatchingProvider.overrideWith((ref, key) async => const []),
+      ],
     );
 
     expect(find.text('Nothing part-watched'), findsOneWidget);
@@ -108,7 +114,10 @@ void main() {
     await _pump(
       tester,
       screen: const PlexActivitiesScreen(),
-      overrides: [plexSessionsProvider.overrideWith((ref) async => const [])],
+      overrides: [
+        plexSessionsProvider.overrideWith((ref) async => const []),
+        streamWatchingProvider.overrideWith((ref, key) async => const []),
+      ],
     );
 
     expect(find.text('Now playing'), findsOneWidget);

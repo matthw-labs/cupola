@@ -141,7 +141,7 @@ class _WatcherRow extends StatelessWidget {
 }
 
 /// The line the removal of a title says of who watched it, from what the
-/// page already read: `Watched by 3 · last 12 days ago` or `Nobody has
+/// page already read: `Watched by 3 people · last 12 days ago` or `Nobody has
 /// watched it`. Null unless Tracearr answered for the title (not set up, not
 /// answered, not known, or not read yet): the sheet then says nothing, since
 /// not knowing is never "nobody".

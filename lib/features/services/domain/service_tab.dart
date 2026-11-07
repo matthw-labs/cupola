@@ -49,7 +49,6 @@ enum ServiceTab {
   devices('devices', 'Devices'),
   tasks('tasks', 'Tasks'),
   activity('activity', 'Activity'),
-  onDeck('on-deck', 'On deck'),
   activities('activities', 'Activities'),
   playlists('playlists', 'Playlists'),
 
@@ -189,11 +188,11 @@ const Map<ServiceKey, List<ServiceTab>> serviceTabs = {
     ServiceTab.users,
     ServiceTab.violations,
   ],
-  // Six tabs, the drawn set (decision 17).
+  // Five tabs: the drawn set (decision 17), with On deck moved into
+  // Activities beside who is watching (decision `P-stream-library-browse`).
   ServiceKey.plex: [
     ServiceTab.overview,
     ServiceTab.libraries,
-    ServiceTab.onDeck,
     ServiceTab.activities,
     ServiceTab.devices,
     ServiceTab.playlists,

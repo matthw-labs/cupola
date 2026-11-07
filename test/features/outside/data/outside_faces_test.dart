@@ -60,12 +60,12 @@ void main() {
       expect(face.title, 'Coming up');
       expect(face.lead?.eyebrow, 'Today\u00A0· 21:00');
       expect(face.lead?.title, 'Sintel');
-      expect(face.lead?.words, 'S1 E4\u00A0· not aired');
+      expect(face.lead?.words, 'S1\u00A0E4\u00A0· not aired');
       expect(face.lead?.poster, isNotNull);
       expect(face.lead?.route, startsWith('/home/'));
       expect(face.items.single.eyebrow, 'Tomorrow');
       // A row is narrow: its day, and its code until its standing is news.
-      expect(face.items.single.words, 'S1 E3');
+      expect(face.items.single.words, 'S1\u00A0E3');
       expect(face.age, 'As of 14:02');
       expect(face.aged, isFalse);
     });

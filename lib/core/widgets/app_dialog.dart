@@ -233,7 +233,7 @@ Future<AppConfirmResult> showAppConfirmDialog({
                 Text(message, style: theme.textTheme.bodyMedium),
               // A fact another service holds about what the action touches,
               // in the secondary ink under the sentence: it informs the
-              // choice and is no part of it (`Watched by 3 · last 12 days
+              // choice and is no part of it (`Watched by 3 people · last 12 days
               // ago`).
               if (note != null && note.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.sm),

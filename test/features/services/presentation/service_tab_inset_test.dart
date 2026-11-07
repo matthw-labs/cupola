@@ -1154,18 +1154,6 @@ void main() {
       expectClearsTheBar(tester, find.byType(StreamNowPlayingSection));
     });
 
-    testWidgets('Plex On deck starts below the tab bar', (tester) async {
-      await pumpHosted(
-        tester,
-        service: ServiceKey.plex,
-        tab: ServiceTab.onDeck,
-        overrides: [plexOnDeckTabProvider.overrideWith((ref) => _pending())],
-        child: const PlexOnDeckScreen(topPadding: _hostedTopPadding),
-      );
-
-      expectClearsTheBar(tester, find.byType(ShimmerGrid));
-    });
-
     testWidgets('Plex Activities starts below the tab bar', (tester) async {
       await pumpHosted(
         tester,

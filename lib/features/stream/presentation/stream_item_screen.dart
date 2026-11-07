@@ -456,22 +456,23 @@ class _Children extends ConsumerWidget {
               icon: Icons.inbox_outlined,
               title: 'Nothing inside',
             ),
-            data: (list) => GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: EdgeInsets.zero,
-              itemCount: list.length,
-              gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                maxCrossAxisExtent: 130 + AppSpacing.gridGap,
-                childAspectRatio: 2 / 3,
-                crossAxisSpacing: AppSpacing.gridGap,
-                mainAxisSpacing: AppSpacing.gridGap,
-              ),
-              itemBuilder: (context, index) => StreamPosterTile(
-                service: service,
-                instanceId: instanceId,
-                item: list[index],
-                index: index,
+            data: (list) => LayoutBuilder(
+              builder: (context, constraints) => GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                padding: EdgeInsets.zero,
+                itemCount: list.length,
+                gridDelegate: MediaPosterCaption.gridDelegate(
+                  context,
+                  width: constraints.maxWidth,
+                  columns: MediaGrid.columnsFor(constraints.maxWidth, 3),
+                ),
+                itemBuilder: (context, index) => StreamPosterTile(
+                  service: service,
+                  instanceId: instanceId,
+                  item: list[index],
+                  index: index,
+                ),
               ),
             ),
           ),

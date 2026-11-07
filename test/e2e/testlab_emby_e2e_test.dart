@@ -177,11 +177,11 @@ void main() {
       final films = libraries.singleWhere((library) => library.name == 'Films');
       final page = await client.getLibraryPage(
         libraryId: films.id,
-        lens: StreamLibraryLens.all,
+        sort: StreamLibrarySort.name,
         limit: 50,
       );
 
-      expect(page.failed, isFalse, reason: 'the A to Z page answered');
+      expect(page.failed, isFalse, reason: 'the Name-ordered page answered');
       final movie = page.items.singleWhere(
         (item) => item.title == 'Big Buck Bunny',
       );
@@ -205,7 +205,7 @@ void main() {
       final films = libraries.singleWhere((library) => library.name == 'Films');
       final page = await keyOnly.getLibraryPage(
         libraryId: films.id,
-        lens: StreamLibraryLens.all,
+        sort: StreamLibrarySort.name,
         limit: 50,
       );
       final movie = page.items.singleWhere(
@@ -227,7 +227,7 @@ void main() {
 
       final shows = await client.getLibraryPage(
         libraryId: series.id,
-        lens: StreamLibraryLens.all,
+        sort: StreamLibrarySort.name,
         limit: 50,
       );
       expect(shows.failed, isFalse);
@@ -250,7 +250,7 @@ void main() {
 
       final albums = await client.getLibraryPage(
         libraryId: music.id,
-        lens: StreamLibraryLens.all,
+        sort: StreamLibrarySort.name,
         limit: 50,
       );
       expect(albums.failed, isFalse);
@@ -494,7 +494,7 @@ void main() {
       );
       final page = await client.getLibraryPage(
         libraryId: series.id,
-        lens: StreamLibraryLens.all,
+        sort: StreamLibrarySort.name,
         limit: 50,
       );
       final show = page.items.singleWhere(

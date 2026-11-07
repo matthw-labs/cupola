@@ -221,7 +221,10 @@ void main() {
 
     final premiere = events[1];
     expect(premiere.lead(), (lead: '21:00', under: null));
-    expect(premiere.statusLine(now), 'S3 E1\u00A0· premiere\u00A0· not aired');
+    expect(
+      premiere.statusLine(now),
+      'S3\u00A0E1\u00A0· premiere\u00A0· not aired',
+    );
     expect(premiere.target, isA<CalendarMediaTarget>());
     expect(
       premiere.spoken(now),
@@ -230,7 +233,7 @@ void main() {
     );
     expect(
       events[2].statusLine(now),
-      'S4 E10\u00A0· season finale\u00A0· not aired',
+      'S4\u00A0E10\u00A0· season finale\u00A0· not aired',
     );
   });
 
@@ -251,7 +254,10 @@ void main() {
       window,
       now,
     );
-    expect(events.single.statusLine(now), 'S2 E5\u00A0· aired\u00A0· missing');
+    expect(
+      events.single.statusLine(now),
+      'S2\u00A0E5\u00A0· aired\u00A0· missing',
+    );
     expect(events.single.state.tone, StatusTone.neutral);
     expect(events.single.state.hollow, isFalse);
   });
@@ -416,11 +422,11 @@ void main() {
       askedOn: DateTime(2026, 9, 26),
     );
 
-    expect([for (final e in events) e.code], ['S3 E1', 'S3 E2']);
+    expect([for (final e in events) e.code], ['S3\u00A0E1', 'S3\u00A0E2']);
     expect(events.first.airsAt, isNull);
     expect(
       events.first.statusLine(now),
-      'S3 E1\u00A0· premiere\u00A0· not aired',
+      'S3\u00A0E1\u00A0· premiere\u00A0· not aired',
     );
     // Only the season the calendar dates.
     expect(events.first.note, 'You asked for season 3 on Sat 26 Sep');
@@ -451,17 +457,17 @@ void main() {
     );
 
     expect(events, hasLength(2));
-    expect(events.first.code, 'S1 E1–E8');
+    expect(events.first.code, 'S1\u00A0E1–E8');
     expect(
       events.first.statusLine(now),
-      'S1 E1–E8\u00A0· whole season\u00A0· not aired',
+      'S1\u00A0E1–E8\u00A0· whole season\u00A0· not aired',
     );
     expect(
       events.first.spoken(now),
       'Tomorrow at 09:00, Carrie season 1 episodes 1 to 8, whole season, '
       'not aired yet, in Sonarr',
     );
-    expect(events.last.code, 'S1 E9');
+    expect(events.last.code, 'S1\u00A0E9');
   });
 
   test(
@@ -538,7 +544,7 @@ void main() {
     );
 
     test('a day\'s first line: the time and code, the kind of release', () {
-      expect(calendarGridLead(episode(3, 1)), '21:00 S3 E1');
+      expect(calendarGridLead(episode(3, 1)), '21:00 S3\u00A0E1');
       expect(calendarGridLead(disc), 'Disc');
       expect(calendarGridLead(album), 'Album');
     });
@@ -571,7 +577,7 @@ void main() {
           episode(3, 5, title: 'Night Shift'),
         ]),
         '4 things: Sprite Fright on disc, an album by Jan Morgenstern, '
-        'Night Shift S3 E4 and 1 more.',
+        'Night Shift S3\u00A0E4 and 1 more.',
       );
     });
 

@@ -210,10 +210,14 @@ class AppBottomSheet extends StatelessWidget {
         : null;
 
     // Draggable mode: [child] is already a scrollable wired to
-    // [scrollController]; just give it the remaining space. Min-content mode:
-    // scroll [child] internally so it can't overflow with the keyboard open.
+    // [scrollController]; give it the remaining space, inside [bodyPadding]
+    // (it was dropped here, and a sheet that asked for a margin drew its rows
+    // against the screen's edge). Min-content mode: scroll [child] internally
+    // so it can't overflow with the keyboard open.
     final Widget body = draggable
-        ? Expanded(child: child)
+        ? Expanded(
+            child: Padding(padding: bodyPadding, child: child),
+          )
         : Flexible(
             child: SingleChildScrollView(padding: bodyPadding, child: child),
           );

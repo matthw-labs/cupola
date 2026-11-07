@@ -136,10 +136,14 @@ abstract interface class StreamServerClient {
     CancelToken? cancelToken,
   });
 
-  /// One page of a library under one lens, with the paging envelope kept.
+  /// One page of a library, whole, in [sort] order, with the paging envelope
+  /// kept.
   ///
-  /// [viewerId] is required by Jellyfin for every per-viewer lens and ignored by
-  /// Plex, which has only the token's own perspective.
+  /// [unplayedOnly] keeps what the viewer has not finished: a watch state, so
+  /// on Jellyfin and Emby it needs [viewerId] (the API key has no user of its
+  /// own) and answers [StreamLibraryPage.viewerRequired] without one; Plex
+  /// ignores [viewerId], having only the token's own perspective. The whole
+  /// shelf in any order is the same for everyone, and needs no viewer.
   /// [cancelToken] is part of the interface rather than an implementation extra:
   /// the project's convention is that list and search fetches are cancellable,
   /// and both clients had independently widened their overrides to add it. Left
@@ -158,14 +162,15 @@ abstract interface class StreamServerClient {
   /// whether this is a retry affordance or a quiet gap.
   Future<StreamLibraryPage> getLibraryPage({
     required String libraryId,
-    required StreamLibraryLens lens,
+    StreamLibrarySort sort = StreamLibrarySort.name,
+    bool unplayedOnly = false,
     String? viewerId,
     int startIndex = 0,
     int limit = 50,
     CancelToken? cancelToken,
   });
 
-  // Deliberately no `hasViewer` here. "A per-viewer lens has no subject" is
+  // Deliberately no `hasViewer` here. "An unplayed shelf has no subject" is
   // already carried by [StreamLibraryPage.needsViewer], per request, where the
   // browse actually needs it, so a second, connection-wide spelling of the same
   // fact bought nothing and forced every implementer and test fake to declare a
@@ -252,6 +257,28 @@ abstract interface class StreamServerClient {
     CancelToken? cancelToken,
   });
 
+  /// The next episode of each series the viewer is following, across the
+  /// server, the most recently watched series first, at most [count].
+  ///
+  /// Throws like [getContinueWatching], and for the same reasons: a server
+  /// that did not answer is not one where nothing is up next. Plex's on deck
+  /// holds both halves; its next-up half is what has no position yet.
+  Future<List<StreamItem>> getNextUp({
+    required int count,
+    CancelToken? cancelToken,
+  });
+
+  /// What the server added last, across its libraries: movies, and series by
+  /// their newest episode, the latest first, at most [count]. The same for
+  /// every viewer.
+  ///
+  /// Throws on a remote failure: an empty list is a server that added
+  /// nothing.
+  Future<List<StreamItem>> getRecentlyAdded({
+    required int count,
+    CancelToken? cancelToken,
+  });
+
   /// What the viewer finished last, the latest first: movies, and series by
   /// their latest episode, each once, at most [limit].
   ///
@@ -267,7 +294,7 @@ abstract interface class StreamServerClient {
 
   /// Household members whose watch state can be read.
   ///
-  /// Returns a single-entry list on Plex; see [StreamLibraryLens.isPerViewer].
+  /// Returns a single-entry list on Plex: its token is its only viewer.
   /// Throws on a remote failure: an empty list is a server with nobody on it.
   Future<List<StreamViewer>> getViewers();
 

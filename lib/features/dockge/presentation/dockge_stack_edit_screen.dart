@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:cupola/core/providers/async_value_kept.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:cupola/core/app_radius.dart';
@@ -156,7 +158,7 @@ class _DockgeStackEditScreenState extends ConsumerState<DockgeStackEditScreen> {
         ? null
         : ref.watch(dockgeStackDetailProvider(widget.name!));
     if (detailAsync != null && !_prefilled) {
-      detailAsync.whenData((detail) {
+      detailAsync.whenDataKept((detail) {
         _yamlCtrl.text = detail.composeYAML;
         _envCtrl.text = detail.composeENV;
         _prefilled = true;

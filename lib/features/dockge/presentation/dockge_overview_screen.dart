@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/providers/async_value_kept.dart';
+
 import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/utils/arr_activity_display.dart';
 import 'package:cupola/core/widgets/widgets.dart';
@@ -81,7 +83,7 @@ class DockgeOverviewScreen extends StatelessWidget {
       topPadding: topPadding,
       kpis: (ref) => ref
           .watch(dockgeOverviewCensusProvider)
-          .whenData(
+          .whenDataKept(
             (census) => dockgeKpisFromCounts(
               total: census.total,
               running: census.running,

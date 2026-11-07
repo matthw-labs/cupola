@@ -142,6 +142,19 @@ class StreamSession {
   /// (`StreamServerClient.getTitleKey`).
   final MediaKey? titleKey;
 
+  /// Whether the player takes the server's remote commands: pause, resume
+  /// and stop. Jellyfin and Emby only *relay* them to the client over its
+  /// socket and answer 204 either way, so a client that never announced media
+  /// control (Neptune on an Apple TV, a browser tab) would take a Pause and
+  /// do nothing. False draws no such control. True for Plex and Tracearr's
+  /// rows, whose controls are gated elsewhere.
+  final bool takesCommands;
+
+  /// Whether the player announced it can show a message (`DisplayMessage`
+  /// among its supported commands). Without it a message is relayed into
+  /// nothing, and Cupola cannot tell, so the control is not drawn.
+  final bool takesMessages;
+
   const StreamSession({
     required this.id,
     required this.userName,
@@ -161,6 +174,8 @@ class StreamSession {
     this.itemId,
     this.userId,
     this.titleKey,
+    this.takesCommands = true,
+    this.takesMessages = true,
   });
 
   /// The same playback with another account of why it is not sent untouched:
@@ -184,6 +199,8 @@ class StreamSession {
     itemId: itemId,
     userId: userId,
     titleKey: titleKey,
+    takesCommands: takesCommands,
+    takesMessages: takesMessages,
   );
 
   /// Whether this session is the reason you would look at the board.

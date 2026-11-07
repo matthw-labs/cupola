@@ -555,7 +555,13 @@ void main() {
       );
       await _answer(tester);
       expect(_badge(tester), 'Cabin');
+      // Activities reads the cabin's on deck, beside who is watching there.
+      expect(
+        _reached(harness, WorldIds.plexCabin),
+        contains('/hubs/continueWatching'),
+      );
 
+      // The Overview's glance shares that read; its own are the cabin's too.
       _forget(harness);
       await _openTab(tester, ServiceTab.overview);
       expect(_badge(tester), 'Cabin');
@@ -563,7 +569,7 @@ void main() {
       expect(find.textContaining('nas.home.arpa'), findsNothing);
       expect(
         _reached(harness, WorldIds.plexCabin),
-        containsAll(['/library/sections', '/hubs/continueWatching']),
+        contains('/library/sections'),
       );
       expect(_reached(harness, WorldIds.plex), isEmpty);
 
@@ -576,7 +582,6 @@ void main() {
       await _answer(tester);
 
       for (final (tab, path) in [
-        (ServiceTab.onDeck, '/hubs/continueWatching'),
         (ServiceTab.devices, '/devices'),
         (ServiceTab.playlists, '/playlists'),
       ]) {
@@ -611,7 +616,7 @@ void main() {
         ServiceRoutes.streamActivity(_plex, instanceId: WorldIds.plexCabin),
       );
       await _answer(tester);
-      await _openTab(tester, ServiceTab.onDeck);
+      await _openTab(tester, ServiceTab.devices);
       expect(_badge(tester), 'Cabin');
 
       await _chooseInLensSheet(tester, 'Plex 1');

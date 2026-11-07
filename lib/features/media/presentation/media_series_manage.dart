@@ -63,7 +63,7 @@ class MediaSeriesManage extends ConsumerWidget {
   }) : assert(copies.length > 0, 'nothing to manage');
 
   /// The title's page, whose Watched by the removal sheet says a line of
-  /// (`Watched by 3 · last 12 days ago`); null says nothing of it.
+  /// (`Watched by 3 people · last 12 days ago`); null says nothing of it.
   final MediaKey? mediaKey;
 
   /// The page's rows after Sonarr's own: what goes through Seerr.

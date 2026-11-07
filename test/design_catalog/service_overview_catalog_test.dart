@@ -668,7 +668,7 @@ void main() {
         height: 700,
       ),
       CatalogScene(
-        'TracearrOverviewScreen · the readouts (Streams now, Today with its '
+        'TracearrOverviewScreen · the readouts (Streams, Today with its '
         'plays and time, Unseen as a floor, Servers 2 of 3), Monitored '
         'servers with one refused Tracearr\'s token (amber, Fix it in '
         'Tracearr), Playing now, the latest violations and Most watched this '
@@ -699,6 +699,20 @@ void main() {
         width: 390,
         height: 844,
         id: 'tracearr-session-sheet',
+      ),
+      CatalogScene(
+        'Tracearr session sheet · a viewing from History: when and how far '
+        'first, then how it played and where, each a group of rows, and '
+        'Open title and Go to the person inside the sheet\'s margin',
+        (_) => tracearrWorldScene(
+          const TracearrSheetOver(
+            behind: TracearrHistoryScreen(),
+            session: tracearrRecordedSession,
+          ),
+        ),
+        width: 390,
+        height: 844,
+        id: 'tracearr-history-sheet',
       ),
       CatalogScene(
         'TracearrHistoryScreen · day by day, with the filter row showing a '

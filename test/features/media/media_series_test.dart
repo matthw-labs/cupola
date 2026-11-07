@@ -110,12 +110,15 @@ void main() {
       final views = mediaRowViews(sonarr, title: title, now: now, rows: rows);
 
       expect(views.map((v) => (v.detail, v.state)).take(2), [
-        ('S2 E4–E5', 'Downloading'),
-        ('S2 E6–E10 aired', '5 missing'),
+        ('S2\u00A0E4–E5', 'Downloading'),
+        ('S2\u00A0E6–E10 aired', '5 missing'),
       ]);
       final fault = views.last;
       expect(fault.shape, MediaRowShape.fault);
-      expect(fault.state, 'S1\u00A0· S2 E1–E2\u00A0· 12 upgrades need import');
+      expect(
+        fault.state,
+        'S1\u00A0· S2\u00A0E1–E2\u00A0· 12 upgrades need import',
+      );
       expect(fault.tone, StatusTone.warning);
       expect(fault.action, 'Review the imports');
       expect(fault.way, MediaRowWay.review);
@@ -144,7 +147,7 @@ void main() {
         rows: rows,
       ).single;
 
-      expect(view.detail, 'English on disk\u00A0· S2 E1–E3');
+      expect(view.detail, 'English on disk\u00A0· S2\u00A0E1–E3');
       expect(view.state, 'Italian wanted');
     });
 
@@ -187,7 +190,7 @@ void main() {
       );
       expect(
         mediaSeriesLastImport(copy.episodes, files, now: now),
-        startsWith('Last imported S2 E3\u00A0· '),
+        startsWith('Last imported S2\u00A0E3\u00A0· '),
       );
       expect(mediaSeriesLastImport(copy.episodes, null), isEmpty);
 

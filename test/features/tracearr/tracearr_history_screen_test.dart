@@ -419,7 +419,7 @@ void main() {
 
       expect(find.text('Yesterday'), findsOneWidget);
       expect(find.text('The Lantern Keeper'), findsOneWidget);
-      expect(find.text('Harbor Lights\u00A0· S2 E4'), findsOneWidget);
+      expect(find.text('Harbor Lights\u00A0· S2\u00A0E4'), findsOneWidget);
       expect(find.text('Anna\u00A0· Night Ferry'), findsNothing);
       expect(find.textContaining('Night Ferry'), findsOneWidget);
       // How each ended: counted, short of it, short of it.
@@ -685,7 +685,7 @@ void main() {
         client,
       );
 
-      await tester.tap(find.text('Harbor Lights\u00A0· S2 E4'));
+      await tester.tap(find.text('Harbor Lights\u00A0· S2\u00A0E4'));
       await tester.pumpAndSettle();
 
       expect(find.text('Completion'), findsOneWidget);

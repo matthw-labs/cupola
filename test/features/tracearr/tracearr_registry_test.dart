@@ -428,7 +428,7 @@ void main() {
             title: 'Rounds',
           ),
         ),
-        'Night Shift\u00A0· S1 E2',
+        'Night Shift\u00A0· S1\u00A0E2',
       );
     });
   });

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/providers/async_value_kept.dart';
+
 import 'package:cupola/core/capability/audience.dart';
 import 'package:cupola/core/capability/role_gate.dart';
 import 'package:cupola/core/capability/role_gate_provider.dart';
@@ -32,10 +34,10 @@ final _heldTmdbIdsProvider = Provider.autoDispose
       return arr == ServiceKey.radarr
           ? ref
                 .watch(moviesForProvider(connection))
-                .whenData((movies) => {for (final m in movies) m.tmdbId})
+                .whenDataKept((movies) => {for (final m in movies) m.tmdbId})
           : ref
                 .watch(seriesForProvider(connection))
-                .whenData((series) => {for (final s in series) s.tmdbId});
+                .whenDataKept((series) => {for (final s in series) s.tmdbId});
     });
 
 /// A title Seerr lists on a person's or a collection's page: its row, where

@@ -137,13 +137,14 @@ abstract interface class MediaBrowserDialect {
     String? mediaTypes,
   });
 
-  /// What [userId] watches next, in one library.
+  /// What [userId] watches next: one library when [parentId] is named, the
+  /// whole server when it is not.
   MediaBrowserRequest nextUp({
     required String userId,
-    required String parentId,
-    required int startIndex,
     required int limit,
     required String fields,
+    String? parentId,
+    int startIndex = 0,
   });
 
   /// The library search for [term], at most [limit] hits across every type,
@@ -336,15 +337,15 @@ class JellyfinDialect implements MediaBrowserDialect {
   @override
   MediaBrowserRequest nextUp({
     required String userId,
-    required String parentId,
-    required int startIndex,
     required int limit,
     required String fields,
+    String? parentId,
+    int startIndex = 0,
   }) => (
     path: '/Shows/NextUp',
     query: {
       'userId': userId,
-      'parentId': parentId,
+      'parentId': ?parentId,
       'startIndex': startIndex,
       'limit': limit,
       'fields': fields,

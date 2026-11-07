@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:cupola/core/providers/async_value_kept.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:cupola/core/app_animation.dart';
@@ -66,7 +68,7 @@ class _DockgeDashboard extends ConsumerWidget {
         children: [
           if (topPadding > 0) SizedBox(height: topPadding),
           ServiceKpiPeek(
-            kpis: stacksAsync.whenData(dockgeKpisFrom),
+            kpis: stacksAsync.whenDataKept(dockgeKpisFrom),
             service: ServiceKey.dockge,
           ),
           const SizedBox(height: AppSpacing.xs),

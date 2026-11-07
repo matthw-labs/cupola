@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/providers/async_value_kept.dart';
+
 import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/utils/arr_activity_display.dart';
@@ -56,7 +58,7 @@ class SabnzbdOverviewScreen extends StatelessWidget {
       service: ServiceKey.sabnzbd,
       topPadding: topPadding,
       kpis: (ref) =>
-          ref.watch(sabnzbdQueueProvider).whenData(sabnzbdOverviewReadouts),
+          ref.watch(sabnzbdQueueProvider).whenDataKept(sabnzbdOverviewReadouts),
       refresh: _refresh,
       sections: (ref) => [const _QueueSection(), const _HistoryTodaySection()],
     );

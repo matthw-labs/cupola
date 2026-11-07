@@ -121,8 +121,8 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Clear all'), findsOneWidget);
-    expect(find.text('S1 E1'), findsOneWidget);
-    expect(find.text('S2 E2'), findsOneWidget);
+    expect(find.text('S1\u00A0E1'), findsOneWidget);
+    expect(find.text('S2\u00A0E2'), findsOneWidget);
 
     expect(find.text('6 need you'), findsOneWidget);
     expect(find.text('Which episode?'), findsNWidgets(6));
@@ -158,7 +158,7 @@ void main() {
     await _tap(tester, find.text('Add to the import'));
 
     expect(
-      find.text('Added\u00A0· Cosmos Laundromat\u00A0· S2 E4'),
+      find.text('Added\u00A0· Cosmos Laundromat\u00A0· S2\u00A0E4'),
       findsOneWidget,
     );
     expect(find.text('Which episode?'), findsNWidgets(5));
@@ -188,7 +188,7 @@ void main() {
     expect(find.text('12 episodes imported'), findsOneWidget);
     expect(find.text('Imported just now'), findsOneWidget);
     expect(
-      find.text('Cosmos Laundromat S1 and S2 E1–E2 are now 1080p.'),
+      find.text('Cosmos Laundromat S1 and S2\u00A0E1–E2 are now 1080p.'),
       findsOneWidget,
     );
     expect(find.text('720p'), findsOneWidget);

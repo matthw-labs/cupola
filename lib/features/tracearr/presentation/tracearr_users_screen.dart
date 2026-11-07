@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/providers/async_value_kept.dart';
+
 import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/utils/string_utils.dart';
 import 'package:cupola/core/widgets/widgets.dart';
@@ -53,7 +55,7 @@ class TracearrUsersScreen extends ConsumerWidget {
           ),
         ),
       ),
-      value: users.whenData((data) => data.items),
+      value: users.whenDataKept((data) => data.items),
       serviceName: 'Tracearr users',
       emptyIcon: Icons.people_outline_rounded,
       emptyTitle: 'No users',

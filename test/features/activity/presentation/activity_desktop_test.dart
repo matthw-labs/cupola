@@ -113,19 +113,19 @@ List<String> _order(WidgetTester tester, List<String> titles) {
 }
 
 const _moving = [
-  'Cosmos Laundromat\u00A0· S2 E4',
+  'Cosmos Laundromat\u00A0· S2\u00A0E4',
   'Sprite Fright',
   'Elephants Dream',
-  'Cosmos Laundromat\u00A0· S2 E5',
+  'Cosmos Laundromat\u00A0· S2\u00A0E5',
 ];
 
 /// The table's rows as the queue reads them first: three moving, and Cosmos
-/// S2 E5 stopped at the foot. Once resumed, the queue puts it first.
-const _stoppedTitle = 'Cosmos Laundromat\u00A0· S2 E5';
+/// S2\u00A0E5 stopped at the foot. Once resumed, the queue puts it first.
+const _stoppedTitle = 'Cosmos Laundromat\u00A0· S2\u00A0E5';
 const _drawn = [
   'Sprite Fright',
   'Elephants Dream',
-  'Cosmos Laundromat\u00A0· S2 E4',
+  'Cosmos Laundromat\u00A0· S2\u00A0E4',
   _stoppedTitle,
 ];
 
@@ -165,7 +165,7 @@ List<ServiceQueueItem> _queue({required bool resumed}) {
       hash: 'b2e0c3d4e5f60718293a4b5c6d7e8f9012345790',
     ),
     _download(
-      'Cosmos Laundromat\u00A0· S2 E4',
+      'Cosmos Laundromat\u00A0· S2\u00A0E4',
       '3',
       hash: WorldDownloads.cosmosS02E04.id,
     ),
@@ -222,19 +222,19 @@ void main() {
 
       await _tap(tester, _inTable(find.text('Progress')));
       expect(_order(tester, _moving), [
-        'Cosmos Laundromat\u00A0· S2 E4',
+        'Cosmos Laundromat\u00A0· S2\u00A0E4',
         'Sprite Fright',
         'Elephants Dream',
-        'Cosmos Laundromat\u00A0· S2 E5',
+        'Cosmos Laundromat\u00A0· S2\u00A0E5',
       ]);
       expect(_inTable(find.byIcon(Icons.arrow_downward_rounded)), findsOne);
 
       await _tap(tester, _inTable(find.text('Progress')));
       expect(_order(tester, _moving), [
-        'Cosmos Laundromat\u00A0· S2 E5',
+        'Cosmos Laundromat\u00A0· S2\u00A0E5',
         'Elephants Dream',
         'Sprite Fright',
-        'Cosmos Laundromat\u00A0· S2 E4',
+        'Cosmos Laundromat\u00A0· S2\u00A0E4',
       ]);
       expect(_inTable(find.byIcon(Icons.arrow_upward_rounded)), findsOne);
 
@@ -477,7 +477,7 @@ void main() {
         _stoppedTitle,
         'Sprite Fright',
         'Elephants Dream',
-        'Cosmos Laundromat\u00A0· S2 E4',
+        'Cosmos Laundromat\u00A0· S2\u00A0E4',
       ]);
 
       await _close(tester, harness, container);
@@ -513,7 +513,7 @@ void main() {
 
     await _tap(tester, _inTable(find.text('Title')));
     expect(_order(tester, _drawn), [
-      'Cosmos Laundromat\u00A0· S2 E4',
+      'Cosmos Laundromat\u00A0· S2\u00A0E4',
       _stoppedTitle,
       'Elephants Dream',
       'Sprite Fright',

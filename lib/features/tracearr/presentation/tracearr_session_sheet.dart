@@ -5,6 +5,7 @@ import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/arr_activity_display.dart';
 import 'package:cupola/core/widgets/widgets.dart';
+import 'package:cupola/features/media/presentation/media_parts.dart';
 import 'package:cupola/features/media/presentation/open_media.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_enums.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_image.dart';
@@ -102,10 +103,7 @@ class TracearrSessionBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dim = CupolaThemeColors.of(context).dimText;
-    final comparison = tracearrComparisonOf(session.quality);
-    final facts = tracearrFactsOf(session, now: DateTime.now());
-    final how = tracearrHowWords(session.quality);
+    final groups = tracearrSheetGroupsOf(session, now: DateTime.now());
     final person = ref.watch(
       tracearrPersonIdProvider((
         id: session.person.id,
@@ -129,12 +127,22 @@ class TracearrSessionBody extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _Line(label: 'How', value: how),
-        const SizedBox(height: AppSpacing.md),
-        _Table(rows: comparison, dim: dim),
-        const SizedBox(height: AppSpacing.md),
-        for (final fact in facts) _Line(label: fact.label, value: fact.value),
-        const SizedBox(height: AppSpacing.lg),
+        // The groups of the title page (`MediaGroup` under a `MediaHeading`),
+        // so a viewing reads like the title it is of: when first, then how
+        // it played, then where.
+        for (final (index, group) in groups.indexed) ...[
+          if (group.heading case final heading?)
+            MediaHeading(heading)
+          else if (index > 0)
+            const SizedBox(height: AppSpacing.md),
+          MediaGroup(
+            children: [
+              for (final fact in group.rows)
+                _Fact(label: fact.label, value: fact.value),
+            ],
+          ),
+        ],
+        const SizedBox(height: AppSpacing.section),
         if (key != null)
           FilledButton.icon(
             style: HeaderActionRow.expandedButtonStyle(context),
@@ -183,88 +191,72 @@ ButtonStyle _outlined(BuildContext context) => OutlinedButton.styleFrom(
   visualDensity: VisualDensity.standard,
 );
 
-/// One fact: a label over its words, the pair read as one sentence.
-class _Line extends StatelessWidget {
-  const _Line({required this.label, required this.value});
+/// One fact: its label, and its words at the row's end, read as one
+/// sentence. Words that do not fit on that one line (why a stream
+/// transcodes, the hardware) go under the label instead, left-aligned, so a
+/// long value reads as a sentence rather than a ragged right edge; so do
+/// they all past 1.4 times the reading size, as the title page's rows do.
+class _Fact extends StatelessWidget {
+  const _Fact({required this.label, required this.value});
 
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final room = CupolaRoom.of(context);
+    final labelStyle = AppType.meta.copyWith(color: room.inkSecondary);
+    final valueStyle = AppType.row.copyWith(color: room.ink);
     return Semantics(
       container: true,
       label: '$label, $value',
       child: ExcludeSemantics(
         child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(
-                width: 96,
-                child: Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: CupolaThemeColors.of(context).dimText,
-                  ),
-                ),
-              ),
-              Expanded(child: Text(value, style: theme.textTheme.bodyMedium)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Source against output, side by side.
-class _Table extends StatelessWidget {
-  const _Table({required this.rows, required this.dim});
-
-  final List<TracearrComparison> rows;
-  final Color dim;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final head = theme.textTheme.bodySmall?.copyWith(color: dim);
-    Widget cell(String text, {TextStyle? style}) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs),
-      child: Text(text, style: style ?? theme.textTheme.bodyMedium),
-    );
-    return Semantics(
-      container: true,
-      label: [
-        for (final row in rows)
-          '${row.label}, source ${row.source}, output ${row.output}',
-      ].join('. '),
-      child: ExcludeSemantics(
-        child: Table(
-          columnWidths: const {
-            0: FixedColumnWidth(96),
-            1: FlexColumnWidth(),
-            2: FlexColumnWidth(),
-          },
-          children: [
-            TableRow(
-              children: [
-                cell('', style: head),
-                cell('Source', style: head),
-                cell('Output', style: head),
-              ],
-            ),
-            for (final row in rows)
-              TableRow(
+          padding: const EdgeInsets.symmetric(vertical: AppSpacing.row),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final scaler = MediaQuery.textScalerOf(context);
+              double widthOf(String text, TextStyle style) => (TextPainter(
+                text: TextSpan(text: text, style: style),
+                textDirection: Directionality.of(context),
+                textScaler: scaler,
+                maxLines: 1,
+              )..layout()).width;
+              final fits =
+                  !mediaStacked(context) &&
+                  widthOf(label, labelStyle) +
+                          AppSpacing.lg +
+                          widthOf(value, valueStyle) <=
+                      constraints.maxWidth;
+              final name = Text(label, style: labelStyle);
+              if (!fits) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    name,
+                    const SizedBox(height: 2),
+                    Text(value, style: valueStyle),
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
                 children: [
-                  cell(row.label, style: head),
-                  cell(row.source),
-                  cell(row.output),
+                  name,
+                  const SizedBox(width: AppSpacing.lg),
+                  Expanded(
+                    child: Text(
+                      value,
+                      style: valueStyle,
+                      textAlign: TextAlign.end,
+                      maxLines: 1,
+                    ),
+                  ),
                 ],
-              ),
-          ],
+              );
+            },
+          ),
         ),
       ),
     );

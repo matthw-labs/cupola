@@ -15,6 +15,7 @@ import 'package:cupola/core/utils/service_routes.dart';
 import 'package:cupola/features/media/domain/media_key.dart';
 import 'package:cupola/features/media/presentation/media_page.dart';
 import 'package:cupola/features/media/presentation/media_series_sections.dart';
+import 'package:cupola/features/settings/domain/service_key.dart';
 
 import '../../test_helpers/profiles/profiles.dart';
 
@@ -198,7 +199,7 @@ Map<String, Object?> _plexEpisode(int season, int number, String title) => {
   'viewOffset': 540000,
 };
 
-/// Plex's On deck holds [episode] and nothing else.
+/// Plex's on deck holds [episode] and nothing else.
 void _plexOnDeck(ProfileHarness harness, Map<String, Object?> episode) =>
     harness.network.on(
       WorldIds.plex,
@@ -346,7 +347,8 @@ void main() {
           'ImageTags': const <String, Object?>{},
         }),
       );
-      router.go(ServiceRoutes.jellyfinLibrary('films'));
+      // Continue watching is in the server's Activity.
+      router.go(ServiceRoutes.streamActivity(ServiceKey.jellyfin));
       await _answer(tester);
 
       await _tap(tester, RegExp('^Sintel Soundtrack'));
@@ -439,15 +441,16 @@ void main() {
           _plexOnDeck(harness, _plexEpisode(1, 4, 'The Seventh Cycle'));
         },
       );
-      router.go(ServiceRoutes.plexOnDeck);
+      // On deck is in Activities, a row named by its series.
+      router.go(ServiceRoutes.plexActivities);
       await _answer(tester);
 
-      await _tap(tester, RegExp('^The Seventh Cycle'));
+      await _tap(tester, RegExp('^Cosmos Laundromat'));
 
       // Under the tab it was opened from.
       expect(
         router.state.uri.path,
-        '${ServiceRoutes.plexOnDeck}/media/tv/${_cosmos.tmdbId}',
+        '${ServiceRoutes.plexActivities}/media/tv/${_cosmos.tmdbId}',
       );
       expect(router.state.uri.queryParameters, {
         'i': WorldIds.plex,
@@ -496,10 +499,10 @@ void main() {
           _plexShow(harness, ['plex://show/5d9c081b170e910020f16a4f']);
         },
       );
-      router.go(ServiceRoutes.plexOnDeck);
+      router.go(ServiceRoutes.plexActivities);
       await _answer(tester);
 
-      await _tap(tester, RegExp('^The Seventh Cycle'));
+      await _tap(tester, RegExp('^Cosmos Laundromat'));
 
       expect(router.state.uri.path, '${ServiceRoutes.plexItemBase}/${_show}14');
       expect(_shown(tester), isEmpty);

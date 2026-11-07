@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/providers/async_value_kept.dart';
+
 import 'package:cupola/core/lifecycle/page_activity.dart';
 import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/theme.dart';
@@ -47,7 +49,7 @@ class TracearrLiveScreen extends ConsumerWidget {
     return ServiceListPage<TracearrStream>.unsummarised(
       service: _service,
       topPadding: topPadding,
-      value: streams.whenData((data) => data.streams),
+      value: streams.whenDataKept((data) => data.streams),
       serviceName: 'Tracearr streams',
       emptyIcon: Icons.play_circle_outline_rounded,
       emptyTitle: 'Nothing is playing',

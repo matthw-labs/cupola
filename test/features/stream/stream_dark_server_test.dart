@@ -23,7 +23,6 @@ import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/domain/models/stream_session.dart';
 import 'package:cupola/features/stream/domain/stream_semantics.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
-import 'package:cupola/features/stream/presentation/stream_overview_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
 
 import '../../test_helpers/settings_scope.dart';
@@ -120,20 +119,15 @@ void main() {
       }
     });
 
-    test('Plex: sessions, libraries and both On deck reads, at once', () async {
+    test('Plex: sessions and libraries, at once', () async {
       final container = ProviderContainer(
         overrides: [plexClientProvider.overrideWith((_) => _darkPlex())],
       );
       addTearDown(container.dispose);
-      // `plexOnDeckProvider` is autoDispose: hold it while it is read.
-      final sub = container.listen(plexOnDeckProvider, (_, _) {});
-      addTearDown(sub.close);
 
       for (final future in [
         container.read(plexSessionsProvider.future),
         container.read(plexLibrariesProvider.future),
-        container.read(plexOnDeckProvider.future),
-        container.read(plexOnDeckTabProvider.future),
       ]) {
         await expectLater(
           future.timeout(const Duration(milliseconds: 300)),
@@ -239,13 +233,13 @@ void main() {
     expectPlainWords();
   });
 
-  testWidgets('a dark Plex On deck tab is the offline state, never "Nothing '
+  testWidgets('a dark Plex Activities tab is the offline state, never "Nothing '
       'part-watched"', (tester) async {
     await _pump(
       tester,
       configured: const [ServiceKey.plex],
       overrides: [plexClientProvider.overrideWith((_) => _darkPlex())],
-      home: const PlexOnDeckScreen(),
+      home: const PlexActivitiesScreen(),
     );
 
     expect(find.text('Nothing part-watched'), findsNothing);

@@ -106,7 +106,7 @@ void main() {
     // The first Radarr, unnamed, is called by its place.
     expect(find.text('Radarr 1'), findsWidgets);
     expect(find.text('Tomorrow'), findsOneWidget);
-    expect(find.text('S2 E5\u00A0· not aired'), findsOneWidget);
+    expect(find.text('S2\u00A0E5\u00A0· not aired'), findsOneWidget);
     expect(find.text('Nothing more in the next 30 days'), findsOneWidget);
     expect(
       find.text('Books appear here when Readarr is set up.'),
@@ -125,7 +125,7 @@ void main() {
     await tester.tap(find.text('Series'));
     await tester.pumpAndSettle();
     expect(find.text('Out today\u00A0· downloading 62%'), findsNothing);
-    expect(find.text('S2 E5\u00A0· not aired'), findsOneWidget);
+    expect(find.text('S2\u00A0E5\u00A0· not aired'), findsOneWidget);
 
     await harness.unmount(tester);
   });
@@ -197,7 +197,10 @@ void main() {
     );
     expect(find.text('Downloading 62%'), findsOneWidget);
     expect(find.text('On digital in Italy today'), findsOneWidget);
-    expect(find.text('S3 E1\u00A0· premiere\u00A0· not aired'), findsOneWidget);
+    expect(
+      find.text('S3\u00A0E1\u00A0· premiere\u00A0· not aired'),
+      findsOneWidget,
+    );
     expect(find.textContaining('You asked for season 3 on '), findsOneWidget);
     expect(
       find.text('Dates are for Italy. Episodes have a date here, not a time.'),

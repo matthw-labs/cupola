@@ -79,7 +79,6 @@ void main() {
       // and how no other surface in the app said them.
       expect(ServiceTab.vms.label, 'VMs');
       expect(ServiceTab.rss.label, 'RSS');
-      expect(ServiceTab.onDeck.label, 'On deck');
       expect(ServiceTab.proxyHosts.label, 'Proxy hosts');
       expect(ServiceTab.accessLists.label, 'Access lists');
       expect(ServiceTab.auditLog.label, 'Audit log');

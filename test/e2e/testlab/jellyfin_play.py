@@ -444,6 +444,28 @@ def _report(
          device_id=device_id, device_name=device_name)
 
 
+def announce(token: str, *, device_id: str, device_name: str) -> None:
+    """Tell the server what this client can be asked to do, as real clients do.
+
+    Cupola draws Pause, Stop and Message only for a player that announced media
+    control and `DisplayMessage`: Jellyfin relays the commands to anyone, but a
+    client that announced nothing is, in the wild, one that is not listening.
+    """
+    call(
+        "/Sessions/Capabilities/Full",
+        "announcing the client",
+        method="POST",
+        payload={
+            "PlayableMediaTypes": ["Video", "Audio"],
+            "SupportedCommands": ["DisplayMessage"],
+            "SupportsMediaControl": True,
+        },
+        token=token,
+        device_id=device_id,
+        device_name=device_name,
+    )
+
+
 def start(
     *,
     device: str,
@@ -460,6 +482,7 @@ def start(
     item = find_item(who["token"], who["userId"], title=title, item_id=item_id)
     position = position_ticks(item, seconds, percent)
     play_session = uuid.uuid4().hex
+    announce(who["token"], device_id=device_id, device_name=device)
     _report(
         "/Sessions/Playing",
         token=who["token"],

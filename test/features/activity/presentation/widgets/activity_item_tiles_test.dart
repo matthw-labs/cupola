@@ -97,7 +97,7 @@ void main() {
         find.textContaining('Frieren.S02.Pack.1080p.WEB-DL-GROUP'),
         findsOneWidget,
       );
-      expect(find.textContaining('S2 E0'), findsNothing);
+      expect(find.textContaining('S2\u00A0E0'), findsNothing);
     });
   });
 
@@ -143,7 +143,7 @@ void main() {
         ),
       );
 
-      expect(find.text('S1 E2'), findsWidgets);
+      expect(find.text('S1\u00A0E2'), findsWidgets);
       expect(find.text('Imported'), findsOneWidget);
     });
 
@@ -293,7 +293,7 @@ void main() {
         ),
       );
 
-      expect(find.text('S1 E1\u00A0· Pilot'), findsOneWidget);
+      expect(find.text('S1\u00A0E1\u00A0· Pilot'), findsOneWidget);
       expect(find.text('Breaking Bad'), findsOneWidget);
     });
 

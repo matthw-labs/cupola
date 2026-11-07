@@ -435,7 +435,8 @@ String _spanOf(Map<int, List<int>> seasons, Map<int, int> aired) {
       if (seasons[season]!.toSet().length == (aired[season] ?? -1))
         formatSeasonCode(season)
       else
-        '${formatSeasonCode(season)} ${_ranges(seasons[season]!)}',
+        '${formatSeasonCode(season)}$episodeCodeSpace'
+            '${_ranges(seasons[season]!)}',
   ].join(dotSeparator);
 }
 

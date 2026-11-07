@@ -5,6 +5,7 @@ import 'package:cupola/core/app_radius.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/percent_format.dart';
 import 'package:cupola/core/widgets/content_card.dart';
+import 'package:cupola/core/widgets/media_poster_caption.dart';
 import 'package:cupola/core/widgets/media_poster_card.dart';
 import 'package:cupola/core/widgets/pressable_scale.dart';
 import 'package:cupola/features/media/presentation/open_media.dart';
@@ -76,29 +77,43 @@ class StreamPosterTile extends ConsumerWidget {
         // A movie opens on its own page, this server's copy leading.
         onTap: () =>
             context.openStreamItem(service, item, instanceId: instanceId),
-        child: Stack(
-          fit: StackFit.expand,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Hero(
-              tag: heroTag,
-              transitionOnUserGestures: MediaPosterCard.flightOnUserGestures,
-              child: ContentCard(
-                imageUrl: poster?.url,
-                httpHeaders: poster?.headers,
-                paneTag: heroTag,
-                fallbackIcon: streamItemGlyph(item.kind),
-                badge: unplayed != null && unplayed > 0
-                    ? _UnplayedBadge(count: unplayed)
-                    : null,
+            AspectRatio(
+              aspectRatio: 2 / 3,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Hero(
+                    tag: heroTag,
+                    transitionOnUserGestures:
+                        MediaPosterCard.flightOnUserGestures,
+                    child: ContentCard(
+                      imageUrl: poster?.url,
+                      httpHeaders: poster?.headers,
+                      paneTag: heroTag,
+                      fallbackIcon: streamItemGlyph(item.kind),
+                      badge: unplayed != null && unplayed > 0
+                          ? _UnplayedBadge(count: unplayed)
+                          : null,
+                    ),
+                  ),
+                  if (progress != null)
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: _ResumeBar(progress: progress),
+                    ),
+                ],
               ),
             ),
-            if (progress != null)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                child: _ResumeBar(progress: progress),
-              ),
+            const SizedBox(height: MediaPosterCaption.gap),
+            MediaPosterCaption(
+              title: item.title,
+              subtitle: item.year == null ? '' : '${item.year}',
+            ),
           ],
         ),
       ),

@@ -150,7 +150,7 @@ void main() {
           },
         }),
       );
-      expect(identity.code, 'S2 E1');
+      expect(identity.code, 'S2\u00A0E1');
       expect(identity.title, '7:00 A.M.');
       expect(identity.quality, 'WEBDL-2160p');
     });
@@ -166,7 +166,7 @@ void main() {
           ],
         }),
       );
-      expect(identity.code, 'S1 E11–E12');
+      expect(identity.code, 'S1\u00A0E11–E12');
       expect(identity.title, 'A + B');
     });
 
@@ -224,7 +224,13 @@ void main() {
         order.map(
           (item) => manualImportIdentityFor(ServiceKey.sonarr, item).code,
         ),
-        ['S1 E1', 'S1 E2', 'S1 E10', 'S2 E1', 'S10 E1'],
+        [
+          'S1\u00A0E1',
+          'S1\u00A0E2',
+          'S1\u00A0E10',
+          'S2\u00A0E1',
+          'S10\u00A0E1',
+        ],
       );
     });
 
@@ -309,7 +315,7 @@ void main() {
           ],
         }),
       );
-      expect(identity.code, 'S3 E7');
+      expect(identity.code, 'S3\u00A0E7');
       expect(identity.code, isNot(contains('S1 ')));
       expect(identity.title, 'DOG & CHAINSAW');
     });

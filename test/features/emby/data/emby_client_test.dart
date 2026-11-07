@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:cupola/core/network/connection_failure.dart';
 import 'package:cupola/features/emby/data/emby_client.dart';
 import 'package:cupola/features/emby/data/emby_dialect.dart';
+import 'package:cupola/features/jellyfin/data/media_browser_client.dart';
 import 'package:cupola/features/jellyfin/data/media_browser_dialect.dart';
 import 'package:cupola/features/jellyfin/domain/models/jellyfin_models.dart';
 import 'package:cupola/features/settings/domain/probe_identity.dart';
@@ -488,9 +489,7 @@ void main() {
         final adapter = CapturingHttpAdapter(
           response: jsonFixtureMap('emby/items_movies_page.json'),
         );
-        final page = await _client(
-          adapter,
-        ).getLibraryPage(libraryId: '3', lens: StreamLibraryLens.all);
+        final page = await _client(adapter).getLibraryPage(libraryId: '3');
 
         expect(adapter.lastUri!.path, '/emby/Items');
         expect(
@@ -501,6 +500,62 @@ void main() {
         expect(page.items.first.title, 'Big Buck Bunny');
       },
     );
+
+    for (final (sort, sortBy, sortOrder) in [
+      (StreamLibrarySort.name, 'SortName', 'Ascending'),
+      (
+        StreamLibrarySort.dateAdded,
+        'DateCreated,SortName',
+        'Descending,Ascending',
+      ),
+      (
+        StreamLibrarySort.year,
+        'ProductionYear,SortName',
+        'Descending,Ascending',
+      ),
+    ]) {
+      test('${sort.name} sorts by $sortBy under /emby/Items', () async {
+        final adapter = CapturingHttpAdapter(
+          response: jsonFixtureMap('emby/items_movies_page.json'),
+        );
+        await _client(
+          adapter,
+          userId: '',
+        ).getLibraryPage(libraryId: '3', sort: sort);
+
+        expect(adapter.lastUri!.path, '/emby/Items');
+        final query = adapter.lastUri!.queryParameters;
+        expect(query['parentId'], '3');
+        expect(query['sortBy'], sortBy);
+        expect(query['sortOrder'], sortOrder);
+        // The whole shelf needs no viewer.
+        expect(query.containsKey('userId'), isFalse);
+        expect(query.containsKey('isPlayed'), isFalse);
+      });
+    }
+
+    test('unplayedOnly adds isPlayed=false for the viewer', () async {
+      final adapter = CapturingHttpAdapter(
+        response: jsonFixtureMap('emby/items_movies_page.json'),
+      );
+      await _client(adapter).getLibraryPage(libraryId: '3', unplayedOnly: true);
+
+      expect(adapter.lastUri!.path, '/emby/Items');
+      final query = adapter.lastUri!.queryParameters;
+      expect(query['isPlayed'], 'false');
+      expect(query['userId'], _viewerId);
+    });
+
+    test('unplayedOnly with nobody chosen asks for one', () async {
+      final adapter = CapturingHttpAdapter(response: const {});
+      final page = await _client(
+        adapter,
+        userId: '',
+      ).getLibraryPage(libraryId: '3', unplayedOnly: true);
+
+      expect(page.needsViewer, isTrue);
+      expect(adapter.callCount, 0);
+    });
 
     test(
       'continue watching is /Users/{id}/Items/Resume, with the user in the path',
@@ -521,43 +576,50 @@ void main() {
       },
     );
 
-    test('a library\'s continue watching names its library', () async {
-      final adapter = CapturingHttpAdapter(
-        response: jsonFixtureMap('emby/resume_items.json'),
-      );
-      await _client(adapter).getLibraryPage(
-        libraryId: '3',
-        lens: StreamLibraryLens.continueWatching,
-      );
-
-      expect(adapter.lastUri!.path, '/emby/Users/$_viewerId/Items/Resume');
-      expect(adapter.lastUri!.queryParameters['parentId'], '3');
-    });
-
-    test('next up is /Shows/NextUp, without the rewatching switch', () async {
+    test('next up is /Shows/NextUp across the server, without the '
+        'rewatching switch', () async {
       final adapter = CapturingHttpAdapter(
         response: jsonFixtureMap('emby/next_up.json'),
       );
-      final page = await _client(
-        adapter,
-      ).getLibraryPage(libraryId: '5', lens: StreamLibraryLens.nextUp);
+      final items = await _client(adapter).getNextUp(count: 8);
 
       expect(adapter.lastUri!.path, '/emby/Shows/NextUp');
       final query = adapter.lastUri!.queryParameters;
       expect(query['userId'], _viewerId);
+      expect(query.containsKey('parentId'), isFalse);
+      expect(query['limit'], '8');
       expect(query.containsKey('enableRewatching'), isFalse);
-      expect(page.items, isEmpty);
+      expect(items, isEmpty);
     });
 
-    test('a per-viewer lens with nobody chosen asks for one', () async {
+    test('next up with nobody chosen throws and asks nothing', () async {
       final adapter = CapturingHttpAdapter(response: const {});
-      final page = await _client(adapter, userId: '').getLibraryPage(
-        libraryId: '3',
-        lens: StreamLibraryLens.continueWatching,
+      await expectLater(
+        _client(adapter, userId: '').getNextUp(count: 8),
+        throwsA(isA<JellyfinViewerRequired>()),
       );
-
-      expect(page.needsViewer, isTrue);
       expect(adapter.callCount, 0);
+    });
+
+    test('recently added is the newest content of movies and series, '
+        'with no viewer', () async {
+      final adapter = CapturingHttpAdapter(
+        response: jsonFixtureMap('emby/items_movies_page.json'),
+      );
+      final items = await _client(
+        adapter,
+        userId: '',
+      ).getRecentlyAdded(count: 12);
+
+      expect(adapter.lastUri!.path, '/emby/Items');
+      final query = adapter.lastUri!.queryParameters;
+      expect(query['recursive'], 'true');
+      expect(query['includeItemTypes'], 'Movie,Series');
+      expect(query['sortBy'], 'DateLastContentAdded,SortName');
+      expect(query['sortOrder'], 'Descending,Ascending');
+      expect(query['limit'], '12');
+      expect(query.containsKey('userId'), isFalse);
+      expect(items.first.title, 'Big Buck Bunny');
     });
   });
 

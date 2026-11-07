@@ -17,9 +17,10 @@ import 'package:cupola/features/settings/domain/settings_model.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/models/stream_library.dart';
 import 'package:cupola/features/stream/domain/models/stream_session.dart';
-import 'package:cupola/features/stream/presentation/stream_overview_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_screen.dart';
 import 'package:cupola/features/stream/presentation/widgets/stream_session_slab.dart';
+
+import 'package:cupola/features/stream/presentation/stream_watching.dart';
 
 import '../../test_helpers/settings_scope.dart';
 
@@ -41,16 +42,14 @@ void main() {
       tester
           .widgetList<SectionHeader>(find.byType(SectionHeader))
           .map((header) => header.title),
-      ['Now playing', 'Libraries'],
+      ['Now playing', 'Continue watching', 'Recently added', 'Libraries'],
     );
 
-    // On deck is Plex's: `/hubs/continueWatching` has no Jellyfin counterpart
-    // in this client, and an empty rail would read as "nothing in progress".
+    // Plex's word for the first shelf is its own.
     expect(find.text('On deck'), findsNothing);
     // And the board's other Jellyfin regions are absent rather than stubbed:
-    // no `/ScheduledTasks`, no `/System/ActivityLog/Entries`, no recent list.
+    // no `/ScheduledTasks`, no `/System/ActivityLog/Entries`.
     expect(find.text('Scheduled tasks'), findsNothing);
-    expect(find.text('Recently added'), findsNothing);
     expect(find.textContaining('Mb/s'), findsNothing);
   });
 
@@ -63,7 +62,7 @@ void main() {
       tester
           .widgetList<SectionHeader>(find.byType(SectionHeader))
           .map((header) => header.title),
-      ['Now playing', 'On deck', 'Libraries', 'Server'],
+      ['Now playing', 'On deck', 'Recently added', 'Libraries', 'Server'],
     );
   });
 
@@ -79,7 +78,9 @@ void main() {
       [
         // Now playing leads to the tab that lists the playbacks.
         'opens the Plex Activities tab',
-        'opens the Plex On deck tab',
+        // On deck and what was added are whole in Activities.
+        'opens the Plex Activities tab',
+        'opens the Plex Activities tab',
         'opens the Plex Libraries tab',
         // Server has nowhere to go: Plex's bar has no tab that owns connection
         // settings, and a link named after a tab that does not exist is a
@@ -317,19 +318,27 @@ void main() {
     );
   });
 
-  testWidgets('the On deck rail drops nothing but says how far in', (
+  testWidgets('the On deck rail names the episode and how far in', (
     tester,
   ) async {
     await _pump(
       tester,
       service: ServiceKey.plex,
       onDeck: [
-        _item(id: '12', title: 'Severance', subtitle: 'S02E05', progress: 0.3),
+        // As Plex sends an episode: its own name, and the series beside it.
+        _item(
+          id: '12',
+          title: 'Hello, Ms. Cobel',
+          subtitle: 'Severance',
+          progress: 0.3,
+        ),
       ],
     );
 
     expect(find.text('Severance'), findsOneWidget);
-    expect(find.text('S02E05\u00A0· 30% in'), findsOneWidget);
+    expect(find.textContaining('Hello, Ms. Cobel'), findsOneWidget);
+    // How far in is the bar under the picture.
+    expect(find.byType(LinearProgressIndicator), findsOneWidget);
   });
 
   testWidgets('a Plex with nothing part-watched rests', (tester) async {
@@ -435,7 +444,12 @@ Future<void> _pump(
           if (failLibraries) throw Exception('libraries failed');
           return libraries;
         }),
-        plexOnDeckProvider.overrideWith((ref) async => onDeck),
+        streamWatchingProvider.overrideWith(
+          (ref, key) async => switch (key.shelf) {
+            StreamWatchingShelf.continueWatching => onDeck,
+            _ => const <StreamItem>[],
+          },
+        ),
         // A sheet that answered, by default one that sends no flags.
         plexCapabilitiesProvider.overrideWith(
           (ref) async => capabilities ?? _capabilities(),

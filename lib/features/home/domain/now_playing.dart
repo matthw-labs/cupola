@@ -9,6 +9,7 @@ library;
 import 'package:cupola/core/status/lexicon.dart';
 import 'package:cupola/core/utils/dot_separator.dart';
 import 'package:cupola/core/utils/duration_format.dart';
+import 'package:cupola/core/utils/episode_code.dart';
 import 'package:cupola/features/services/domain/source_coverage.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/domain/models/stream_session.dart';
@@ -16,12 +17,12 @@ import 'package:cupola/features/stream/domain/models/stream_session.dart';
 /// How many sessions the module draws before the way to the server's page.
 const nowPlayingRowLimit = 4;
 
-final _episodeCode = RegExp(r'^S\d+ E\d+(?:–E?\d+)?');
-
 /// `Anna · Sintel`, `Anna · Cosmos Laundromat · S2 E3`: who, and what. The
 /// episode's code and not its name, which the series page has.
 String nowPlayingTitle(StreamSession session) {
-  final code = _episodeCode.stringMatch(session.subtitle ?? '');
+  final code = episodeCodePattern
+      .matchAsPrefix(session.subtitle ?? '')
+      ?.group(0);
   final who = session.userName.trim();
   return [if (who.isNotEmpty) who, session.title, ?code].join(dotSeparator);
 }

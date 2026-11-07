@@ -93,11 +93,11 @@ void main() {
       ];
       expect(
         tracearrWatchedLine(people, now: _now),
-        'Watched by 3\u00A0· last 12 days ago',
+        'Watched by 3 people\u00A0· last 12 days ago',
       );
       expect(
         tracearrWatchedTally(people, now: _now),
-        '3\u00A0· last 12 days ago',
+        '3 people\u00A0· last 12 days ago',
       );
     });
 
@@ -167,7 +167,7 @@ void main() {
       await pumpSection(tester, household, const MediaKey.movie(45745));
 
       expect(find.text('Watched by'), findsOne);
-      expect(find.text('2\u00A0· last 2 days ago'), findsOne);
+      expect(find.text('2 people\u00A0· last 2 days ago'), findsOne);
       expect(find.text('Anna'), findsOne);
       expect(find.text('4 plays\u00A0· 100%\u00A0· last 2 days ago'), findsOne);
       expect(find.text('Luca'), findsOne);
@@ -276,7 +276,7 @@ void main() {
     ) async {
       expect(
         await noteFor(tester, household, const MediaKey.movie(45745)),
-        'Watched by 2\u00A0· last 2 days ago',
+        'Watched by 2 people\u00A0· last 2 days ago',
       );
     });
 

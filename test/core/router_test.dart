@@ -1469,6 +1469,21 @@ void main() {
         'plex-2',
       );
 
+      // On deck was a tab of Plex's own; it lives in Activities now, and the
+      // address it shipped under lands there with its connection.
+      router.go('${ServiceRoutes.plex}/on-deck?i=plex-2');
+      await tester.pumpAndSettle();
+      expect(
+        router.state.uri.toString(),
+        '${ServiceRoutes.plexActivities}?i=plex-2',
+      );
+      expect(
+        tester
+            .widget<PlexActivitiesScreen>(find.byType(PlexActivitiesScreen))
+            .instanceId,
+        'plex-2',
+      );
+
       // Without it a deep link resolves from the path alone, on the active
       // connection.
       router.go(ServiceRoutes.plexItem('9421'));
@@ -2047,7 +2062,6 @@ void main() {
               widget.service == ServiceKey.plex,
           description: 'StreamLibrariesScreen(plex)',
         ),
-        ServiceTab.onDeck: find.byType(PlexOnDeckScreen),
         ServiceTab.activities: find.byType(PlexActivitiesScreen),
         ServiceTab.devices: find.byType(PlexDevicesScreen),
         ServiceTab.playlists: find.byType(PlexPlaylistsScreen),

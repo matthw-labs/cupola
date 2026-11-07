@@ -215,9 +215,10 @@ void main() {
       await app.surface.see(title);
     }
 
+    // On deck lives in Activities, beside who is watching.
     final onDeck = await _plexContainer(app, '/library/onDeck');
     final deck = (onDeck['Metadata'] as List? ?? const []);
-    await app.go(tester, ServiceRoutes.plexOnDeck);
+    await app.go(tester, ServiceRoutes.plexActivities);
     await app.surface.see('On deck');
     if (deck.isNotEmpty) {
       await app.surface.see((deck.first as Map)['title'] as String);

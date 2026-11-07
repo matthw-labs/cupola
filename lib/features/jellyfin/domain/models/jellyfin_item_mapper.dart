@@ -385,6 +385,30 @@ StreamPlayMethod jellyfinPlayMethod(
 }
 
 /// `Jellyfin Web · Chrome`: the client, then the device it runs on.
+/// Whether the client announced it takes remote control: the session's own
+/// `SupportsRemoteControl` or `SupportsMediaControl`, or the latter inside its
+/// `Capabilities` (where Emby and older Jellyfin keep it). A client that
+/// announced nothing is not listening for a Pause, whatever the 204 says.
+bool _takesCommands(Map<String, dynamic> session) {
+  final capabilities = session['Capabilities'];
+  return session['SupportsRemoteControl'] == true ||
+      session['SupportsMediaControl'] == true ||
+      (capabilities is Map && capabilities['SupportsMediaControl'] == true);
+}
+
+/// The general commands the client announced, wherever the server put them.
+Set<String> _supportedCommands(Map<String, dynamic> session) {
+  final capabilities = session['Capabilities'];
+  return {
+    for (final source in [
+      session['SupportedCommands'],
+      if (capabilities is Map) capabilities['SupportedCommands'],
+    ])
+      if (source is List)
+        for (final command in source) command.toString(),
+  };
+}
+
 String _deviceLabel(Map<String, dynamic> session) {
   final client = session['Client']?.toString().trim() ?? '';
   final device = session['DeviceName']?.toString().trim() ?? '';
@@ -517,6 +541,10 @@ StreamSession? jellyfinStreamSessionFromJson(Map<String, dynamic> session) {
     }?.ifEmptyNull(),
     itemId: nowPlaying['Id']?.toString().ifEmptyNull(),
     userId: session['UserId']?.toString().ifEmptyNull(),
+    takesCommands: _takesCommands(session),
+    takesMessages:
+        _takesCommands(session) &&
+        _supportedCommands(session).contains('DisplayMessage'),
   );
 }
 

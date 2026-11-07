@@ -104,7 +104,7 @@ void main() {
     // On the shared dense-row primitive now, so the episode code is the ordinal
     // column rather than a second line reading "Episode 1x01", and the missing
     // languages are stated in words instead of as a colour-only badge.
-    expect(find.text('S1 E1'), findsOneWidget);
+    expect(find.text('S1\u00A0E1'), findsOneWidget);
     expect(find.textContaining('Missing'), findsWidgets);
     expect(
       tester.getSemantics(find.byType(BazarrWantedEpisodeTile)),
