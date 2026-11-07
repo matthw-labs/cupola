@@ -83,10 +83,10 @@ void main() {
         _stalled(episode, 'Slow Horses', 'PACK', season: 4, episode: episode),
     ]);
 
-    final row = find.text('Stuck\u00A0· Slow Horses S4 E1–E3');
+    final row = find.text('Stuck\u00A0· Slow Horses S4\u00A0E1–E3');
     expect(row, findsOneWidget);
     expect(
-      find.semantics.byLabel(RegExp(r'^Stuck, Slow Horses S4 E1–E3, ')),
+      find.semantics.byLabel(RegExp(r'^Stuck, Slow Horses S4\u00A0E1–E3, ')),
       isSemantics(isButton: true, hint: 'opens this download'),
     );
 
@@ -106,7 +106,7 @@ void main() {
     ]);
 
     expect(find.text('2 downloads stuck'), findsOneWidget);
-    expect(find.text('Andor S1 E1, Severance S1 E1'), findsOneWidget);
+    expect(find.text('Andor S1\u00A0E1, Severance S1\u00A0E1'), findsOneWidget);
 
     await tester.tap(find.text('2 downloads stuck'));
     await harness.settle(tester);

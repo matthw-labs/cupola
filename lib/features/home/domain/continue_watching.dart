@@ -7,14 +7,14 @@ import 'package:cupola/core/utils/duration_format.dart';
 import 'package:cupola/core/utils/episode_code.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
 
-final _episodeCode = RegExp(r'S\d+ E\d+');
-
 /// What a row is called: an episode's series, a movie's own title.
 String resumeTitle(StreamItem item) {
   if (item.kind != StreamItemKind.episode) return item.title;
   final subtitle = item.subtitle;
   final series = subtitle == null ? '' : splitParts(subtitle).first.trim();
-  return series.isEmpty || _episodeCode.hasMatch(series) ? item.title : series;
+  return series.isEmpty || episodeCodePattern.hasMatch(series)
+      ? item.title
+      : series;
 }
 
 /// The line under it: `S2 E3 · The Second Cycle` for an episode, the year
@@ -23,7 +23,7 @@ String resumeDetail(StreamItem item) {
   if (item.kind == StreamItemKind.episode) {
     final code =
         formatArrEpisodeCode(item.seasonNumber, item.episodeNumber) ??
-        _episodeCode.stringMatch(item.subtitle ?? '');
+        episodeCodePattern.stringMatch(item.subtitle ?? '');
     return [?code, item.title].join(dotSeparator);
   }
   return item.year == null ? '' : '${item.year}';

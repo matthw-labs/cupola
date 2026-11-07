@@ -131,7 +131,7 @@ void main() {
     await _pump(tester, service: service);
 
     expect(
-      find.semantics.byLabel('Severance, S2 E4, Italian, Sonarr'),
+      find.semantics.byLabel('Severance, S2\u00A0E4, Italian, Sonarr'),
       findsOneWidget,
     );
     // The slab's title carries no count: the room's figure above is the same

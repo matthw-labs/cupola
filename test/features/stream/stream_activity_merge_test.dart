@@ -401,7 +401,7 @@ void main() {
         ),
       );
       expect(session.title, 'Cosmos Laundromat');
-      expect(session.subtitle, 'S2 E3\u00A0· The Second Cycle');
+      expect(session.subtitle, 'S2\u00A0E3\u00A0· The Second Cycle');
       expect(session.remaining, const Duration(minutes: 4));
       expect(session.userName, 'Anna');
     });

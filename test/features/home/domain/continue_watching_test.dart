@@ -30,7 +30,7 @@ void main() {
   // Jellyfin's episode: the series and its code in the subtitle.
   final jellyfinEpisode = item(
     title: 'The Second Cycle',
-    subtitle: 'Cosmos Laundromat\u00A0· S2 E3',
+    subtitle: 'Cosmos Laundromat\u00A0· S2\u00A0E3',
     runtimeMs: 1500000,
     resumeOffsetMs: 1200000,
   );
@@ -50,7 +50,7 @@ void main() {
   test('an episode is called by its series, and says its code and name', () {
     for (final item in [jellyfinEpisode, plexEpisode]) {
       expect(resumeTitle(item), 'Cosmos Laundromat');
-      expect(resumeDetail(item), 'S2 E3\u00A0· The Second Cycle');
+      expect(resumeDetail(item), 'S2\u00A0E3\u00A0· The Second Cycle');
     }
   });
 

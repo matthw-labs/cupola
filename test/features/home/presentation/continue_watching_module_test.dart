@@ -14,7 +14,7 @@ import '../../../test_helpers/settings_scope.dart';
 const _episode = StreamItem(
   id: 'e1',
   title: 'The Second Cycle',
-  subtitle: 'Cosmos Laundromat\u00A0· S2 E3',
+  subtitle: 'Cosmos Laundromat\u00A0· S2\u00A0E3',
   kind: StreamItemKind.episode,
   posterPath: null,
   year: null,
@@ -67,7 +67,7 @@ void main() {
     expect(find.text('Continue watching'), findsOne);
     expect(find.text('Jellyfin'), findsOne);
     expect(find.text('Cosmos Laundromat'), findsOne);
-    expect(find.text('S2 E3\u00A0· The Second Cycle'), findsOne);
+    expect(find.text('S2\u00A0E3\u00A0· The Second Cycle'), findsOne);
     expect(find.text('5\u00A0min left'), findsOne);
   });
 

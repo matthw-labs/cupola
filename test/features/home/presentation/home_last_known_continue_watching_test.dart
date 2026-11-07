@@ -30,7 +30,7 @@ final _now = DateTime(2026, 10, 12, 20, 53);
 const _episode = StreamItem(
   id: 'e1',
   title: 'The Second Cycle',
-  subtitle: 'Cosmos Laundromat\u00A0· S2 E3',
+  subtitle: 'Cosmos Laundromat\u00A0· S2\u00A0E3',
   kind: StreamItemKind.episode,
   // No artwork: a picture would load forever in a test.
   posterPath: null,
@@ -145,7 +145,7 @@ void main() {
       await run(tester, () => answer.future);
       // No skeleton: the rows the person last saw, and the one line.
       expect(find.text('Cosmos Laundromat'), findsOne);
-      expect(find.text('S2 E3\u00A0· The Second Cycle'), findsOne);
+      expect(find.text('S2\u00A0E3\u00A0· The Second Cycle'), findsOne);
       expect(find.text('Sintel'), findsOne);
       expect(find.text('As of 20:53\u00A0· checking now'), findsOne);
       // Where each stopped is a fact of then, drawn as it was: the time left
@@ -325,7 +325,7 @@ void main() {
     const episode = StreamItem(
       id: 'e1',
       title: 'The Second Cycle',
-      subtitle: 'Cosmos Laundromat\u00A0· S2 E3',
+      subtitle: 'Cosmos Laundromat\u00A0· S2\u00A0E3',
       kind: StreamItemKind.episode,
       posterPath: '/Items/e1/Images/Primary?tag=abc',
       backdropPath: '/Items/s1/Images/Backdrop?tag=def',

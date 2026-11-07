@@ -159,7 +159,7 @@ void main() {
       expect(find.textContaining('Video codec not supported'), findsOneWidget);
       expect(find.text('Direct play'), findsOneWidget);
       // A series' episode is named by its show and its code.
-      expect(find.text('Harbor Lights\u00A0· S2 E5'), findsOneWidget);
+      expect(find.text('Harbor Lights\u00A0· S2\u00A0E5'), findsOneWidget);
       expect(find.textContaining('Paused'), findsOneWidget);
       expect(
         find.textContaining(
@@ -329,7 +329,7 @@ void main() {
       final client = _FixtureClient();
       final harness = await _pump(tester, const TracearrLiveScreen(), client);
 
-      await open(tester, 'Harbor Lights\u00A0· S2 E5');
+      await open(tester, 'Harbor Lights\u00A0· S2\u00A0E5');
 
       expect(find.text('Open title'), findsOneWidget);
       expect(client.mediaAsked, ['d1d1d1d1-0000-4000-8000-0000000000b3']);
@@ -344,7 +344,7 @@ void main() {
         ..series = const TracearrMediaIdentity(type: TracearrMediaType.show);
       final harness = await _pump(tester, const TracearrLiveScreen(), client);
 
-      await open(tester, 'Harbor Lights\u00A0· S2 E5');
+      await open(tester, 'Harbor Lights\u00A0· S2\u00A0E5');
 
       expect(find.text('Open title'), findsNothing);
       expect(find.text('Go to Luca'), findsOneWidget);
@@ -357,7 +357,7 @@ void main() {
       final client = _FixtureClient()..series = null;
       final harness = await _pump(tester, const TracearrLiveScreen(), client);
 
-      await open(tester, 'Harbor Lights\u00A0· S2 E5');
+      await open(tester, 'Harbor Lights\u00A0· S2\u00A0E5');
 
       expect(find.text('Open title'), findsNothing);
       expect(find.byType(AppErrorState), findsNothing);

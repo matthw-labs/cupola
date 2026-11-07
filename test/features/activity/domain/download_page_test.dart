@@ -235,12 +235,12 @@ void main() {
             title: const QueueTitle(
               name: 'Cosmos Laundromat',
               year: 2015,
-              episode: 'S2 E4\u00A0· The Second Cycle',
+              episode: 'S2\u00A0E4\u00A0· The Second Cycle',
             ),
           ),
           now: _now,
         ),
-        'S2 E4\u00A0· The Second Cycle',
+        'S2\u00A0E4\u00A0· The Second Cycle',
       );
       expect(downloadMetaLine(_handAdded, now: _now), isEmpty);
     });
@@ -445,7 +445,7 @@ void main() {
       };
       final title = QueueTitle.ofRecord(record)!;
       expect(title.name, 'Cosmos Laundromat');
-      expect(title.episode, 'S2 E4\u00A0· The Second Cycle');
+      expect(title.episode, 'S2\u00A0E4\u00A0· The Second Cycle');
       expect(title.folder, '/mnt/tank/media/series');
       // A pack names its series and no episode.
       expect(QueueTitle.ofRecord(record, single: false)!.episode, isNull);

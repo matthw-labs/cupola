@@ -48,7 +48,7 @@ void main() {
         findsOne,
       );
       // The name says E04: the sheet starts there.
-      expect(find.text('Match to S1 E4'), findsOne);
+      expect(find.text('Match to S1\u00A0E4'), findsOne);
     });
 
     testWidgets('Match writes the episode picked', (tester) async {
@@ -56,7 +56,7 @@ void main() {
       await _open(tester, [single], flow: flow);
       await _tapText(tester, 'Cosmos Laundromat');
       await _tapText(tester, 'E5\u00A0· Tilly');
-      await _tapText(tester, 'Match to S1 E5');
+      await _tapText(tester, 'Match to S1\u00A0E5');
 
       expect(flow.applied.keys.single.path, single.path);
       expect(flow.applied.values.single.episode?.episodeNumber, 5);
@@ -131,7 +131,7 @@ void main() {
 
       expect(find.text('E3'), findsOne);
       expect(
-        find.textContaining('S1 E3 is already on', findRichText: true),
+        find.textContaining('S1\u00A0E3 is already on', findRichText: true),
         findsOne,
       );
     });

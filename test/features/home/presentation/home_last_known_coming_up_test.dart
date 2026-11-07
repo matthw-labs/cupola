@@ -241,7 +241,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        find.text('21:00\u00A0· S3 E1\u00A0· premiere\u00A0· not aired'),
+        find.text('21:00\u00A0· S3\u00A0E1\u00A0· premiere\u00A0· not aired'),
         findsOne,
         reason: 'live at 20:53, seven minutes before it airs',
       );
@@ -256,7 +256,7 @@ void main() {
         now: DateTime(2026, 10, 12, 21, 30),
       );
       expect(
-        find.text('21:00\u00A0· S3 E1\u00A0· premiere\u00A0· aired'),
+        find.text('21:00\u00A0· S3\u00A0E1\u00A0· premiere\u00A0· aired'),
         findsOne,
       );
       expect(find.textContaining('not aired'), findsNothing);

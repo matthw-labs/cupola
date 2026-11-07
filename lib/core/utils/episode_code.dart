@@ -4,12 +4,23 @@
 /// Every place the app names an episode by its numbers spells it here: a row,
 /// a headline, an ordinal in a season's list, a season pill. No zero padding
 /// and a space between the halves, so the season and the episode read as two
-/// numbers. `S02E04` is how a release or a file spells it, and those are
-/// machine strings, drawn as they came and never rewritten into this.
+/// numbers. The space is a no-break one ([episodeCodeSpace]), so a wrapped
+/// title never ends a line with `S2` and starts the next with `E4`.
+/// `S02E04` is how a release or a file spells it, and those are machine
+/// strings, drawn as they came and never rewritten into this.
 ///
 /// `test/core/utils/episode_code_guard_test.dart` scans `lib/` for a code
 /// spelled anywhere else.
 library;
+
+import 'package:cupola/core/utils/unit_space.dart';
+
+/// The space between a code's halves: U+00A0, so `S2 E4` never splits.
+const String episodeCodeSpace = unitSpace;
+
+/// A code as [formatEpisodeCode] spells it, or as a server's subtitle carries
+/// it with a plain space: `S2 E4`, and a run's tail `–E10` when present.
+final RegExp episodeCodePattern = RegExp('S\\d+[ $unitSpace]E\\d+(?:–E?\\d+)?');
 
 /// `S2`, or `S0` for the specials, which callers that have a word for them
 /// (*Specials*, *Sp*) say instead.
@@ -18,9 +29,9 @@ String formatSeasonCode(int season) => 'S$season';
 /// `E4`: an episode inside a season the reader already knows.
 String formatEpisodeOrdinal(int episode) => 'E$episode';
 
-/// `S2 E4`.
+/// `S2 E4`, its halves joined by [episodeCodeSpace].
 String formatEpisodeCode(int season, int episode) =>
-    '${formatSeasonCode(season)} ${formatEpisodeOrdinal(episode)}';
+    '${formatSeasonCode(season)}$episodeCodeSpace${formatEpisodeOrdinal(episode)}';
 
 /// `S2 E4`, or null unless both numbers are known.
 String? formatArrEpisodeCode(int? season, int? episode) {
@@ -37,7 +48,7 @@ String? formatPartialEpisodeCode({int? season, int? episode}) {
   return [
     if (season != null) formatSeasonCode(season),
     if (episode != null) formatEpisodeOrdinal(episode),
-  ].join(' ');
+  ].join(episodeCodeSpace);
 }
 
 /// `S2 E6–E10` for a run of episodes, `S2 E4` for one, null for none.

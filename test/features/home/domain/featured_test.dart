@@ -24,7 +24,7 @@ ResumeRow _row(StreamItem item) => (
 const _episode = StreamItem(
   id: 'e1',
   title: 'The Second Cycle',
-  subtitle: 'Cosmos Laundromat\u00A0· S2 E3',
+  subtitle: 'Cosmos Laundromat\u00A0· S2\u00A0E3',
   kind: StreamItemKind.episode,
   posterPath: null,
   year: null,
@@ -187,7 +187,7 @@ void main() {
     test('in progress: what it is and how long is left', () {
       expect(
         FeaturedResume(_row(_episode), art: _art).line(_now),
-        'Continue watching\u00A0· S2 E3\u00A0· 5\u00A0min left',
+        'Continue watching\u00A0· S2\u00A0E3\u00A0· 5\u00A0min left',
       );
       expect(
         FeaturedResume(_row(_movie), art: _art).line(_now),
@@ -247,7 +247,7 @@ void main() {
           ),
           art: _art,
         ).line(_now),
-        'S3 E1\u00A0· premiere\u00A0· airs today at 21:00',
+        'S3\u00A0E1\u00A0· premiere\u00A0· airs today at 21:00',
       );
       expect(
         FeaturedToday(
@@ -259,7 +259,7 @@ void main() {
           ),
           art: _art,
         ).line(_now),
-        'S3 E1\u00A0· premiere\u00A0· on your server',
+        'S3\u00A0E1\u00A0· premiere\u00A0· on your server',
       );
     });
 

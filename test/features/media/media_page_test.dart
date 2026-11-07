@@ -1118,7 +1118,7 @@ void main() {
         height: 3600,
       );
 
-      expect(find.text('Resume S2 E3'), findsOneWidget);
+      expect(find.text('Resume S2\u00A0E3'), findsOneWidget);
       expect(
         find.text('The Second Cycle\u00A0· 5\u00A0min\u00A0left'),
         findsOneWidget,
@@ -1127,7 +1127,10 @@ void main() {
         find.textContaining('Series\u00A0· 2015–\u00A0· 3\u00A0seasons'),
         findsOneWidget,
       );
-      expect(find.textContaining('S3 E1\u00A0· premiere at'), findsOneWidget);
+      expect(
+        find.textContaining('S3\u00A0E1\u00A0· premiere at'),
+        findsOneWidget,
+      );
       expect(find.text('Sonarr looks for it once it airs'), findsOneWidget);
       // Two scores: TMDB's, and Rotten Tomatoes' through Seerr.
       expect(find.text('88'), findsOneWidget);
@@ -1308,7 +1311,7 @@ void main() {
       await _answer(tester);
       expect(find.text('13 files\u00A0· 720p WEB, 1080p WEB'), findsOneWidget);
       expect(
-        find.textContaining(RegExp(r'^Last imported S2 E3\u00A0· ')),
+        find.textContaining(RegExp(r'^Last imported S2\u00A0E3\u00A0· ')),
         findsOneWidget,
       );
 
@@ -1411,7 +1414,7 @@ void main() {
       await tester.tap(history);
       await _answer(tester);
       expect(
-        find.textContaining('Imported\u00A0· S2 E3\u00A0· 1080p WEB'),
+        find.textContaining('Imported\u00A0· S2\u00A0E3\u00A0· 1080p WEB'),
         findsOneWidget,
       );
 
@@ -1421,7 +1424,7 @@ void main() {
       await tester.tap(subtitles);
       await tester.pumpAndSettle();
       expect(
-        find.bySemanticsLabel('S2 E3, The Second Cycle: Italian wanted'),
+        find.bySemanticsLabel('S2\u00A0E3, The Second Cycle: Italian wanted'),
         findsOneWidget,
       );
 
@@ -1744,7 +1747,7 @@ void main() {
       expect(widths, hasLength(1));
       expect(
         find.bySemanticsLabel(
-          'Episodes graph. Best: S2 E6, 8.9. Season 2 is the stronger one',
+          'Episodes graph. Best: S2\u00A0E6, 8.9. Season 2 is the stronger one',
         ),
         findsOneWidget,
       );
@@ -1753,7 +1756,7 @@ void main() {
       await tester.tap(find.text('Episodes graph'));
       await _answer(tester);
       expect(find.text('Votes from TMDB, per episode.'), findsOneWidget);
-      expect(find.text('S2 E6\u00A0· The Seventh Cycle'), findsOneWidget);
+      expect(find.text('S2\u00A0E6\u00A0· The Seventh Cycle'), findsOneWidget);
       expect(find.text('31 votes\u00A0· Missing'), findsOneWidget);
       expect(
         find.textContaining(
@@ -1764,7 +1767,7 @@ void main() {
       );
 
       // The best opens its own sheet.
-      await tester.tap(find.text('S2 E6\u00A0· The Seventh Cycle'));
+      await tester.tap(find.text('S2\u00A0E6\u00A0· The Seventh Cycle'));
       await _answer(tester);
       expect(find.textContaining('Season 2\u00A0· Episode 6'), findsOneWidget);
 

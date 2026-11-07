@@ -486,7 +486,7 @@ void main() {
 
       // An episode leads with the series and carries the episode below it.
       expect(session.title, 'Severance');
-      expect(session.subtitle, 'S1 E4\u00A0· The You You Are');
+      expect(session.subtitle, 'S1\u00A0E4\u00A0· The You You Are');
       // The series poster reads better than an episode still at grid size.
       expect(session.posterPath, '/library/metadata/41000/thumb/1718220000');
       expect(session.deviceLabel, 'Plex Web\u00A0· Windows');

@@ -103,7 +103,7 @@ void main() {
         sonarrEpisodeSlot({
           'episode': {'seasonNumber': 2, 'episodeNumber': 5},
         }),
-        'S2 E5',
+        'S2\u00A0E5',
       );
     });
 
@@ -152,7 +152,7 @@ void main() {
       ], now: now);
 
       expect(items.single.kind, SonarrAttentionKind.stalled);
-      expect(items.single.headline, 'Stuck\u00A0· Andor S2 E3');
+      expect(items.single.headline, 'Stuck\u00A0· Andor S2\u00A0E3');
       expect(items.single.detail, contains('qBittorrent'));
       expect(items.single.detail, contains('3\u00A0h ago'));
     });
@@ -235,7 +235,7 @@ void main() {
       ], now: now);
 
       expect(items, hasLength(1));
-      expect(items.single.headline, 'Stuck\u00A0· Slow Horses S4 E1–E6');
+      expect(items.single.headline, 'Stuck\u00A0· Slow Horses S4\u00A0E1–E6');
       expect(items.single.count, 1);
       expect(items.single.door, isA<AttentionDownload>());
     });
@@ -255,8 +255,8 @@ void main() {
       expect(row.headline, '3+ downloads stuck');
       expect(
         row.spoken,
-        'at least 3 downloads stuck, Andor S1 E1, '
-        'Severance S1 E1, Slow Horses S1 E1',
+        'at least 3 downloads stuck, Andor S1\u00A0E1, '
+        'Severance S1\u00A0E1, Slow Horses S1\u00A0E1',
       );
       expect(row.count, 3);
       expect(row.door, const AttentionDoor.tab(ServiceTab.queue));
@@ -395,8 +395,8 @@ void main() {
 
       expect(tiles.map((t) => t.seriesTitle), ['Severance', 'Silo']);
       // The newest record of the series is the one whose slot the caption shows.
-      expect(tiles.first.slot, 'S2 E4');
-      expect(tiles.first.caption, 'S2 E4\u00A0· just now');
+      expect(tiles.first.slot, 'S2\u00A0E4');
+      expect(tiles.first.caption, 'S2\u00A0E4\u00A0· just now');
     });
 
     test(
@@ -464,13 +464,13 @@ void main() {
       ], now: now);
 
       final entry = entries.single;
-      expect(entry.subject, 'Severance S2 E4');
+      expect(entry.subject, 'Severance S2\u00A0E4');
       expect(entry.event, 'Imported');
       expect(entry.tone, StatusTone.success);
       expect(entry.detail, contains('WEB-DL 1080p'));
       expect(entry.detail, contains('40\u00A0min ago'));
       // One sentence for the ear, with the layout's dots turned into commas.
-      expect(entry.spoken, startsWith('Severance S2 E4, Imported, '));
+      expect(entry.spoken, startsWith('Severance S2\u00A0E4, Imported, '));
       expect(entry.spoken, isNot(contains('·')));
     });
 

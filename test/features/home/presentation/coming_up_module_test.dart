@@ -92,7 +92,7 @@ void main() {
     expect(find.text('29 Sep'), findsOne);
     expect(find.text('Sprite Fright'), findsOne);
     expect(
-      find.textContaining(RegExp(r'^21:00\u00A0· S3 E1\u00A0· premiere')),
+      find.textContaining(RegExp(r'^21:00\u00A0· S3\u00A0E1\u00A0· premiere')),
       findsOne,
     );
     // Three rows, then the Calendar has the rest.

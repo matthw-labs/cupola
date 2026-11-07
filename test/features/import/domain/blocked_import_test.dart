@@ -447,11 +447,11 @@ void main() {
     test('the sentence names the runs and the step', () {
       expect(
         importedSentence(ServiceKey.sonarr, files, replacing),
-        'Cosmos Laundromat S1 E1–E10 and S2 E1–E2 are now 1080p.',
+        'Cosmos Laundromat S1\u00A0E1–E10 and S2\u00A0E1–E2 are now 1080p.',
       );
       expect(
         importedSentence(ServiceKey.sonarr, [files.first], const {}),
-        'Cosmos Laundromat S1 E1 is in your library.',
+        'Cosmos Laundromat S1\u00A0E1 is in your library.',
       );
       expect(importedStep(files, replacing), (from: '720p', to: '1080p WEB'));
       expect(importedStep(files, const {}), isNull);
@@ -481,7 +481,7 @@ void main() {
         importedSentence(ServiceKey.sonarr, whole, {
           for (final file in whole) file.path: 'HDTV-720p',
         }),
-        'Cosmos Laundromat S1 and S2 E1–E2 are now 1080p.',
+        'Cosmos Laundromat S1 and S2\u00A0E1–E2 are now 1080p.',
       );
     });
 
@@ -491,7 +491,7 @@ void main() {
           1: [1, 2, 3, 5],
           3: [7],
         }),
-        'S1 E1–E3, E5 and S3 E7',
+        'S1\u00A0E1–E3, E5 and S3\u00A0E7',
       );
     });
   });

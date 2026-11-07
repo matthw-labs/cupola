@@ -171,7 +171,7 @@ void main() {
       expect(find.text('Series'), findsOneWidget);
       expect(find.text('Breaking Bad'), findsOneWidget);
       expect(find.text('Episode code'), findsOneWidget);
-      expect(find.text('S1 E2'), findsOneWidget);
+      expect(find.text('S1\u00A0E2'), findsOneWidget);
       expect(find.text('Episode missing from disk'), findsOneWidget);
       expect(find.text('WEBDL-1080p'), findsOneWidget);
     });

@@ -589,10 +589,10 @@ void main() {
         'Up next\u00A0· 1 queued',
       ]);
       final order = [
-        'Cosmos Laundromat\u00A0· S2 E4',
+        'Cosmos Laundromat\u00A0· S2\u00A0E4',
         'Sprite Fright',
         'Elephants Dream',
-        'Cosmos Laundromat\u00A0· S2 E5',
+        'Cosmos Laundromat\u00A0· S2\u00A0E5',
         'Big Buck Bunny',
       ];
       final ys = [

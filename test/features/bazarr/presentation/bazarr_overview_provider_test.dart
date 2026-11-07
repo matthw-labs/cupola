@@ -17,7 +17,7 @@ void main() {
               sonarrSeriesId: 3,
             ),
           ),
-          'Severance\u00A0· S2 E4',
+          'Severance\u00A0· S2\u00A0E4',
           reason: written,
         );
       }
