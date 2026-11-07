@@ -81,6 +81,7 @@ PROXIES: dict[str, tuple[str, int, int]] = {
     "nzbget": ("nzbget", 6789, 26789),
     "jellyfin": ("jellyfin", 8096, 28096),
     "emby": ("emby", 8096, 28098),
+    "tracearr": ("tracearr", 3000, 23000),
     "plex": ("plex", 32400, 23240),
     "dockge": ("dockge", 5001, 25001),
     "npm": ("nginx-proxy-manager", 81, 28181),

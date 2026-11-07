@@ -149,27 +149,31 @@ def sign_in(base: str) -> tuple[str, str]:
     return token, user_id
 
 
-def _key_named(base: str, session: str) -> str:
+def _key_named(base: str, session: str, app: str = KEY_APP) -> str:
     status, answer = _call(base, "/Auth/Keys", token=session)
     if status != 200 or not isinstance(answer, dict):
         raise FirstRunError(f"reading the API keys was refused with {status}")
     for row in answer.get("Items") or []:
-        if isinstance(row, dict) and row.get("AppName") == KEY_APP:
+        if isinstance(row, dict) and row.get("AppName") == app:
             return str(row.get("AccessToken") or "")
     return ""
 
 
-def ensure_key(base: str, session: str) -> str:
-    """The `Cupola` API key, made once and read back."""
-    existing = _key_named(base, session)
+def ensure_key(base: str, session: str, app: str = KEY_APP) -> str:
+    """The API key named [app] (`Cupola` by default), made once and read back.
+
+    Tracearr asks for one of its own, named `Tracearr`, so that the key the
+    app holds and the key a monitor holds are two and can be told apart.
+    """
+    existing = _key_named(base, session, app)
     if existing:
         return existing
     status, _ = _call(
-        base, f"/Auth/Keys?App={KEY_APP}", method="POST", token=session
+        base, f"/Auth/Keys?App={app}", method="POST", token=session
     )
     if not 200 <= status < 300:
         raise FirstRunError(f"creating the API key was refused with {status}")
-    made = _key_named(base, session)
+    made = _key_named(base, session, app)
     if not made:
         raise FirstRunError("Emby did not list the API key it just made")
     return made

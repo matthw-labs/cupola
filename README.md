@@ -232,7 +232,8 @@ Two columns say how far each integration goes:
 server and has run against one in our test lab, but the app's screens have not yet.
 
 ³ Tracearr is new: its client is written against answers recorded from a real Tracearr
-3.1.4, and we have not yet run Cupola against one. It needs Tracearr 2.7.0 or newer.
+3.1.4 and has run against one in our test lab, but the app's screens have not yet. It
+needs Tracearr 2.7.0 or newer.
 
 ### Infrastructure
 

@@ -154,7 +154,7 @@ void main() {
     );
   });
 
-  test('the app reads Emby beside Jellyfin in P10', () async {
+  test('the app reads Emby and Tracearr beside Jellyfin in P10', () async {
     final document = await _writeConfiguration('P10');
     final app = await _readWithTheApp(document);
     final settings = app.settings;
@@ -163,6 +163,7 @@ void main() {
       'seerr',
       'jellyfin',
       'emby',
+      'tracearr',
     ]);
     final emby = settings.instanceById('emby')!;
     expect(emby.service, ServiceKey.emby);
@@ -177,6 +178,16 @@ void main() {
       credentials['CUPOLA_TESTLAB_JELLYFIN_USER_ID'],
       reason: 'each media server keeps the viewer of its own',
     );
+
+    // Tracearr watches both: its public key is the one credential, and it has
+    // no viewer (the owner's session is something the person signs in to).
+    final tracearr = settings.instanceById('tracearr')!;
+    expect(tracearr.service, ServiceKey.tracearr);
+    expect(tracearr.url, 'http://127.0.0.1:23000');
+    expect(tracearr.credential, credentials['CUPOLA_TESTLAB_TRACEARR_KEY']);
+    expect(tracearr.credential, startsWith('trr_pub_'));
+    expect(tracearr.owner, isNull);
+    expect(settings.isServiceConfigured(ServiceKey.tracearr), isTrue);
   });
 
   test('a service the profile does not have reads as not set up', () async {

@@ -201,6 +201,18 @@ emby_first_run="$state_dir/.emby-first-run.json"
 emby_token="$(json_get "$emby_first_run" token)"
 emby_user_id="$(json_get "$emby_first_run" userId)"
 
+# Tracearr's first run is a module of its own too: it waits for the image's
+# own migrations, makes the owner and issues the public API key the app reads
+# with (the one `trr_pub_` string), and writes it to a file of mode 600. The
+# lab publishes it on 3010; the owner's email and password are the lab's fixed
+# ones, below. What it watches (Jellyfin, Emby, the rule) is `tracearr_lab.py`'s
+# and is seeded once the media servers have their libraries.
+tracearr_url="http://127.0.0.1:3010"
+tracearr_first_run="$state_dir/.tracearr-first-run.json"
+"$python_bin" "$script_dir/tracearr_first_run.py" --url "$tracearr_url" --output "$tracearr_first_run"
+tracearr_key="$(json_get "$tracearr_first_run" key)"
+tracearr_owner_email="$(json_get "$tracearr_first_run" ownerEmail)"
+
 seerr_url="http://127.0.0.1:5055"
 seerr_public="$state_dir/.seerr-public.json"
 seerr_cookie="$state_dir/.seerr-cookie"
@@ -280,6 +292,9 @@ umask 077
   printf 'CUPOLA_TESTLAB_EMBY_PASSWORD=cupola-pass\n'
   printf 'CUPOLA_TESTLAB_EMBY_REQUESTER_USERNAME=cupola-viewer\n'
   printf 'CUPOLA_TESTLAB_EMBY_REQUESTER_PASSWORD=%s\n' "$emby_requester_password"
+  printf 'CUPOLA_TESTLAB_TRACEARR_KEY=%s\n' "$tracearr_key"
+  printf 'CUPOLA_TESTLAB_TRACEARR_OWNER_EMAIL=%s\n' "$tracearr_owner_email"
+  printf 'CUPOLA_TESTLAB_TRACEARR_OWNER_PASSWORD=cupola-pass\n'
   printf 'CUPOLA_TESTLAB_NPM_USERNAME=admin@example.com\n'
   printf 'CUPOLA_TESTLAB_NPM_PASSWORD=changeme\n'
   printf 'CUPOLA_TESTLAB_QBITTORRENT_USERNAME=admin\n'
@@ -322,7 +337,7 @@ python3 "$script_dir/seed_lab.py" --state-dir "$state_dir"
 printf '\nSetting up the second Seerr (Sara'"'"'s)...\n'
 python3 "$script_dir/seerr_sara.py" --state-dir "$state_dir"
 
-rm -f "$emby_first_run" "$jellyfin_info" "$jellyfin_auth" "$seerr_public" "$seerr_cookie" "$seerr_response"
+rm -f "$emby_first_run" "$tracearr_first_run" "$jellyfin_info" "$jellyfin_auth" "$seerr_public" "$seerr_cookie" "$seerr_response"
 
 printf '\nCupola macOS lab is ready.\n'
 printf 'Credentials: %s (chmod 600; never commit or paste its contents)\n' "$credentials"
@@ -342,6 +357,7 @@ printf '  SABnzbd            http://127.0.0.1:8082\n'
 printf '  NZBGet             http://127.0.0.1:6789\n'
 printf '  Jellyfin           http://127.0.0.1:8096\n'
 printf '  Emby               http://127.0.0.1:8097\n'
+printf '  Tracearr           http://127.0.0.1:3010\n'
 printf '  Plex               http://127.0.0.1:32400\n'
 printf '  Dockge             http://127.0.0.1:5001\n'
 printf '  Nginx Proxy Manager http://127.0.0.1:8181\n'

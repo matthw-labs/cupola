@@ -107,6 +107,7 @@ class LabEndpoints {
     ServiceKey.nzbget: (proxy: 26789, direct: 6789),
     ServiceKey.jellyfin: (proxy: 28096, direct: 8096),
     ServiceKey.emby: (proxy: 28098, direct: 8097),
+    ServiceKey.tracearr: (proxy: 23000, direct: 3010),
     ServiceKey.plex: (proxy: 23240, direct: 32400),
     ServiceKey.dockge: (proxy: 25001, direct: 5001),
     ServiceKey.nginxProxyManager: (proxy: 28181, direct: 8181),
@@ -430,6 +431,7 @@ class Lab {
     ServiceKey.jellyfin: 'CUPOLA_TESTLAB_JELLYFIN_TOKEN',
     ServiceKey.emby: 'CUPOLA_TESTLAB_EMBY_TOKEN',
     ServiceKey.plex: 'CUPOLA_TESTLAB_PLEX_TOKEN',
+    ServiceKey.tracearr: 'CUPOLA_TESTLAB_TRACEARR_KEY',
   };
 
   /// The names the bootstrap gave the user a key-only server is read as. An

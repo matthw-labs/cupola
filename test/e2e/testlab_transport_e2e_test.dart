@@ -26,6 +26,7 @@ import 'package:cupola/features/sabnzbd/data/sabnzbd_client.dart';
 import 'package:cupola/features/series/data/sonarr_service.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/stream_external_match.dart';
+import 'package:cupola/features/tracearr/data/tracearr_client.dart';
 import 'package:cupola/features/transmission/data/transmission_client.dart';
 import 'package:cupola/features/truenas/data/truenas_service.dart';
 import 'package:cupola/features/truenas/data/truenas_ws_client.dart';
@@ -219,6 +220,19 @@ void main() {
     expect(await client.probeVersion(), isNotEmpty);
     expect(await client.getLibraries(), isNotEmpty);
     expect(await client.getSessions(), isA<List>());
+  });
+
+  test('Tracearr public key auth + version + servers parser', () async {
+    final client = TracearrClient(
+      baseUrl: 'http://127.0.0.1:3010',
+      apiKey: credentials['CUPOLA_TESTLAB_TRACEARR_KEY']!,
+    );
+    addTearDown(client.close);
+    final health = await client.checkCredentialAndVersion();
+    expect(health.isOk, isTrue);
+    expect(health.version, startsWith('v'));
+    expect((await client.getServers()).servers, isNotEmpty);
+    expect(await client.getStreams(), isNotNull);
   });
 
   test('Plex token auth + identity parser', () async {
@@ -468,6 +482,17 @@ void main() {
     );
     addTearDown(emby.close);
     expect(await emby.verifyCredential(), isFalse, reason: 'Emby');
+
+    final tracearr = TracearrClient(
+      baseUrl: 'http://127.0.0.1:3010',
+      apiKey: 'trr_pub_wrong-token',
+    );
+    addTearDown(tracearr.close);
+    await expectLater(
+      tracearr.checkCredentialAndVersion(),
+      throwsA(anything),
+      reason: 'Tracearr',
+    );
 
     final dockge = DockgeClient(
       baseUrl: 'http://127.0.0.1:5001',

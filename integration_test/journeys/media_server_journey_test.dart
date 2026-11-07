@@ -1,4 +1,5 @@
-/// The media servers and Now playing: S-01, S-02, S-06, S-03 and S-09.
+/// The media servers, Now playing and Tracearr: S-01, S-02, S-06, S-03 and S-09,
+/// and a journey of Tracearr's own.
 ///
 /// The world: the Jellyfin, the Emby and the Plex of L8, with Films, Series and
 /// Music on the same folders, a non-admin `cupola-viewer`, a watched movie and
@@ -27,6 +28,10 @@
 /// - **S-09**: Now playing draws one and then two playbacks on the Home and on
 ///   the Jellyfin overview, and goes back to its idle line when they stop.
 ///
+/// - **Tracearr** (no catalogue row yet, so no id): Tracearr, watching the Emby, draws what two playbacks make: two
+///   streams in Live, and the violation of the rule that allows one in
+///   Violations, opened to the sentence that says how many there were.
+///
 /// S-04 (`Resume in Jellyfin`, a hand-off to the platform's player), S-05 (the
 /// client has no watch/task write), S-07 (Plex's stop needs Plex Pass) and S-08
 /// (the Plex client has no playlist write) stay agent steps or impossibilities,
@@ -39,6 +44,11 @@
 /// `--server emby` for Emby's) starts the right devices, runs this file, and
 /// ends them on the way out. The test names are what the wrapper selects them
 /// by, so the Jellyfin and the Emby ones differ in their wording.
+///
+/// **The Tracearr journey opens its own playbacks.** It asks the lab's control API to apply the
+/// `tracearr-streams` scenario (two devices of the household member on the
+/// Emby, which Tracearr watches and rules) and to take it down when the test
+/// ends, so it needs no wrapper: the lab must be up with its control API.
 @Tags(['e2e'])
 library;
 
@@ -218,6 +228,71 @@ void main() {
     await app.go(tester, ServiceRoutes.plexPlaylists);
     await app.surface.see('Playlists');
   }, timeout: const Timeout(Duration(minutes: 10)));
+
+  testWidgets('Tracearr draws two live streams and the violation they raise', (
+    tester,
+  ) async {
+    binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
+    final lab = Lab.load();
+    await lab.command(['scenario', 'apply', 'tracearr-streams']);
+    addTearDown(
+      () => lab.command(['scenario', 'teardown', 'tracearr-streams']),
+    );
+    final app = await LabApp.asOperator(
+      tester,
+      lab: lab,
+      services: const {ServiceKey.tracearr, ServiceKey.emby},
+    );
+
+    // What Tracearr lists, read straight to it: the two titles the scenario
+    // plays, and who plays them.
+    final live = await _tracearr(app, '/api/v2/public/streams');
+    final rows = (live['data'] as List).cast<Map>();
+    final titles = [
+      for (final row in rows)
+        if (row['media_title'] case final String title) title,
+    ];
+    expect(
+      titles,
+      containsAll(['Big Buck Bunny', 'The Matrix']),
+      reason: 'the scenario plays two titles',
+    );
+
+    await app.go(tester, ServiceRoutes.tracearrLive);
+    await app.surface.seePart('2 streams');
+    for (final title in titles) {
+      await app.surface.seePart(title);
+    }
+
+    // The rule allows one stream: the second one is a violation, and its page
+    // says so in numbers, never in an address.
+    await app.go(tester, ServiceRoutes.tracearrViolations);
+    await app.surface.see('Too many streams at once');
+    await app.tapIn(tester, find.text('Too many streams at once').first);
+    await app.surface.seePart('2 streams at once, the limit is 1');
+  }, timeout: const Timeout(Duration(minutes: 10)));
+}
+
+/// One reading of Tracearr's public API, straight to it and not through the
+/// fault layer, with the key the lab issued.
+Future<Map> _tracearr(LabApp app, String path) async {
+  final key = app.credentials.require('CUPOLA_TESTLAB_TRACEARR_KEY');
+  final client = HttpClient();
+  try {
+    final request = await client.getUrl(
+      Uri.parse('${LabEndpoints.directUrlOf(ServiceKey.tracearr)}$path'),
+    );
+    request.headers.set('Authorization', 'Bearer $key');
+    request.headers.set('Accept', 'application/json');
+    final response = await request.close();
+    final body = await response.transform(utf8.decoder).join();
+    if (response.statusCode >= 400) {
+      fail('Tracearr $path answered ${response.statusCode}: $body');
+    }
+    return jsonDecode(body) as Map;
+  } finally {
+    client.close(force: true);
+  }
 }
 
 /// The journeys Jellyfin and Emby share: S-01, S-02, S-03 and S-09, for one

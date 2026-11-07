@@ -1291,6 +1291,29 @@ def seed_media_libraries(state_dir: Path) -> None:
             warn(script, error)
 
 
+def seed_tracearr(state_dir: Path) -> None:
+    """Tracearr watches the lab's Jellyfin and Emby, and holds its rule.
+
+    After the media libraries, so that the household member it will read the
+    users of exists. `tracearr_lab.py` is idempotent and reads the same
+    disposable state; its owner and key were made by `tracearr_first_run.py`
+    in the bootstrap, and a custom ``--state-dir`` reaches it.
+    """
+
+    environment = {**os.environ, "CUPOLA_TESTLAB_STATE_DIR": str(state_dir)}
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve().parent / "tracearr_lab.py"),
+            ],
+            check=True,
+            env=environment,
+        )
+    except Exception as error:
+        warn("tracearr_lab.py", error)
+
+
 def seed_qbittorrent(env: dict[str, str]) -> None:
     try:
         jar = http.cookiejar.CookieJar()
@@ -1584,6 +1607,7 @@ def main() -> None:
     seed_seerr_world(args.state_dir)
     seed_media_servers(args.state_dir, env)
     seed_media_libraries(args.state_dir)
+    seed_tracearr(args.state_dir)
     seed_qbittorrent(env)
     seed_transmission(env)
     seed_sabnzbd(args.state_dir)

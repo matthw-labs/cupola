@@ -312,6 +312,48 @@ services:
       retries: 30
       start_period: 30s
 
+  tracearr:
+    # Tracearr 3.1.4, the `supervised` image: TimescaleDB, Redis and the server in
+    # one container, which is what makes it one service of the lab and not three.
+    # The tag and the index digest are what `supervised-3.1.4` was on 2026-11-07,
+    # linux/arm64 included (the `supervised` tag moves with every release).
+    # It watches the lab's Jellyfin and Emby by their service names, on this
+    # network (see test/e2e/testlab/tracearr_lab.py), and publishes 3010 on the
+    # host because 3000 is the port every dev server reaches for first.
+    image: ghcr.io/connorgallopo/tracearr:supervised-3.1.4@sha256:2ff287bba0adea6d09cfc83aa7dbb8e258c9417dd99c813e595f401875a86640
+    profiles: [core, media]
+    # What the image asks for: shared memory for PostgreSQL, the file
+    # descriptors TimescaleDB's chunks need, and a 3 GB ceiling under which
+    # PostgreSQL, Redis and Node.js all fit (below it the kernel kills it).
+    shm_size: 512mb
+    mem_limit: 3g
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    environment:
+      TZ: ${TZ:-Europe/Rome}
+    ports:
+      - "127.0.0.1:3010:3000"
+    volumes:
+      # Named volumes, not binds under the state directory: the image's own
+      # compose says a bind mount upsets PostgreSQL's and Redis's ownership.
+      # They sit beside the dind's disk, outside the snapshots, so a snapshot
+      # reset does not rewind Tracearr's history (the seed is idempotent and finds
+      # its owner, its key, its two servers and its rule where it left them).
+      - tracearr-postgres:/data/postgres
+      - tracearr-redis:/data/redis
+      - tracearr-data:/data/tracearr
+      - tracearr-backups:/data/backup
+    healthcheck:
+      # /health answers 200 with `"mode":"maintenance"` while the migrations
+      # run, so the status alone says nothing: the mode has to be `ready`.
+      test: [CMD-SHELL, "curl -fsS http://127.0.0.1:3000/health | grep -q '\"mode\":\"ready\"' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+
   plex:
     # Plex 1.43.4.10903-e5521bd8c-ls324.
     image: lscr.io/linuxserver/plex@sha256:1f6f97d76e7bdb013789e94c838f2d9133b01ee4b2d4194148e492c4e4f12d90
@@ -504,6 +546,8 @@ services:
       - "127.0.0.1:28082:28082"
       - "127.0.0.1:28096:28096"
       - "127.0.0.1:28098:28098"
+      - "127.0.0.1:23000:23000"  # Tracearr
+      - "127.0.0.1:23001:23001"  # Tracearr, away
       - "127.0.0.1:28181:28181"
       - "127.0.0.1:28460:28460"
       - "127.0.0.1:28480:28480"
@@ -556,3 +600,9 @@ volumes:
   # The dind's own disk. Named so overlayfs can write; not part of the lab's
   # state directory, and the snapshots already ignore the dind.
   cupola-dind:
+  # Tracearr's four disks (see the service). Compose prefixes them with the
+  # project's name, so a second lab does not share them.
+  tracearr-postgres:
+  tracearr-redis:
+  tracearr-data:
+  tracearr-backups:
