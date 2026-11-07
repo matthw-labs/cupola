@@ -152,7 +152,7 @@ void main() {
       for (final title in [
         'Monitored servers',
         'Playing now',
-        'Violations',
+        'Latest violations',
         'Most watched this week',
       ]) {
         expect(

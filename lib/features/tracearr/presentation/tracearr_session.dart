@@ -246,7 +246,7 @@ List<TracearrFact> tracearrFactsOf(TracearrSession session, {DateTime? now}) {
     session.device.device,
     session.device.player,
     session.device.product,
-  ]);
+  ], distinct: true);
   if (device.isNotEmpty) facts.add((label: 'Device', value: device));
 
   final started = session.startedAt;

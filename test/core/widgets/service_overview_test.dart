@@ -641,6 +641,25 @@ void main() {
       expect(find.text('NS'), findsOneWidget);
     });
 
+    testWidgets('the initials fit their plate at 200% and at 3x', (
+      tester,
+    ) async {
+      for (final scale in [2.0, 3.0]) {
+        await tester.pumpWidget(
+          _host(
+            const ServiceOverviewArt(posterUrl: null, title: 'Wide Wow'),
+            textScale: scale,
+          ),
+        );
+        final plate = tester.getRect(find.byType(ServiceOverviewArt));
+        final text = tester.getRect(find.text('WW'));
+        expect(text.left, greaterThanOrEqualTo(plate.left), reason: '$scale');
+        expect(text.right, lessThanOrEqualTo(plate.right), reason: '$scale');
+        expect(text.top, greaterThanOrEqualTo(plate.top), reason: '$scale');
+        expect(text.bottom, lessThanOrEqualTo(plate.bottom), reason: '$scale');
+      }
+    });
+
     test('initials: two words, one word, and none', () {
       expect(overviewInitialsOf('Night Shift'), 'NS');
       expect(overviewInitialsOf('The Long Field'), 'TL');

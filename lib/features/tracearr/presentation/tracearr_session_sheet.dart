@@ -65,7 +65,7 @@ Future<void> showTracearrSession(
     ),
     builder: (sheet, scroll) => SingleChildScrollView(
       controller: scroll,
-      child: _SessionBody(
+      child: TracearrSessionBody(
         session: session,
         onClose: () => Navigator.of(sheet).pop(),
         host: context,
@@ -76,8 +76,12 @@ Future<void> showTracearrSession(
   );
 }
 
-class _SessionBody extends ConsumerWidget {
-  const _SessionBody({
+/// What the detail sheet holds under its header: public so the design catalog
+/// can draw the sheet in place, as a modal on the root navigator is off its
+/// sheet.
+class TracearrSessionBody extends ConsumerWidget {
+  const TracearrSessionBody({
+    super.key,
     required this.session,
     required this.onClose,
     required this.host,

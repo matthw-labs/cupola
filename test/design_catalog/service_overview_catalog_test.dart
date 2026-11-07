@@ -34,7 +34,14 @@ import 'package:cupola/features/tracearr/data/tracearr_owner_accounts.dart';
 import 'package:cupola/features/tracearr/data/tracearr_owner_client.dart';
 import 'package:cupola/features/tracearr/data/tracearr_violation_owner.dart';
 import 'package:cupola/features/tracearr/domain/models/tracearr_violation.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_history_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_live_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_overview_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_person_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_users_screen.dart';
 import 'package:cupola/features/tracearr/presentation/tracearr_violation_screen.dart';
+import 'package:cupola/features/tracearr/presentation/tracearr_violations_screen.dart';
+import 'package:cupola/demo/world/fakes/media_fakes.dart' show TracearrFake;
 import 'package:cupola/features/tracearr/presentation/tracearr_violations_provider.dart';
 
 import 'package:cupola/features/onboarding/data/onboarding_provider.dart';
@@ -47,6 +54,7 @@ import '../test_helpers/fake_services.dart';
 import '../test_helpers/profiles/profiles.dart';
 import 'catalog.dart';
 import 'emby_world.dart';
+import 'tracearr_world.dart';
 
 /// Radarr with an address away: at home on the home network's name, away
 /// on a public one.
@@ -642,8 +650,12 @@ void main() {
   catalogCard(
     'ServiceOverview',
     width: 1328,
-    overrides: () =>
-        startEmbyWorld(Profiles.p1.withConnection(WorldConnections.emby)),
+    // One world for the Emby room and for Tracearr, which watches that Emby.
+    overrides: () => startEmbyWorld(
+      Profiles.p1
+          .withConnection(WorldConnections.emby)
+          .withConnection(WorldConnections.tracearr),
+    ),
     scenes: [
       CatalogScene(
         'StreamOverviewScreen(service: emby) · an Emby room · the identity '
@@ -654,6 +666,76 @@ void main() {
         ),
         width: 390,
         height: 700,
+      ),
+      CatalogScene(
+        'TracearrOverviewScreen · the readouts (Streams now, Today with its '
+        'plays and time, Unseen as a floor, Servers 2 of 3), Monitored '
+        'servers with one refused Tracearr\'s token (amber, Fix it in '
+        'Tracearr), Playing now, the latest violations and Most watched this '
+        'week',
+        (_) => tracearrWorldScene(
+          const TracearrOverviewScreen(topPadding: 0),
+          overrides: tracearrOverviewOverrides,
+        ),
+        width: 390,
+        height: 1440,
+        id: 'tracearr-overview',
+      ),
+      CatalogScene(
+        'TracearrLiveScreen · the summary line over three streams: one '
+        'transcode with the server\'s reason, one paused, one direct',
+        (_) => tracearrWorldScene(const TracearrLiveScreen()),
+        width: 390,
+        height: 560,
+        id: 'tracearr-live',
+      ),
+      CatalogScene(
+        'Tracearr session sheet · the transcode: how it reaches the viewer, '
+        'source against output, the facts, and Open title, Go to the person '
+        'and Stop stream',
+        (_) => tracearrWorldScene(
+          const TracearrSheetOver(behind: TracearrLiveScreen()),
+        ),
+        width: 390,
+        height: 844,
+        id: 'tracearr-session-sheet',
+      ),
+      CatalogScene(
+        'TracearrHistoryScreen · day by day, with the filter row showing a '
+        'remembered filter (Anna, Last 7 days, Only watched) and Clear',
+        (_) => tracearrWorldScene(
+          const TracearrHistoryScreen(),
+          overrides: tracearrRememberedHistory,
+        ),
+        width: 390,
+        height: 820,
+        id: 'tracearr-history',
+      ),
+      CatalogScene(
+        'TracearrUsersScreen · one row a person with a chip for each kind of '
+        'server, and Include removed',
+        (_) => tracearrWorldScene(const TracearrUsersScreen()),
+        width: 390,
+        height: 560,
+        id: 'tracearr-users',
+      ),
+      CatalogScene(
+        'TracearrPersonScreen · Anna: 7 days, 30 days and all time, what she '
+        'likes, her latest viewings and the Violations link',
+        (_) => tracearrWorldScene(
+          const TracearrPersonScreen(userId: TracearrFake.annaId),
+        ),
+        width: 390,
+        height: 720,
+        id: 'tracearr-person',
+      ),
+      CatalogScene(
+        'TracearrViolationsScreen · Unseen, with the severity pills and a row '
+        'a violation: blue while nobody has read it',
+        (_) => tracearrWorldScene(const TracearrViolationsScreen()),
+        width: 390,
+        height: 680,
+        id: 'tracearr-violations',
       ),
       CatalogScene(
         'RadarrOverviewScreen · loaded · identity, readouts, then Coming up, '
@@ -842,6 +924,18 @@ void main() {
         width: 390,
         height: 1500,
         id: 'tracearr-violation-single-sign-on',
+      ),
+      CatalogScene(
+        'Text at 200% · TracearrOverviewScreen: the readouts, the servers and '
+        'the rows wrap and none is cut',
+        (_) => tracearrWorldScene(
+          const TracearrOverviewScreen(topPadding: 0),
+          overrides: tracearrOverviewOverrides,
+        ),
+        width: 390,
+        height: 2100,
+        textScale: catalogTextScale,
+        id: 'tracearr-overview-200',
       ),
       CatalogScene(
         'Text at 200% · RadarrOverviewScreen, the library timed out: the amber '

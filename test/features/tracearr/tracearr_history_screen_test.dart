@@ -119,6 +119,7 @@ Future<ProfileHarness> _pump(
   _Client client, {
   List<Override> overrides = const [],
   DateTime? now,
+  Size size = const Size(430, 3000),
 }) {
   recordPictures();
   return pumpWithProfile(
@@ -132,7 +133,7 @@ Future<ProfileHarness> _pump(
       ),
       ...overrides,
     ],
-    surfaceSize: const Size(430, 3000),
+    surfaceSize: size,
   );
 }
 
@@ -522,6 +523,47 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Clear'), findsOneWidget);
       expect(client.reads.last.filter.watched, isTrue);
+      await harness.unmount(tester);
+    });
+
+    testWidgets('every active filter and Clear are on screen at 390pt, '
+        'with no scrolling', (tester) async {
+      final harness = await _pump(
+        tester,
+        const TracearrHistoryScreen(),
+        _Client(),
+        size: const Size(390, 3000),
+      );
+      ProviderScope.containerOf(
+          tester.element(find.byType(TracearrHistoryScreen)),
+        ).read(tracearrHistoryFiltersProvider.notifier)
+        ..onlyWatched(true)
+        ..period(TracearrPeriod.last7);
+      await tester.pumpAndSettle();
+      const width = 390.0;
+      for (final label in ['Last 7 days', 'Only watched', 'Clear']) {
+        final box = tester.getRect(find.text(label));
+        expect(box.left, greaterThanOrEqualTo(0), reason: label);
+        expect(box.right, lessThanOrEqualTo(width), reason: label);
+        final pill = tester.getSize(
+          find.ancestor(
+            of: find.text(label),
+            matching: find.byType(SelectionPill),
+          ),
+        );
+        expect(pill.height, greaterThanOrEqualTo(44), reason: label);
+      }
+      expect(
+        find.descendant(
+          of: find.byType(TracearrHistoryScreen),
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is SingleChildScrollView &&
+                w.scrollDirection == Axis.horizontal,
+          ),
+        ),
+        findsNothing,
+      );
       await harness.unmount(tester);
     });
 

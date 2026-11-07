@@ -406,6 +406,13 @@ void main() {
       expect(session.userName, 'Anna');
     });
 
+    test('names a player once when it is the product by another case', () {
+      final session = tracearrStreamSession(
+        _stream(product: 'Plex for LG', player: ' plex for lg'),
+      );
+      expect(session.deviceLabel, 'Plex for LG');
+    });
+
     test('keeps the poster a path on Tracearr, and the bitrate in bits', () {
       final session = tracearrStreamSession(_stream());
       expect(session.bitrate, 4200000);

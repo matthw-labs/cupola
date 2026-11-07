@@ -3170,7 +3170,19 @@ class TracearrFake extends ServiceFake {
       case '/api/v2/public/users':
         return NetworkReply.json(_paged(r, _users()));
       case '/api/v2/public/history':
-        return NetworkReply.json(_paged(r, _history(c)));
+        // The filters Tracearr's route takes and a screen asks, so a page
+        // narrowed to a person lists that person's viewings and nobody's else.
+        return NetworkReply.json(
+          _paged(r, [
+            for (final row in _history(c))
+              if ((r.query['user_id'] == null ||
+                      (row['user'] as JsonMap)['id'] == r.query['user_id']) &&
+                  (r.query['server_id'] == null ||
+                      row['server_id'] == r.query['server_id']) &&
+                  (r.query['watched'] != 'true' || row['watched'] == true))
+                row,
+          ]),
+        );
       case '/api/v2/public/violations':
         final unseen = r.query['acknowledged'] == 'false';
         final severity = r.query['severity'];

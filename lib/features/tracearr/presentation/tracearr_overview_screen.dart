@@ -41,7 +41,8 @@ import 'package:cupola/features/tracearr/presentation/tracearr_session_sheet.dar
 ///  * **Playing now**, the first three streams of Live, from the same list and
 ///    kept moving the same way while this page is on screen; each is a door to
 ///    the stream's detail;
-///  * **Violations**, the newest, in words and blue; each is a door to the
+///  * **Latest violations**, headed so, since its link to the Violations tab
+///    would otherwise say the same word twice; the newest, in words and blue; each is a door to the
 ///    violation's own page;
 ///  * **Most watched this week**, left out altogether on a Tracearr older than
 ///    3.1.4, which has no such read.
@@ -279,7 +280,7 @@ class _ViolationsSection extends ConsumerWidget {
     final count = unseen == null ? null : tracearrUnseenCount(unseen);
     return ServiceOverviewSection(
       service: _service,
-      title: 'Violations',
+      title: 'Latest violations',
       // A floor when more follow the page: the API gives no total.
       subtitle: count == null || count.count == 0
           ? null

@@ -713,12 +713,20 @@ class _InitialsPlate extends StatelessWidget {
         border: Border.all(color: room.edge),
       ),
       child: Center(
-        child: Text(
-          initials,
-          maxLines: 1,
-          style: AppType.label
-              .weight(FontWeight.w600)
-              .copyWith(color: room.inkSecondary),
+        // Scaled down into the plate, never out of it: the plate is 36 wide
+        // at any reading size, and two letters at 200% are wider than that.
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              initials,
+              maxLines: 1,
+              style: AppType.label
+                  .weight(FontWeight.w600)
+                  .copyWith(color: room.inkSecondary),
+            ),
+          ),
         ),
       ),
     );

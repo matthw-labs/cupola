@@ -72,7 +72,7 @@ StreamSession tracearrStreamSession(TracearrStream stream) {
     deviceLabel: joinDisplayParts([
       stream.device.product,
       stream.device.player ?? stream.device.device ?? stream.device.platform,
-    ]),
+    ], distinct: true),
     posterPath: media.posterUrl,
     playMethod: method,
     transcodeReasons: reasons,

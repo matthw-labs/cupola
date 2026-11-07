@@ -134,8 +134,12 @@ class _DayHeading extends StatelessWidget {
   );
 }
 
-/// The five filters, in a scrolling row of pills: four that open a choice and
-/// one that toggles, with a `Clear` while any narrows the list.
+/// The five filters, as pills on as many lines as they need: four that open a
+/// choice and one that toggles, with a `Clear` while any narrows the list.
+///
+/// Whole, not a row to scroll: a remembered filter scrolled off the edge is
+/// one the person cannot see is narrowing the list, and its `Clear` is out of
+/// reach (the Violations tab's severity pills are whole for the same reason).
 class _Filters extends ConsumerWidget {
   const _Filters();
 
@@ -143,10 +147,11 @@ class _Filters extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final filters = ref.watch(tracearrHistoryFiltersProvider);
     final notifier = ref.read(tracearrHistoryFiltersProvider.notifier);
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
+    return Padding(
       padding: SelectionPills.gutter,
-      child: Row(
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
         children: [
           _pill(
             label: filters.userName ?? 'Anyone',
@@ -191,8 +196,7 @@ class _Filters extends ConsumerWidget {
     required bool selected,
     required VoidCallback onTap,
     bool chevron = false,
-  }) => Padding(
-    padding: const EdgeInsets.only(right: AppSpacing.sm),
+  }) => IntrinsicWidth(
     child: SelectionPill(
       label: label,
       selected: selected,
