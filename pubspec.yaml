@@ -141,6 +141,13 @@ dependencies:
   # Android only: a computer pastes the link. It asks for the camera itself.
   mobile_scanner: ^7.4.2
 
+  # The device's IANA time zone (`Europe/Rome`), which Tracearr cuts its Today
+  # at. Dart names the zone only by its abbreviation (`CET`), and Tracearr
+  # reads a day without one from UTC midnight. Read in one place,
+  # `lib/core/platform/device_time_zone.dart`, and a zone it cannot give is
+  # simply not sent.
+  flutter_timezone: ^5.1.1
+
 dependency_overrides:
   # path_provider_foundation 2.6.0 pulls in objective_c native assets,
   # which currently breaks iOS release install/signing on device.

@@ -7,6 +7,7 @@ import 'package:cupola/core/capability/capability_scope.dart';
 import 'package:cupola/core/capability/connection_capability.dart';
 import 'package:cupola/core/models/service_kpi.dart';
 import 'package:cupola/core/network/connection_failure.dart';
+import 'package:cupola/core/platform/device_time_zone.dart';
 import 'package:cupola/core/providers/provider_retry.dart';
 import 'package:cupola/core/status/arr_queue_snapshot.dart';
 import 'package:cupola/core/status/lexicon.dart';
@@ -1844,9 +1845,10 @@ Future<List<ServiceKpi>> _tracearrKpis(Ref ref) => _tracearrKpisFrom(
 
 Future<List<ServiceKpi>> _tracearrKpisFor(Ref ref, String instanceId) {
   final client = ref.watch(tracearrClientForProvider(instanceId));
+  final zone = ref.read(deviceTimeZoneProvider);
   return _tracearrKpisFrom(
     client.getStreams().then((live) => live.streams.length),
-    client.getToday(),
+    zone().then((zone) => client.getToday(timezone: zone)),
     client.getViolations(
       pageSize: kTracearrCountPage,
       filter: const TracearrViolationFilter.unseen(),
@@ -1893,11 +1895,10 @@ Future<List<ServiceKpi>> _tracearrKpisFrom(
       icon: Icons.play_circle_outline_rounded,
       tone: playing == null ? null : _activityIf(playing > 0),
     ),
-    // Plays and the time they took, as the spec has it. The day is cut at UTC
-    // midnight: Tracearr wants an IANA zone name for its own cut and the app
-    // has no source of one (no plugin in the tree gives the device's), so for
-    // a household away from UTC this is not their calendar day until a zone
-    // can be asked for.
+    // Plays and the time they took, as the spec has it, for the device's own
+    // day: the read carries the device's IANA zone (`deviceTimeZoneProvider`),
+    // and falls back to Tracearr's UTC day only when there is none or Tracearr
+    // refuses it.
     _figure(
       label: 'Today',
       value: day == null

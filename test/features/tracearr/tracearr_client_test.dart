@@ -89,6 +89,38 @@ class _EventStreamAdapter implements HttpClientAdapter {
   }
 }
 
+/// Answers Today with [refusal] whenever a zone is asked, and with the
+/// recorded figures when none is; records the zone of every request.
+class _ZoneRefusingAdapter implements HttpClientAdapter {
+  _ZoneRefusingAdapter({required this.refusal});
+
+  final int refusal;
+  final List<String?> zones = [];
+
+  @override
+  void close({bool force = false}) {}
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) async {
+    final zone = options.uri.queryParameters['timezone'];
+    zones.add(zone);
+    return ResponseBody.fromString(
+      zone == null
+          ? jsonEncode(jsonFixture('tracearr/today.json'))
+          : '{"statusCode":$refusal,"error":"BadRequestError",'
+                '"message":"Invalid query parameters"}',
+      zone == null ? 200 : refusal,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+}
+
 void main() {
   group('credentials', () {
     test('the key goes as a Bearer token and nothing else', () async {
@@ -224,6 +256,29 @@ void main() {
         'timezone': 'Europe/Rome',
       });
       expect(today.todayPlays, 14);
+    });
+
+    test('a zone Tracearr refuses is read again without it', () async {
+      // Measured on Tracearr 3.1.4: a name it does not know is a 400,
+      // `Invalid query parameters`, and no figures.
+      final adapter = _ZoneRefusingAdapter(refusal: 400);
+
+      final today = await _client(adapter).getToday(timezone: 'Not/AZone');
+
+      expect(adapter.zones, ['Not/AZone', null]);
+      expect(today.todayPlays, 14);
+    });
+
+    test('any other failure with a zone is not hidden by a retry', () async {
+      for (final status in [401, 500]) {
+        final adapter = _ZoneRefusingAdapter(refusal: status);
+
+        await expectLater(
+          _client(adapter).getToday(timezone: 'Europe/Rome'),
+          throwsA(isA<DioException>()),
+        );
+        expect(adapter.zones, ['Europe/Rome'], reason: '$status');
+      }
     });
 
     test('history pages by cursor and clamps the page size', () async {

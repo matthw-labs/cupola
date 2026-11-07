@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/platform/device_time_zone.dart';
 import 'package:cupola/core/providers/provider_retry.dart';
 import 'package:cupola/features/settings/data/connection_providers.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
@@ -61,14 +62,15 @@ final tracearrServersProvider = FutureProvider<TracearrServers>(
   retry: noProviderRetry,
 );
 
-/// Today's plays and watch time.
-///
-/// Asked with no time zone: the device's name for it is an abbreviation and
-/// Tracearr wants an IANA one, so its day is cut at UTC midnight.
-final tracearrTodayProvider = FutureProvider<TracearrToday>(
-  (ref) => ref.watch(tracearrClientProvider).getToday(),
-  retry: noProviderRetry,
-);
+/// Today's plays and watch time, for the day the device is in: asked with the
+/// device's own zone, read afresh each time, so Today starts at this device's
+/// midnight and not at UTC's. A device that names no zone, or one Tracearr
+/// does not know, falls back to Tracearr's own day (`TracearrClient.getToday`).
+final tracearrTodayProvider = FutureProvider<TracearrToday>((ref) async {
+  final client = ref.watch(tracearrClientProvider);
+  final zone = await ref.read(deviceTimeZoneProvider)();
+  return client.getToday(timezone: zone);
+}, retry: noProviderRetry);
 
 /// The first page of people, for what only counts or glances at them. The
 /// Users tab pages its own list (`tracearrUsersListProvider`).
