@@ -243,7 +243,7 @@ void main() {
   });
 
   group('a library and an item', () {
-    testWidgets('the library opens on Continue watching, as the viewer', (
+    testWidgets('the library opens whole, by name, under /emby/Items', (
       tester,
     ) async {
       final harness = await _pump(
@@ -258,34 +258,27 @@ void main() {
         ),
       );
 
-      expect(find.widgetWithText(ChoiceChip, 'Continue'), findsOneWidget);
+      expect(find.widgetWithText(MediaBrowseFilterChip, 'All'), findsOneWidget);
       expect(find.byType(AppErrorState), findsNothing);
-      expect(
-        _paths(harness),
-        contains(
-          startsWith('GET /emby/Users/${EmbyFake.operatorId}/Items/Resume'),
-        ),
-      );
+      final shelf = harness.network.requests
+          .where((r) => r.method == 'GET' && r.path == '/emby/Items')
+          .last;
+      expect(shelf.query['ParentId'] ?? shelf.query['parentId'], '4');
+      expect(shelf.query['sortBy'] ?? shelf.query['SortBy'], 'SortName');
       await harness.unmount(tester);
     });
 
-    testWidgets('the Next up lens reads /Shows/NextUp', (tester) async {
+    testWidgets('Next up is the Activity\'s, read from /Shows/NextUp', (
+      tester,
+    ) async {
       final harness = await _pump(
         tester,
         _withEmby,
-        const Scaffold(
-          body: StreamLibraryScreen(
-            service: ServiceKey.emby,
-            libraryId: '4',
-            libraryTitle: 'Series',
-          ),
-        ),
+        const Scaffold(body: JellyfinActivityScreen(service: ServiceKey.emby)),
       );
 
-      await tester.tap(find.widgetWithText(ChoiceChip, 'Next up'));
-      await harness.settle(tester);
-
-      expect(_paths(harness), contains('GET /emby/Shows/NextUp'));
+      expect(find.text('Next up'), findsOneWidget);
+      expect(_paths(harness), contains(startsWith('GET /emby/Shows/NextUp')));
       expect(find.byType(AppErrorState), findsNothing);
       await harness.unmount(tester);
     });
@@ -354,6 +347,12 @@ void main() {
 
       await tester.tap(find.byTooltip('Pause this playback'));
       await harness.settle(tester);
+      // The page reads the player again to see that it paused: the world's
+      // player obeys, so the page says nothing more and draws Resume.
+      await tester.pump(const Duration(seconds: 7));
+      await harness.settle(tester);
+      expect(find.textContaining('did not pause'), findsNothing);
+      expect(find.byTooltip('Resume this playback'), findsOneWidget);
 
       expect(
         _paths(harness),

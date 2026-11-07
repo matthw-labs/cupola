@@ -218,7 +218,7 @@ void main() {
     },
   );
 
-  test('the rail\'s Streams now counts the rows the session plumbing reads '
+  test('the rail\'s Streams counts the rows the session plumbing reads '
       'from Tracearr', () async {
     final harness = await ProfileHarness.start(_household);
     final container = harness.container(retry: (_, _) => null);
@@ -233,7 +233,7 @@ void main() {
       )).future,
     );
 
-    expect(kpis.firstWhere((k) => k.label == 'Streams now').value, '3');
+    expect(kpis.firstWhere((k) => k.label == 'Streams').value, '3');
     expect(sessions, hasLength(3));
   });
 
@@ -248,7 +248,7 @@ void main() {
     expect(
       {for (final k in kpis) k.label: k.value},
       {
-        'Streams now': '3',
+        'Streams': '3',
         'Today': '4 plays\u00A0· 1\u00A0h 30\u00A0min',
         'Unseen': '2',
         'Servers': '3 of 3',
@@ -265,7 +265,7 @@ void main() {
     container.listen(rail, (_, _) {});
     final live = await container.read(tracearrLiveProvider.future);
     String streamsNow(List<ServiceKpi> kpis) =>
-        kpis.firstWhere((k) => k.label == 'Streams now').value;
+        kpis.firstWhere((k) => k.label == 'Streams').value;
     expect(streamsNow(await container.read(rail.future)), '3');
 
     container

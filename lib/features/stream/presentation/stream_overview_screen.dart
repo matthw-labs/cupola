@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/providers/async_value_kept.dart';
+
 import 'package:cupola/core/lifecycle/page_activity.dart';
 import 'package:cupola/core/app_animation.dart';
 import 'package:cupola/core/app_spacing.dart';
-import 'package:cupola/core/text_scale.dart';
-import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/widgets/widgets.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_admin_placeholder.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
-import 'package:cupola/features/media/presentation/open_media.dart';
 import 'package:cupola/features/plex/domain/models/plex_models.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/services/domain/service_tab.dart';
@@ -18,13 +17,12 @@ import 'package:cupola/features/services/domain/services_semantics.dart';
 import 'package:cupola/features/services/presentation/service_kpi_provider.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
-import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/models/stream_library.dart';
-import 'package:cupola/features/stream/domain/stream_server_client.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_backend.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_overview_provider.dart';
+import 'package:cupola/features/stream/presentation/stream_watching.dart';
 import 'package:cupola/features/stream/presentation/widgets/stream_now_playing_section.dart';
 
 /// The first tab of a media server's service home: Jellyfin's and Plex's both.
@@ -142,6 +140,12 @@ class StreamOverviewScreen extends ConsumerWidget {
   }
 }
 
+/// The shelves the Overview glances at, in the order they are drawn.
+const _glance = [
+  StreamWatchingShelf.continueWatching,
+  StreamWatchingShelf.recentlyAdded,
+];
+
 class _OverviewBody extends ConsumerWidget {
   const _OverviewBody({
     required this.service,
@@ -169,7 +173,7 @@ class _OverviewBody extends ConsumerWidget {
         .watch(
           serviceKpiForProvider((service: service, instanceId: instanceId)),
         )
-        .whenData((kpis) => kpis ?? const <ServiceKpi>[]);
+        .whenDataKept((kpis) => kpis ?? const <ServiceKpi>[]);
   }
 
   @override
@@ -197,10 +201,17 @@ class _OverviewBody extends ConsumerWidget {
       final backend = streamBackendOf(service);
       ref.invalidate(backend.sessions);
       ref.invalidate(backend.libraries);
+      for (final shelf in _glance) {
+        ref.invalidate(
+          streamWatchingProvider((
+            service: service,
+            instanceId: instanceId,
+            shelf: shelf,
+          )),
+        );
+      }
       // The regions only Plex draws.
       if (_isPlex) {
-        ref.invalidate(plexOnDeckProvider);
-        ref.invalidate(plexOnDeckForProvider(instanceId));
         ref.invalidate(plexCapabilitiesProvider);
         ref.invalidate(plexCapabilitiesForProvider(instanceId));
       }
@@ -260,211 +271,22 @@ class _OverviewBody extends ConsumerWidget {
                     ))
                   const JellyfinOwnPlaybackNote(),
                 const SizedBox(height: AppSpacing.lg),
-                if (_isPlex) _OnDeckSection(instanceId: instanceId),
+                // The glance at what is being watched (decision
+                // `P-stream-library-browse`): what the viewer is partway
+                // through, and what was added, each leading to Activity
+                // where it is whole.
+                for (final shelf in _glance)
+                  StreamWatchingRail(
+                    service: service,
+                    instanceId: instanceId,
+                    shelf: shelf,
+                  ),
                 _LibrariesSection(service: service, instanceId: instanceId),
                 if (_isPlex) _ServerSection(instanceId: instanceId),
               ],
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-// ─── On deck (Plex only) ────────────────────────────────────────────────────
-
-/// What is half-watched, across every library.
-///
-/// **Plex only, and the asymmetry is the honest reading of the two clients.**
-/// `PlexClient.getContinueWatching` calls `/hubs/continueWatching`, which
-/// answers for the whole server in one request; Jellyfin's equivalent
-/// (`/Users/{id}/Items/Resume`) is not implemented, and its per-library
-/// `continueWatching` lens is not a substitute: it would be one request per
-/// library and would still have nothing to order the merged result by.
-///
-/// The header states no count. The hub is asked for exactly as many rows as the
-/// rail draws, so there is no remainder to report, and a figure counted inside
-/// a capped response and then printed as a total is the defect this batch has
-/// found four times.
-///
-/// **It says nothing about *whose* deck this is**, although the board's caption
-/// does (`nadia · S2 E5`). A Plex token is one person: every row here is the
-/// owner's own, `/library/*` takes no impersonation parameter, and naming a
-/// household member beside a poster would invent a perspective the server never
-/// offered.
-class _OnDeckSection extends ConsumerWidget {
-  const _OnDeckSection({required this.instanceId});
-
-  /// The Plex connection the rail reads; empty is the lens.
-  final String instanceId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(plexOnDeckForProvider(instanceId));
-
-    return ServiceOverviewSection.bleed(
-      service: ServiceKey.plex,
-      title: 'On deck',
-      destination: ServiceTab.onDeck,
-      child: AsyncValueWidget<List<StreamItem>>.bleedSection(
-        value: items,
-        service: ServiceKey.plex,
-        instanceId: instanceId,
-        consequence: 'what is on deck is not shown',
-        loadingLabel: 'Loading what is on deck',
-        onRetry: () {
-          ref.invalidate(plexOnDeckForProvider(instanceId));
-          ref.invalidate(plexOnDeckProvider);
-        },
-        skeleton: AppSkeleton.posterRow(height: 138),
-        isEmpty: (list) => list.isEmpty,
-        emptyBuilder: const Padding(
-          padding: EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          child: ServiceOverviewEmpty(
-            icon: Icons.play_circle_outline_rounded,
-            label: 'Nothing part-watched',
-          ),
-        ),
-        data: (list) => _OnDeckRail(items: list, instanceId: instanceId),
-      ),
-    );
-  }
-}
-
-class _OnDeckRail extends ConsumerWidget {
-  const _OnDeckRail({required this.items, required this.instanceId});
-
-  final List<StreamItem> items;
-  final String instanceId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final client = ref.watch(
-      streamClientForProvider((
-        service: ServiceKey.plex,
-        instanceId: instanceId,
-      )),
-    );
-
-    return SizedBox(
-      // 138pt poster, the gap, and two caption lines, grown by the reading
-      // size so the captions are not clipped at an accessibility text size.
-      height: TextScaleMetrics.boxHeight(context, base: 176, textHeight: 34),
-      // The box grew by the *clamped* scale, so the text has to be laid out at
-      // the same clamp: unclamped, the rail is sized for 1.6x and painted at
-      // 3.0x, which is an overflow stripe.
-      child: MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaleMetrics.clampedScalerOf(context)),
-        child: ListView.separated(
-          controller: RailArrows.controllerOf(context),
-          scrollDirection: Axis.horizontal,
-          padding: const EdgeInsets.symmetric(horizontal: AppSpacing.lg),
-          itemCount: items.length,
-          separatorBuilder: (_, _) =>
-              const SizedBox(width: AppSpacing.carouselGap),
-          itemBuilder: (context, index) => _OnDeckTile(
-            item: items[index],
-            instanceId: instanceId,
-            index: index,
-            poster: items[index].posterPath == null
-                ? null
-                : client.imageFor(items[index].posterPath!, width: 260),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// One poster on the rail.
-///
-/// **Not `StreamPosterTile`, and the reason is the Hero tag.** That widget tags
-/// its poster `stream_<service>_<id>_<index>`, and the On deck *tab* is alive in
-/// a sibling branch of the same shell drawing the same items with the same tags.
-/// Two live Heroes sharing a tag is an assertion at flight time, not a
-/// degraded animation. Radarr's Overview rail carries its own namespace for
-/// exactly this reason. The tile is otherwise deliberately plain: the resume bar
-/// and unplayed badge belong to the grid where a row of them can be compared,
-/// and here the caption already says how far in the viewer is.
-///
-/// **The [index] is in the tag for the second half of the same rule.** The
-/// namespace settles the collision *between* rails and does nothing about one
-/// *inside* this rail, which is a real shape rather than a theoretical one:
-/// `streamOnDeckPreview` now drops a repeated `ratingKey`, and the index is the
-/// belt to that braces: a duplicated Hero tag throws at flight time instead of
-/// degrading, and one interpolation is a cheap price for never asserting.
-class _OnDeckTile extends StatelessWidget {
-  const _OnDeckTile({
-    required this.item,
-    required this.instanceId,
-    required this.index,
-    required this.poster,
-  });
-
-  final StreamItem item;
-
-  /// The connection the rail was read from, which the title opens on.
-  final String instanceId;
-
-  /// Position on the rail, included in the Hero tag; see the class comment.
-  final int index;
-
-  final StreamImageSource? poster;
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final caption = streamOnDeckCaption(item);
-    final heroTag = 'stream_overview_ondeck_plex_${item.id}_$index';
-
-    return SizedBox(
-      width: 96,
-      child: PressableScale(
-        onTap: () => context.openStreamItem(
-          ServiceKey.plex,
-          item,
-          instanceId: instanceId,
-        ),
-        // A poster is an image with no name of its own; the tile announces the
-        // title and its state as one button rather than as two fragments.
-        semanticLabel: item.title,
-        semanticValue: caption.isEmpty ? null : spokenFromDotted(caption),
-        excludeChildSemantics: true,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 96,
-              height: 138,
-              child: MediaPosterCard(
-                heroTag: heroTag,
-                imageUrl: poster?.url,
-                imageHeaders: poster?.headers,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              item.title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.labelSmall
-                  ?.weight(FontWeight.w600)
-                  .copyWith(color: colorScheme.onSurface),
-            ),
-            if (caption.isNotEmpty)
-              Text(
-                caption,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                ),
-              ),
-          ],
-        ),
       ),
     );
   }

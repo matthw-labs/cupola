@@ -29,43 +29,33 @@ enum StreamItemKind {
       this == StreamItemKind.album;
 }
 
-/// How a library is being read.
+/// How a library's whole shelf is ordered.
 ///
-/// The order is the order the browse offers them, and [all] being last is the
-/// design's load-bearing choice rather than a default that drifted.
+/// A library page is the library, whole (decision `P-stream-library-browse`):
+/// it opens in [name] order on every title it holds, and what a viewer is
+/// partway through, is up to next or was just added lives where watching is
+/// the subject, the server's Activity and the glance of its Overview. The
+/// browse took those once as lenses that opened the page, so a library never
+/// read as the arrs' list twice; a person who opens a library wants to browse
+/// it, and the history has its own room.
 ///
-/// **The idle-month test:** if a Stream library screen would look identical after
-/// nobody watched anything for a month, it is Radarr rendered twice and must not
-/// ship. Every lens above [all] fails to render at all without watch history, so
-/// the landing state cannot degrade into a title list. [all] is available as an
-/// explicit sort and is never the lens a library opens on.
-enum StreamLibraryLens {
-  continueWatching(label: 'Continue'),
-  nextUp(label: 'Next up'),
-  recentlyAdded(label: 'Recent'),
-  unplayed(label: 'Unplayed'),
-  all(label: 'A–Z');
+/// Every value was measured on the three servers before it was offered:
+/// Jellyfin and Emby take each `SortBy` with the name as a tie-break (an Emby
+/// that does not know a `SortBy` answers 500, so nothing unmeasured is sent),
+/// Plex its `sort` the same way.
+enum StreamLibrarySort {
+  /// A to Z by the server's sort title (`The Matrix` under M).
+  name(label: 'Name'),
 
-  const StreamLibraryLens({required this.label});
+  /// The latest the server added first.
+  dateAdded(label: 'Date added'),
+
+  /// The newest release year first, A to Z within a year.
+  year(label: 'Year');
+
+  const StreamLibrarySort({required this.label});
 
   final String label;
-
-  /// Whether this lens needs a viewer to mean anything.
-  ///
-  /// Jellyfin can answer these for any household member because an admin API key
-  /// may pass any `userId`. Plex cannot: its token *is* the user and `/library/*`
-  /// takes no impersonation parameter, so a Plex library has exactly one
-  /// perspective and its viewer chip is hidden rather than showing a list of one.
-  ///
-  /// **[all] is not one of them**, and treating it as one was a bug rather than a
-  /// definition: an alphabetical wall of a library is the same wall whoever is
-  /// looking. Jellyfin's `/Items?parentId=…&sortBy=SortName` takes `userId` as
-  /// strictly optional and only loses `UserData` without it, so scoping A–Z to a
-  /// viewer made the client refuse the request before making it, and told a user
-  /// who had connected a server but not yet chosen a household member that their
-  /// library was empty, which is the one thing it demonstrably was not.
-  bool get isPerViewer =>
-      this != StreamLibraryLens.recentlyAdded && this != StreamLibraryLens.all;
 }
 
 /// The external database ids a media server holds for one item: the other half

@@ -325,14 +325,16 @@ class _LibraryRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall,
                 ),
-                Text(
-                  _subtitleFor(library),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                if (_subtitleFor(library) case final subtitle
+                    when subtitle.isNotEmpty)
+                  Text(
+                    subtitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
-                ),
               ],
             ),
           ),
@@ -366,8 +368,13 @@ class _LibraryRow extends StatelessWidget {
   /// request per library and belongs to the pushed Libraries page, where a card
   /// can render complete and let its number arrive afterwards. Putting it back
   /// here would make opening a service cost one request per library.
+  ///
+  /// The kind is left out when the library is already named after it
+  /// (`Movies` · `Movies`), as the Overview's shelf does.
   static String _subtitleFor(StreamLibrary library) {
-    final parts = <String>[library.kind.label];
+    final kind = library.kind.label;
+    final named = kind.toLowerCase() == library.name.trim().toLowerCase();
+    final parts = <String>[if (!named) kind];
     if (library.isRefreshing) {
       parts.add('Scanning');
     } else {

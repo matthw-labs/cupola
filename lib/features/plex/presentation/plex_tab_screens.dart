@@ -4,53 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cupola/core/lifecycle/page_activity.dart';
 import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/capability/connection_capability.dart';
-import 'package:cupola/core/text_scale.dart';
-import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/date_format.dart';
 import 'package:cupola/core/utils/dot_separator.dart';
 import 'package:cupola/core/utils/duration_format.dart';
 import 'package:cupola/core/utils/string_utils.dart';
 import 'package:cupola/core/widgets/widgets.dart';
-import 'package:cupola/features/media/presentation/open_media.dart';
 import 'package:cupola/features/plex/domain/models/plex_models.dart';
 import 'package:cupola/features/plex/presentation/plex_capability.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/services/domain/services_semantics.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
-import 'package:cupola/features/stream/domain/models/stream_item.dart';
-import 'package:cupola/features/stream/domain/stream_server_client.dart';
+import 'package:cupola/features/stream/presentation/stream_watching.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart';
-import 'package:cupola/features/stream/presentation/stream_overview_provider.dart';
 import 'package:cupola/features/stream/presentation/widgets/stream_now_playing_section.dart';
-
-/// The token owner's part-watched titles from Plex's continue-watching hub.
-///
-/// [instanceId] is the `?i=` of the location the tab was built for. A tab's
-/// root reads the connection the visit has in view first (`streamInstanceOf`,
-/// not pinned) and this where the visit has none; null reads the lens. The same
-/// on every tab below.
-class PlexOnDeckScreen extends ConsumerWidget {
-  const PlexOnDeckScreen({super.key, this.topPadding = 0, this.instanceId});
-
-  final double topPadding;
-  final String? instanceId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    if (!_isConfigured(ref)) return _notConfigured();
-    return _PlexOnDeckBody(
-      topPadding: topPadding,
-      instanceId: streamInstanceOf(
-        ref,
-        ServiceKey.plex,
-        instanceId,
-        pinned: false,
-      ),
-    );
-  }
-}
 
 /// Current Plex playback activity.
 ///
@@ -154,71 +122,6 @@ bool _isConfigured(WidgetRef ref) =>
 
 Widget _notConfigured() => NotConfiguredPlaceholder.forService(ServiceKey.plex);
 
-class _PlexOnDeckBody extends ConsumerWidget {
-  const _PlexOnDeckBody({required this.topPadding, required this.instanceId});
-
-  final double topPadding;
-
-  /// The connection whose deck this is; empty is the lens.
-  final String instanceId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final items = ref.watch(plexOnDeckTabForProvider(instanceId));
-    void reload() {
-      ref.invalidate(plexOnDeckTabForProvider(instanceId));
-      ref.invalidate(plexOnDeckTabProvider);
-    }
-
-    // The host's two bands and the status bar the upper one consumes: this
-    // page has no `SafeArea` and no app bar to take the inset off first.
-    final top = topPadding + MediaQuery.paddingOf(context).top;
-    // The tab is this one read, so a cold failure is the server's leaf.
-    if (items.hasError && !items.hasValue) {
-      return AmbientScaffold(
-        accent: ServiceKey.plex.accent,
-        body: Padding(
-          padding: EdgeInsets.only(top: top),
-          child: ServiceOfflineState.failure(
-            service: ServiceKey.plex,
-            instanceId: instanceId,
-            error: items.error!,
-            onRetry: reload,
-          ),
-        ),
-      );
-    }
-    return AmbientScaffold(
-      accent: ServiceKey.plex.accent,
-      body: Padding(
-        padding: EdgeInsets.only(top: top),
-        child: AsyncValueWidget<List<StreamItem>>(
-          value: items,
-          serviceName: 'Plex on deck',
-          instanceId: instanceId,
-          loadingLabel: 'Loading what is on deck',
-          onRetry: reload,
-          isEmpty: (list) => list.isEmpty,
-          emptyBuilder: AppEmptyStatePage(
-            emptyState: AppEmptyState(
-              icon: Icons.play_circle_outline_rounded,
-              title: 'Nothing part-watched',
-              message: 'Titles appear here after the owner starts watching.',
-              accentColor: ServiceKey.plex.accent,
-            ),
-          ),
-          skeleton: AppSkeleton.posterGrid(count: 9),
-          data: (list) => _OnDeckGrid(
-            items: list,
-            instanceId: instanceId,
-            onReload: reload,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _PlexActivitiesBody extends ConsumerWidget {
   const _PlexActivitiesBody({
     required this.topPadding,
@@ -263,11 +166,22 @@ class _PlexActivitiesBody extends ConsumerWidget {
         ),
       );
     }
+    final shelves = streamWatchingShelvesOf(ServiceKey.plex);
     return AmbientScaffold(
       accent: ServiceKey.plex.accent,
       body: RefreshIndicator(
-        onRefresh: () async =>
-            refreshStreamSessions(ref, ServiceKey.plex, instanceId),
+        onRefresh: () async {
+          refreshStreamSessions(ref, ServiceKey.plex, instanceId);
+          for (final shelf in shelves) {
+            ref.invalidate(
+              streamWatchingProvider((
+                service: ServiceKey.plex,
+                instanceId: instanceId,
+                shelf: shelf,
+              )),
+            );
+          }
+        },
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
@@ -282,137 +196,19 @@ class _PlexActivitiesBody extends ConsumerWidget {
               instanceId: instanceId,
               sessions: sessions,
             ),
+            // On deck and what was added, whole: Plex's on deck lived on a tab
+            // of its own, and is here now beside who is watching (decision
+            // `P-stream-library-browse`).
+            for (final shelf in shelves) ...[
+              const SizedBox(height: AppSpacing.lg),
+              StreamWatchingSection(
+                service: ServiceKey.plex,
+                instanceId: instanceId,
+                shelf: shelf,
+              ),
+            ],
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _OnDeckGrid extends ConsumerWidget {
-  const _OnDeckGrid({
-    required this.items,
-    required this.instanceId,
-    required this.onReload,
-  });
-
-  final List<StreamItem> items;
-  final String instanceId;
-  final VoidCallback onReload;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final client = ref.watch(
-      streamClientForProvider((
-        service: ServiceKey.plex,
-        instanceId: instanceId,
-      )),
-    );
-    return RefreshIndicator(
-      onRefresh: () async => onReload(),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final columns = MediaGrid.columnsFor(
-            constraints.maxWidth - (AppSpacing.lg * 2),
-            3,
-          );
-          return GridView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.lg,
-              AppSpacing.md,
-              AppSpacing.lg,
-              FloatingNavBarMetrics.getScrollViewBottomPadding(context),
-            ),
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              crossAxisSpacing: AppSpacing.gridGap,
-              mainAxisSpacing: AppSpacing.gridGap,
-              childAspectRatio: TextScaleMetrics.aspectRatio(
-                context,
-                base: 0.58,
-              ),
-            ),
-            itemCount: items.length,
-            itemBuilder: (context, index) => MediaQuery(
-              data: MediaQuery.of(
-                context,
-              ).copyWith(textScaler: TextScaleMetrics.clampedScalerOf(context)),
-              child: StaggeredEntrance(
-                index: index,
-                wrapCount: columns * 4,
-                child: _OnDeckTile(
-                  item: items[index],
-                  instanceId: instanceId,
-                  index: index,
-                  poster: items[index].posterPath == null
-                      ? null
-                      : client.imageFor(items[index].posterPath!, width: 260),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _OnDeckTile extends StatelessWidget {
-  const _OnDeckTile({
-    required this.item,
-    required this.instanceId,
-    required this.index,
-    required this.poster,
-  });
-
-  final StreamItem item;
-
-  /// The connection the deck was read from, which the title opens on.
-  final String instanceId;
-  final int index;
-  final StreamImageSource? poster;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final caption = streamOnDeckCaption(item);
-    return PressableScale(
-      onTap: () =>
-          context.openStreamItem(ServiceKey.plex, item, instanceId: instanceId),
-      semanticLabel: item.title,
-      semanticValue: caption.isEmpty ? null : spokenFromDotted(caption),
-      semanticHint: 'Open this title',
-      excludeChildSemantics: true,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            child: MediaPosterCard(
-              heroTag: 'stream_tab_ondeck_plex_${item.id}_$index',
-              imageUrl: poster?.url,
-              imageHeaders: poster?.headers,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            item.title,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall
-                ?.weight(FontWeight.w600)
-                .copyWith(color: theme.colorScheme.onSurface),
-          ),
-          if (caption.isNotEmpty)
-            Text(
-              caption,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: CupolaThemeColors.of(context).dimText,
-              ),
-            ),
-        ],
       ),
     );
   }

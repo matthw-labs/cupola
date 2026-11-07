@@ -749,55 +749,65 @@ void main() {
       );
     }
 
-    test('the A–Z lens sorts on titleSort and pages explicitly', () async {
-      final adapter = sectionsPlus({
-        '/library/sections/1/all': jsonFixtureMap(
-          'plex/library_movies_page.json',
-        ),
-      });
-      final items = await _client(
-        adapter,
-      ).getLibraryItems(libraryId: '1', lens: StreamLibraryLens.all);
+    test(
+      'the whole library opens in Name order and pages explicitly',
+      () async {
+        final adapter = sectionsPlus({
+          '/library/sections/1/all': jsonFixtureMap(
+            'plex/library_movies_page.json',
+          ),
+        });
+        final items = await _client(adapter).getLibraryItems(libraryId: '1');
 
-      final query = adapter.lastUri!.queryParameters;
-      expect(adapter.lastUri!.path, '/library/sections/1/all');
-      expect(query['type'], '1');
-      expect(query['sort'], 'titleSort');
-      // Both parameters, always: a start without a size returns the server's
-      // default page and a size without a start silently re-reads page one.
-      expect(query['X-Plex-Container-Start'], '0');
-      expect(query['X-Plex-Container-Size'], '50');
+        final query = adapter.lastUri!.queryParameters;
+        expect(adapter.lastUri!.path, '/library/sections/1/all');
+        expect(query['type'], '1');
+        expect(query['sort'], 'titleSort');
+        // Both parameters, always: a start without a size returns the server's
+        // default page and a size without a start silently re-reads page one.
+        expect(query['X-Plex-Container-Start'], '0');
+        expect(query['X-Plex-Container-Size'], '50');
 
-      expect(items.map((i) => i.title).toList(), [
-        'Fight Club',
-        'Interstellar',
-      ]);
-      expect(items.first.kind, StreamItemKind.movie);
-      expect(items.first.subtitle, '1999');
-      // No boolean `watched` exists: viewCount >= 1 is the whole test.
-      expect(items.first.isPlayed, isTrue);
-      expect(items.first.resumeOffsetMs, isNull);
-      expect(items[1].isPlayed, isFalse);
-    });
+        expect(items.map((i) => i.title).toList(), [
+          'Fight Club',
+          'Interstellar',
+        ]);
+        expect(items.first.kind, StreamItemKind.movie);
+        expect(items.first.subtitle, '1999');
+        // No boolean `watched` exists: viewCount >= 1 is the whole test.
+        expect(items.first.isPlayed, isTrue);
+        expect(items.first.resumeOffsetMs, isNull);
+        expect(items[1].isPlayed, isFalse);
+      },
+    );
 
-    test('recentlyAdded sorts on addedAt descending', () async {
-      final adapter = sectionsPlus({
-        '/library/sections/1/all': jsonFixtureMap(
-          'plex/library_movies_page.json',
-        ),
-      });
-      await _client(
-        adapter,
-      ).getLibraryItems(libraryId: '1', lens: StreamLibraryLens.recentlyAdded);
+    for (final (sort, expected) in [
+      (StreamLibrarySort.name, 'titleSort'),
+      (StreamLibrarySort.dateAdded, 'addedAt:desc,titleSort'),
+      (StreamLibrarySort.year, 'year:desc,titleSort'),
+    ]) {
+      test(
+        '${sort.name} sorts on $expected, the title breaking ties',
+        () async {
+          final adapter = sectionsPlus({
+            '/library/sections/1/all': jsonFixtureMap(
+              'plex/library_movies_page.json',
+            ),
+          });
+          await _client(adapter).getLibraryItems(libraryId: '1', sort: sort);
 
-      expect(adapter.lastUri!.queryParameters['sort'], 'addedAt:desc');
-      expect(
-        adapter.lastUri!.queryParameters.containsKey('unwatched'),
-        isFalse,
+          expect(adapter.lastUri!.path, '/library/sections/1/all');
+          expect(adapter.lastUri!.queryParameters['sort'], expected);
+          // A sort alone never narrows the shelf.
+          expect(
+            adapter.lastUri!.queryParameters.containsKey('unwatched'),
+            isFalse,
+          );
+        },
       );
-    });
+    }
 
-    test('unplayed uses unwatched=1 for a movie section', () async {
+    test('unplayedOnly uses unwatched=1 for a movie section', () async {
       final adapter = sectionsPlus({
         '/library/sections/1/all': jsonFixtureMap(
           'plex/library_movies_page.json',
@@ -805,7 +815,7 @@ void main() {
       });
       await _client(
         adapter,
-      ).getLibraryItems(libraryId: '1', lens: StreamLibraryLens.unplayed);
+      ).getLibraryItems(libraryId: '1', unplayedOnly: true);
 
       expect(adapter.lastUri!.queryParameters['unwatched'], '1');
       expect(
@@ -814,31 +824,34 @@ void main() {
       );
     });
 
-    test('unplayed uses show.unwatchedLeaves=1 for a show section', () async {
-      // Sending the movie spelling at a show section returns the whole library
-      // rather than an error: a silently wrong lens.
-      final adapter = sectionsPlus({
-        '/library/sections/2/all': jsonFixtureMap(
-          'plex/library_shows_unplayed.json',
-        ),
-      });
-      final items = await _client(
-        adapter,
-      ).getLibraryItems(libraryId: '2', lens: StreamLibraryLens.unplayed);
+    test(
+      'unplayedOnly uses show.unwatchedLeaves=1 for a show section',
+      () async {
+        // Sending the movie spelling at a show section returns the whole library
+        // rather than an error: a silently wrong shelf.
+        final adapter = sectionsPlus({
+          '/library/sections/2/all': jsonFixtureMap(
+            'plex/library_shows_unplayed.json',
+          ),
+        });
+        final items = await _client(
+          adapter,
+        ).getLibraryItems(libraryId: '2', unplayedOnly: true);
 
-      final query = adapter.lastUri!.queryParameters;
-      expect(query['type'], '2');
-      expect(query['show.unwatchedLeaves'], '1');
-      expect(query.containsKey('unwatched'), isFalse);
+        final query = adapter.lastUri!.queryParameters;
+        expect(query['type'], '2');
+        expect(query['show.unwatchedLeaves'], '1');
+        expect(query.containsKey('unwatched'), isFalse);
 
-      expect(items.first.kind, StreamItemKind.series);
-      // leafCount 19 − viewedLeafCount 4.
-      expect(items.first.unplayedChildCount, 15);
-      expect(items.first.isPlayed, isFalse);
-      // The second show omits viewedLeafCount entirely, which means zero: the
-      // badge has to appear on exactly the shows nobody has started.
-      expect(items[1].unplayedChildCount, 8);
-    });
+        expect(items.first.kind, StreamItemKind.series);
+        // leafCount 19 − viewedLeafCount 4.
+        expect(items.first.unplayedChildCount, 15);
+        expect(items.first.isPlayed, isFalse);
+        // The second show omits viewedLeafCount entirely, which means zero: the
+        // badge has to appear on exactly the shows nobody has started.
+        expect(items[1].unplayedChildCount, 8);
+      },
+    );
 
     test('the section kind is cached across pages', () async {
       final adapter = sectionsPlus({
@@ -848,42 +861,130 @@ void main() {
       });
       final client = _client(adapter);
 
-      await client.getLibraryItems(libraryId: '1', lens: StreamLibraryLens.all);
-      await client.getLibraryItems(libraryId: '1', lens: StreamLibraryLens.all);
+      await client.getLibraryItems(libraryId: '1');
+      await client.getLibraryItems(libraryId: '1');
 
       // sections once, then one page request each.
       expect(adapter.callCount, 3);
     });
 
-    test('continue and next up split one onDeck response', () async {
-      // Plex has no separate endpoints: onDeck is both at once, and a
-      // part-watched item is the one carrying a viewOffset.
-      final adapter = sectionsPlus({
-        '/library/sections/2/onDeck': jsonFixtureMap(
-          'plex/library_on_deck.json',
-        ),
-      });
+    test('next up is the part of continue watching with no position', () async {
+      // Plex has no separate endpoint: the continue-watching hub is both at
+      // once, and a part-watched item is the one carrying a viewOffset.
+      final adapter = CapturingHttpAdapter(
+        response: jsonFixtureMap('plex/library_on_deck.json'),
+      );
       final client = _client(adapter);
 
-      final continuing = await client.getLibraryItems(
-        libraryId: '2',
-        lens: StreamLibraryLens.continueWatching,
-      );
-      expect(adapter.lastUri!.path, '/library/sections/2/onDeck');
-      expect(continuing.map((i) => i.title).toList(), ['The You You Are']);
-      expect(continuing.single.resumeOffsetMs, 1245000);
-      expect(continuing.single.subtitle, 'Severance');
+      final continuing = await client.getContinueWatching();
+      expect(adapter.lastUri!.path, '/hubs/continueWatching');
+      expect(continuing.first.title, 'The You You Are');
+      expect(continuing.first.resumeOffsetMs, 1245000);
+      expect(continuing.first.subtitle, 'Severance');
 
-      final nextUp = await client.getLibraryItems(
-        libraryId: '2',
-        lens: StreamLibraryLens.nextUp,
-      );
+      final nextUp = await client.getNextUp(count: 8);
+      expect(adapter.lastUri!.path, '/hubs/continueWatching');
+      // Asked for twice the count, so dropping the part-watched rows still
+      // leaves a full row.
+      expect(adapter.lastUri!.queryParameters['count'], '16');
       expect(nextUp.map((i) => i.title).toList(), [
         'Estuary',
         'Hello, Ms. Cobel',
       ]);
       // An explicit `viewOffset: 0` is not a resume point.
       expect(nextUp.last.resumeOffsetMs, isNull);
+
+      expect((await client.getNextUp(count: 1)).map((i) => i.title).toList(), [
+        'Estuary',
+      ]);
+    });
+
+    test('recently added keeps movies and shows, turns a season or an '
+        'episode into its show once, and drops music', () async {
+      final adapter = CapturingHttpAdapter(
+        response: const {
+          'MediaContainer': {
+            'size': 7,
+            'Metadata': [
+              {
+                'ratingKey': '30001',
+                'key': '/library/metadata/30001',
+                'title': 'Solaris',
+                'type': 'movie',
+                'year': 1972,
+              },
+              {
+                'ratingKey': '41002',
+                'key': '/library/metadata/41002/children',
+                'title': 'Season 2',
+                'type': 'season',
+                'parentRatingKey': '41000',
+                'parentTitle': 'Severance',
+                'parentThumb': '/library/metadata/41000/thumb/1718220000',
+              },
+              {
+                'ratingKey': '41123',
+                'key': '/library/metadata/41123',
+                'title': 'Hello, Ms. Cobel',
+                'type': 'episode',
+                'grandparentRatingKey': '41000',
+                'grandparentTitle': 'Severance',
+                'grandparentThumb': '/library/metadata/41000/thumb/1718220000',
+              },
+              {
+                'ratingKey': '50010',
+                'key': '/library/metadata/50010',
+                'title': 'In Rainbows',
+                'type': 'album',
+                'parentRatingKey': '50000',
+                'parentTitle': 'Radiohead',
+              },
+              {
+                'ratingKey': '50020',
+                'key': '/library/metadata/50020',
+                'title': 'Nude',
+                'type': 'track',
+              },
+              {
+                'ratingKey': '50000',
+                'key': '/library/metadata/50000/children',
+                'title': 'Radiohead',
+                'type': 'artist',
+              },
+              {
+                'ratingKey': '42000',
+                'key': '/library/metadata/42000/children',
+                'title': 'Andor',
+                'type': 'show',
+              },
+            ],
+          },
+        },
+      );
+      final items = await _client(adapter).getRecentlyAdded(count: 10);
+
+      expect(adapter.lastUri!.path, '/library/recentlyAdded');
+      expect(adapter.lastUri!.queryParameters['X-Plex-Container-Size'], '30');
+      // The season and the episode are the same show: it appears once, at the
+      // place of its first row. The album, track and artist are gone.
+      expect(items.map((i) => i.title).toList(), [
+        'Solaris',
+        'Severance',
+        'Andor',
+      ]);
+      expect(items[0].kind, StreamItemKind.movie);
+      expect(items[1].kind, StreamItemKind.series);
+      expect(items[1].id, '41000');
+      expect(items[1].posterPath, '/library/metadata/41000/thumb/1718220000');
+    });
+
+    test('recently added stops at the count asked for', () async {
+      final adapter = CapturingHttpAdapter(
+        response: _generatedMoviePage(5, totalSize: 5),
+      );
+      final items = await _client(adapter).getRecentlyAdded(count: 2);
+
+      expect(items, hasLength(2));
     });
 
     test(
@@ -897,11 +998,9 @@ void main() {
             'plex/library_movies_page.json',
           ),
         });
-        final page = (await _client(first).getLibraryItemsPage(
-          libraryId: '1',
-          lens: StreamLibraryLens.all,
-          limit: 50,
-        ))!;
+        final page = (await _client(
+          first,
+        ).getLibraryItemsPage(libraryId: '1', limit: 50))!;
 
         expect(first.lastUri!.queryParameters['X-Plex-Container-Size'], '50');
         expect(page.size, 2);
@@ -915,11 +1014,9 @@ void main() {
             'plex/library_movies_last_page.json',
           ),
         });
-        final tail = (await _client(last).getLibraryItemsPage(
-          libraryId: '1',
-          lens: StreamLibraryLens.all,
-          startIndex: 136,
-        ))!;
+        final tail = (await _client(
+          last,
+        ).getLibraryItemsPage(libraryId: '1', startIndex: 136))!;
 
         expect(tail.offset, 136);
         expect(tail.size, 1);
@@ -927,24 +1024,6 @@ void main() {
         expect(tail.hasMore, isFalse);
       },
     );
-
-    test('a filtered page still advances by the server figure', () async {
-      // Two of the three onDeck rows are dropped by the continue lens; the pager
-      // must not read that as "the library ended".
-      final adapter = sectionsPlus({
-        '/library/sections/2/onDeck': jsonFixtureMap(
-          'plex/library_on_deck.json',
-        ),
-      });
-      final page = (await _client(adapter).getLibraryItemsPage(
-        libraryId: '2',
-        lens: StreamLibraryLens.continueWatching,
-      ))!;
-
-      expect(page.items, hasLength(1));
-      expect(page.size, 3);
-      expect(page.nextOffset, 3);
-    });
 
     test('a music section browses artists, at type 8', () async {
       // 8=artist, 9=album, 10=track. Sending 10 here would answer with every
@@ -956,7 +1035,7 @@ void main() {
       });
       final items = await _client(
         adapter,
-      ).getLibraryItems(libraryId: '3', lens: StreamLibraryLens.unplayed);
+      ).getLibraryItems(libraryId: '3', unplayedOnly: true);
 
       final query = adapter.lastUri!.queryParameters;
       expect(query['type'], '8');
@@ -984,9 +1063,7 @@ void main() {
       final adapter = sectionsPlus({
         '/library/sections/4/all': _generatedMoviePage(0, totalSize: 0),
       });
-      await _client(
-        adapter,
-      ).getLibraryItems(libraryId: '4', lens: StreamLibraryLens.all);
+      await _client(adapter).getLibraryItems(libraryId: '4');
 
       expect(adapter.lastUri!.path, '/library/sections/4/all');
       expect(adapter.lastUri!.queryParameters.containsKey('type'), isFalse);
@@ -1002,11 +1079,9 @@ void main() {
       final adapter = sectionsPlus({
         '/library/sections/1/all': _generatedMoviePage(60, totalSize: 137),
       });
-      final page = (await _client(adapter).getLibraryItemsPage(
-        libraryId: '1',
-        lens: StreamLibraryLens.all,
-        limit: 60,
-      ))!;
+      final page = (await _client(
+        adapter,
+      ).getLibraryItemsPage(libraryId: '1', limit: 60))!;
 
       expect(page.items, hasLength(60));
       expect(page.items.first.title, 'Generated Film 000');
@@ -1052,11 +1127,9 @@ void main() {
           },
         },
       });
-      final page = (await _client(adapter).getLibraryItemsPage(
-        libraryId: '1',
-        lens: StreamLibraryLens.all,
-        startIndex: 12,
-      ))!;
+      final page = (await _client(
+        adapter,
+      ).getLibraryItemsPage(libraryId: '1', startIndex: 12))!;
 
       // Falls back to what was asked for only because the server said nothing.
       expect(page.offset, 12);
@@ -1212,7 +1285,7 @@ void main() {
       );
       await _client(adapter).getLibraryItems(
         libraryId: '1',
-        lens: StreamLibraryLens.unplayed,
+        unplayedOnly: true,
         viewerId: 'someone-else',
       );
 
@@ -1639,18 +1712,9 @@ void main() {
 
       // Null, not an empty page: an empty page is a claim about the library
       // and this is a claim about the request.
+      expect(await client.getLibraryItemsPage(libraryId: '1'), isNull);
       expect(
-        await client.getLibraryItemsPage(
-          libraryId: '1',
-          lens: StreamLibraryLens.all,
-        ),
-        isNull,
-      );
-      expect(
-        (await client.getLibraryPage(
-          libraryId: '1',
-          lens: StreamLibraryLens.all,
-        )).outcome,
+        (await client.getLibraryPage(libraryId: '1')).outcome,
         StreamPageOutcome.failed,
       );
 
@@ -2036,19 +2100,21 @@ class _GuidAdapter implements HttpClientAdapter {
   }
 }
 
-/// The rows of one page, for the tests about the request a lens sends and
+/// The rows of one page, for the tests about the request a sort sends and
 /// the rows it maps; what an empty or failed page says is
 /// [StreamLibraryPage]'s, tested on [PlexClient.getLibraryPage].
 extension on PlexClient {
   Future<List<StreamItem>> getLibraryItems({
     required String libraryId,
-    required StreamLibraryLens lens,
+    StreamLibrarySort sort = StreamLibrarySort.name,
+    bool unplayedOnly = false,
     String? viewerId,
     int startIndex = 0,
     int limit = kPlexLibraryPageSize,
   }) async => (await getLibraryPage(
     libraryId: libraryId,
-    lens: lens,
+    sort: sort,
+    unplayedOnly: unplayedOnly,
     viewerId: viewerId,
     startIndex: startIndex,
     limit: limit,

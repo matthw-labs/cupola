@@ -1108,7 +1108,7 @@ class _MediaBrowseFilterChips extends StatelessWidget {
                 child: Row(
                   children: [
                     for (final filter in filters)
-                      _MediaBrowseFilterChip(
+                      MediaBrowseFilterChip(
                         label: switch (filter) {
                           MediaBrowseFilter.all => 'All',
                           MediaBrowseFilter.available => 'Available',
@@ -1128,7 +1128,7 @@ class _MediaBrowseFilterChips extends StatelessWidget {
           else
             const Spacer(),
           if (hasSort)
-            _MediaBrowseSortControl(
+            MediaBrowseSortControl(
               label: sortLabel,
               options: sortOptions,
               selected: selectedSort,
@@ -1145,13 +1145,14 @@ class _MediaBrowseFilterChips extends StatelessWidget {
 /// One order is not a choice, so the control is only built when there are two:
 /// a menu whose every opening shows the same single item is a control that
 /// cannot fail and cannot help either.
-class _MediaBrowseSortControl extends StatelessWidget {
+class MediaBrowseSortControl extends StatelessWidget {
   final String label;
   final List<String> options;
   final int selected;
   final ValueChanged<int> onSelected;
 
-  const _MediaBrowseSortControl({
+  const MediaBrowseSortControl({
+    super.key,
     required this.label,
     required this.options,
     required this.selected,
@@ -1206,13 +1207,14 @@ class _MediaBrowseSortControl extends StatelessWidget {
   }
 }
 
-class _MediaBrowseFilterChip extends StatelessWidget {
+class MediaBrowseFilterChip extends StatelessWidget {
   final String label;
   final Color color;
   final bool selected;
   final VoidCallback onTap;
 
-  const _MediaBrowseFilterChip({
+  const MediaBrowseFilterChip({
+    super.key,
     required this.label,
     required this.color,
     required this.selected,

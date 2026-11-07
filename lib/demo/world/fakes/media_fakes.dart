@@ -1375,6 +1375,48 @@ class SeerrFake extends ServiceFake {
 /// variant, Anna signing in with her own account: admin reads (other users,
 /// devices, tasks, the activity log, the full system info) are refused, and
 /// only her own sessions are listed.
+/// What the household's players were told by remote control, per server and
+/// session: a player that announced media control obeys a Pause, a Resume
+/// and a Stop, and the session list says so on its next read.
+final _remote = Expando<Map<String, ({bool paused, bool stopped})>>(
+  'remote control',
+);
+
+final _command = RegExp(r'^/Sessions/([^/]+)/Playing/(Pause|Unpause|Stop)$');
+
+/// Applies a remote-control [path] (already without Emby's `/emby`) sent to
+/// [c]'s server.
+void _obeyRemote(ServerContext c, String path) {
+  final match = _command.firstMatch(path);
+  if (match == null) return;
+  final states = _remote[c.network] ??= {};
+  final key = '${c.server.id}/${match.group(1)}';
+  final was = states[key] ?? (paused: false, stopped: false);
+  states[key] = switch (match.group(2)) {
+    'Pause' => (paused: true, stopped: was.stopped),
+    'Unpause' => (paused: false, stopped: was.stopped),
+    _ => (paused: was.paused, stopped: true),
+  };
+}
+
+/// [session] as its player stands after what it was told: paused, or no
+/// longer playing anything.
+JsonMap _asObeyed(ServerContext c, JsonMap session) {
+  final state = _remote[c.network]?['${c.server.id}/${session['Id']}'];
+  if (state == null) return session;
+  if (state.stopped) {
+    return {...session}..remove('NowPlayingItem');
+  }
+  final playState = session['PlayState'];
+  return {
+    ...session,
+    'PlayState': {
+      if (playState is Map) ...playState.cast<String, Object?>(),
+      'IsPaused': state.paused,
+    },
+  };
+}
+
 class JellyfinFake extends ServiceFake {
   const JellyfinFake();
 
@@ -1490,6 +1532,9 @@ class JellyfinFake extends ServiceFake {
     'IsActive': true,
     'SupportsMediaControl': true,
     'SupportsRemoteControl': true,
+    // What a TV client announces: it can be paused, stopped and shown a
+    // message, so the room draws all three.
+    'SupportedCommands': ['DisplayMessage', 'SetVolume', 'Mute'],
     'LastActivityDate': c.ago(const Duration(minutes: 1)),
     'PlayState': {
       'PositionTicks': 18000000000,
@@ -1566,6 +1611,7 @@ class JellyfinFake extends ServiceFake {
 
   @override
   NetworkReply? answer(NetworkRequest r, ServerContext c) {
+    if (r.method == 'POST') _obeyRemote(c, r.path);
     if (r.method != 'GET') return const NetworkReply(204);
     final path = r.path;
     switch (path) {
@@ -1598,7 +1644,7 @@ class JellyfinFake extends ServiceFake {
               : _user(operatorId, 'Operator', admin: true),
         );
       case '/Sessions':
-        return NetworkReply.json([_sessionOf(c)]);
+        return NetworkReply.json([_asObeyed(c, _sessionOf(c))]);
       case '/Library/VirtualFolders':
         return NetworkReply.json([
           for (final (name, type) in const [
@@ -1978,6 +2024,7 @@ class EmbyFake extends ServiceFake {
   @override
   NetworkReply? answer(NetworkRequest r, ServerContext c) {
     final path = _bare(r.path);
+    if (r.method == 'POST') _obeyRemote(c, path);
     if (r.method != 'GET') return const NetworkReply(204);
     switch (path) {
       case '/System/Info/Public':
@@ -2005,7 +2052,9 @@ class EmbyFake extends ServiceFake {
           ]),
         );
       case '/Sessions':
-        return NetworkReply.json(_sessions(c));
+        return NetworkReply.json([
+          for (final session in _sessions(c)) _asObeyed(c, session),
+        ]);
       case '/Library/VirtualFolders/Query':
         return NetworkReply.json(_page(_folders()));
       case '/Devices':

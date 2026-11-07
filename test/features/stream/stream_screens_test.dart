@@ -618,39 +618,18 @@ void main() {
     });
   });
 
-  group('the library lens vocabulary', () {
-    test('A–Z is last, so it can never be the landing lens', () {
-      // The idle-month test in code: if the browse opened on an alphabetical wall
-      // it would be Radarr rendered twice. Every lens before `all` needs watch
-      // history to render at all.
-      expect(StreamLibraryLens.values.last, StreamLibraryLens.all);
-      expect(
-        StreamLibraryLens.values.first,
-        StreamLibraryLens.continueWatching,
-      );
+  group('the library sort vocabulary', () {
+    test('Name is first, so a library opens on the whole shelf A to Z', () {
+      // The page opens on `StreamLibrarySort.values.first`'s shelf: a library
+      // is browsed, not a list of what needs watch history to render.
+      expect(StreamLibrarySort.values.first, StreamLibrarySort.name);
     });
 
-    test('only the watch-state lenses are viewer-scoped', () {
-      // Jellyfin can answer the per-viewer lenses for any household member; Plex
-      // cannot answer them for anyone but the token owner.
-      //
-      // Recently added and A–Z are not among them, and A–Z is the one that used
-      // to be: an alphabetical wall is the same wall whoever is looking, and
-      // `/Items?parentId=…&sortBy=SortName` takes `userId` as strictly optional.
-      // Scoping it to a viewer made the client refuse a request that works and
-      // told a connected-but-unpicked user their library was empty.
-      const viewerScoped = {
-        StreamLibraryLens.continueWatching,
-        StreamLibraryLens.nextUp,
-        StreamLibraryLens.unplayed,
-      };
-      for (final lens in StreamLibraryLens.values) {
-        expect(
-          lens.isPerViewer,
-          viewerScoped.contains(lens),
-          reason: '${lens.name} viewer-scoping is wrong',
-        );
-      }
+    test('each order is worded for the sort control', () {
+      expect(
+        [for (final sort in StreamLibrarySort.values) sort.label],
+        ['Name', 'Date added', 'Year'],
+      );
     });
   });
 }

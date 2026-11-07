@@ -521,13 +521,6 @@ void main() {
         ServiceRoutes.plexLibraries,
         '${ServiceRoutes.plex}/${ServiceTab.libraries.segment}',
       );
-      // The one tab segment that is not simply its enum name: Plex writes it
-      // "On Deck", so the URL is hyphenated rather than camel-cased away.
-      expect(ServiceRoutes.plexOnDeck, '/stack/plex/on-deck');
-      expect(
-        ServiceRoutes.plexOnDeck,
-        '${ServiceRoutes.plex}/${ServiceTab.onDeck.segment}',
-      );
       expect(
         ServiceRoutes.plexActivities,
         '${ServiceRoutes.plex}/${ServiceTab.activities.segment}',

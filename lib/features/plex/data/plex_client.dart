@@ -697,7 +697,8 @@ class PlexClient implements StreamServerClient {
   @override
   Future<StreamLibraryPage> getLibraryPage({
     required String libraryId,
-    required StreamLibraryLens lens,
+    StreamLibrarySort sort = StreamLibrarySort.name,
+    bool unplayedOnly = false,
     String? viewerId,
     int startIndex = 0,
     int limit = kPlexLibraryPageSize,
@@ -705,7 +706,8 @@ class PlexClient implements StreamServerClient {
   }) async {
     final page = await getLibraryItemsPage(
       libraryId: libraryId,
-      lens: lens,
+      sort: sort,
+      unplayedOnly: unplayedOnly,
       startIndex: startIndex,
       limit: limit,
       cancelToken: cancelToken,
@@ -739,14 +741,15 @@ class PlexClient implements StreamServerClient {
   /// [StreamLibraryPage].
   Future<PlexPage<StreamItem>?> getLibraryItemsPage({
     required String libraryId,
-    required StreamLibraryLens lens,
+    StreamLibrarySort sort = StreamLibrarySort.name,
+    bool unplayedOnly = false,
     int startIndex = 0,
     int limit = kPlexLibraryPageSize,
     CancelToken? cancelToken,
   }) async {
     try {
       final kind = await _sectionKind(libraryId);
-      final request = _lensRequest(libraryId, lens, kind);
+      final request = _shelfRequest(libraryId, sort, kind, unplayedOnly);
 
       final container = await _container(
         request.path,
@@ -765,10 +768,7 @@ class PlexClient implements StreamServerClient {
         cancelToken: cancelToken,
       );
 
-      final page = await _pageFromContainer(container, startIndex);
-      final keep = request.keep;
-      if (keep == null) return page;
-      return page.copyWithItems(page.items.where(keep).toList(growable: false));
+      return await _pageFromContainer(container, startIndex);
     } catch (_) {
       return null;
     }
@@ -1236,6 +1236,80 @@ class PlexClient implements StreamServerClient {
     return _itemsFromHubs(container);
   }
 
+  /// The next-up half of the on deck: what has no position yet (the next
+  /// episode of a series in progress). Plex keeps both halves in one hub.
+  @override
+  Future<List<StreamItem>> getNextUp({
+    required int count,
+    CancelToken? cancelToken,
+  }) async {
+    final onDeck = await getContinueWatching(
+      count: count * 2,
+      cancelToken: cancelToken,
+    );
+    return onDeck
+        .where((item) => (item.resumeOffsetMs ?? 0) == 0)
+        .take(count)
+        .toList(growable: false);
+  }
+
+  /// `GET /library/recentlyAdded`: movies, and series by what was added to
+  /// them, each once. Plex answers with the rows it added (a season, an
+  /// episode, an album), so a season or an episode is drawn as its series and
+  /// music is left out: this is what there is to watch.
+  @override
+  Future<List<StreamItem>> getRecentlyAdded({
+    required int count,
+    CancelToken? cancelToken,
+  }) async {
+    final container = await _container(
+      '/library/recentlyAdded',
+      queryParameters: {
+        'X-Plex-Container-Start': 0,
+        'X-Plex-Container-Size': count * 3,
+        'includeGuids': 1,
+      },
+      cancelToken: cancelToken,
+    );
+    final rows = container['Metadata'];
+    if (rows is! List) return const [];
+    final seen = <String>{};
+    final items = <StreamItem>[];
+    for (final raw in rows.whereType<Map>()) {
+      final row = raw.cast<String, dynamic>();
+      final shown = switch (row['type']) {
+        'movie' || 'show' => row,
+        'season' => {
+          'type': 'show',
+          'ratingKey': row['parentRatingKey'],
+          'key': '/library/metadata/${row['parentRatingKey']}/children',
+          'title': row['parentTitle'],
+          'thumb': row['parentThumb'] ?? row['thumb'],
+          'art': row['art'],
+          'year': row['parentYear'],
+          'addedAt': row['addedAt'],
+        },
+        'episode' => {
+          'type': 'show',
+          'ratingKey': row['grandparentRatingKey'],
+          'key': '/library/metadata/${row['grandparentRatingKey']}/children',
+          'title': row['grandparentTitle'],
+          'thumb': row['grandparentThumb'] ?? row['thumb'],
+          'art': row['grandparentArt'] ?? row['art'],
+          'addedAt': row['addedAt'],
+        },
+        _ => null,
+      };
+      final key = shown?['ratingKey']?.toString();
+      if (shown == null || key == null || key.isEmpty) continue;
+      if (!seen.add(key)) continue;
+      final item = plexItemFromJson(shown);
+      if (item != null) items.add(item);
+      if (items.length == count) break;
+    }
+    return items;
+  }
+
   /// Devices registered on this Plex Media Server (`com.plexapp.system.devices`).
   /// Tokens returned by the endpoint are intentionally discarded by
   /// [PlexDevice]; a read-only inventory has no reason to retain credentials.
@@ -1378,65 +1452,35 @@ class PlexClient implements StreamServerClient {
     }
   }
 
-  /// Turns a lens into a request, plus an optional post-filter.
-  _PlexLensRequest _lensRequest(
+  /// A library's whole shelf, in [sort] order and, with [unplayedOnly], what
+  /// the token's user has not finished. Measured on Plex: `addedAt:desc` and
+  /// `year:desc`, each with `titleSort` breaking ties.
+  ({String path, Map<String, dynamic> query}) _shelfRequest(
     String libraryId,
-    StreamLibraryLens lens,
+    StreamLibrarySort sort,
     StreamLibraryKind? kind,
+    bool unplayedOnly,
   ) {
     final section = '/library/sections/${_pathSegment(libraryId)}';
-    final type = _primaryTypeFor(kind);
-
-    switch (lens) {
-      // Plex has no separate "continue" and "next up" endpoints. `onDeck` is
-      // both at once: part-watched items carry a `viewOffset`, and the next
-      // unwatched episode of a finished season does not. Splitting on that is
-      // what keeps the two lenses from being the same list twice, and it is
-      // done after mapping, so a page can legitimately return fewer rows than
-      // asked for. `PlexPage.size` stays the server's figure so the pager still
-      // advances correctly.
-      case StreamLibraryLens.continueWatching:
-        return (
-          path: '$section/onDeck',
-          query: const {},
-          keep: (item) => (item.resumeOffsetMs ?? 0) > 0,
-        );
-      case StreamLibraryLens.nextUp:
-        return (
-          path: '$section/onDeck',
-          query: const {},
-          keep: (item) => (item.resumeOffsetMs ?? 0) == 0,
-        );
-      case StreamLibraryLens.recentlyAdded:
-        return (
-          path: '$section/all',
-          query: {'type': ?type, 'sort': 'addedAt:desc'},
-          keep: null,
-        );
-      case StreamLibraryLens.unplayed:
-        return (
-          path: '$section/all',
-          query: {
-            'type': ?type,
-            // The filter is spelled differently per section type, and sending
-            // the wrong spelling returns the *whole* library rather than an
-            // error: a silently wrong lens. A show is unplayed when it has
-            // unwatched leaves, not when the show object itself is unwatched.
-            if (kind == StreamLibraryKind.shows)
-              'show.unwatchedLeaves': 1
-            else if (kind == StreamLibraryKind.movies)
-              'unwatched': 1,
-            'sort': 'titleSort',
-          },
-          keep: null,
-        );
-      case StreamLibraryLens.all:
-        return (
-          path: '$section/all',
-          query: {'type': ?type, 'sort': 'titleSort'},
-          keep: null,
-        );
-    }
+    return (
+      path: '$section/all',
+      query: {
+        'type': ?_primaryTypeFor(kind),
+        // The filter is spelled differently per section type, and sending the
+        // wrong spelling returns the *whole* library rather than an error: a
+        // silently wrong shelf. A show is unplayed when it has unwatched
+        // leaves, not when the show object itself is unwatched.
+        if (unplayedOnly && kind == StreamLibraryKind.shows)
+          'show.unwatchedLeaves': 1
+        else if (unplayedOnly && kind == StreamLibraryKind.movies)
+          'unwatched': 1,
+        'sort': switch (sort) {
+          StreamLibrarySort.name => 'titleSort',
+          StreamLibrarySort.dateAdded => 'addedAt:desc,titleSort',
+          StreamLibrarySort.year => 'year:desc,titleSort',
+        },
+      },
+    );
   }
 
   Future<PlexPage<StreamItem>> _pageFromContainer(
@@ -1542,12 +1586,6 @@ class PlexClient implements StreamServerClient {
 }
 
 /// A lens resolved to a request: where to ask, what to ask for, and what to keep.
-typedef _PlexLensRequest = ({
-  String path,
-  Map<String, dynamic> query,
-  bool Function(StreamItem item)? keep,
-});
-
 /// See [PlexClient._matchAnchor].
 typedef _PlexMatchAnchor = ({
   bool hasSection,

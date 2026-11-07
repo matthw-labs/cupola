@@ -15,6 +15,7 @@ import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
 import 'package:cupola/features/services/domain/services_semantics.dart';
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
+import 'package:cupola/features/stream/presentation/stream_watching.dart';
 import 'package:cupola/features/stream/presentation/stream_activity_provider.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart';
 import 'package:cupola/features/stream/presentation/widgets/stream_now_playing_section.dart';
@@ -200,11 +201,13 @@ class JellyfinTasksScreen extends ConsumerWidget {
   }
 }
 
-/// Current playback activity of the server.
+/// What is being watched on the server: who is playing now, then what the
+/// viewer is partway through, what is up next and what was added
+/// (`StreamWatchingSection`, decision `P-stream-library-browse`: the shelves
+/// the library page used to open on live here, whole).
 ///
-/// The historical `/System/ActivityLog/Entries` endpoint is not present
-/// in the client contract. This tab therefore renders the real activity Cupola
-/// can operate today (live sessions) through the existing Stream shell.
+/// The historical `/System/ActivityLog/Entries` endpoint is not present in the
+/// client contract, so nothing here is a log.
 ///
 /// [instanceId] is the connection to read (`?i=`); null, or one that is not a
 /// connection of [service], reads the active one.
@@ -252,6 +255,20 @@ class _JellyfinActivityBody extends ConsumerWidget {
     final top = topPadding + MediaQuery.paddingOf(context).top;
     // The tab is this one read: a dark server is its leaf, never "Nobody is
     // watching right now".
+    final shelves = streamWatchingShelvesOf(service);
+    void refresh() {
+      refreshStreamSessions(ref, service, instanceId);
+      for (final shelf in shelves) {
+        ref.invalidate(
+          streamWatchingProvider((
+            service: service,
+            instanceId: instanceId,
+            shelf: shelf,
+          )),
+        );
+      }
+    }
+
     if (sessions.hasError && !sessions.hasValue) {
       return AmbientScaffold(
         accent: service.accent,
@@ -269,7 +286,7 @@ class _JellyfinActivityBody extends ConsumerWidget {
     return AmbientScaffold(
       accent: service.accent,
       body: RefreshIndicator(
-        onRefresh: () async => refreshStreamSessions(ref, service, instanceId),
+        onRefresh: () async => refresh(),
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.fromLTRB(
@@ -290,6 +307,14 @@ class _JellyfinActivityBody extends ConsumerWidget {
               ).lacksAdministratorFor(instanceId),
             ))
               const JellyfinOwnPlaybackNote(),
+            for (final shelf in shelves) ...[
+              const SizedBox(height: AppSpacing.lg),
+              StreamWatchingSection(
+                service: service,
+                instanceId: instanceId,
+                shelf: shelf,
+              ),
+            ],
           ],
         ),
       ),
@@ -402,17 +427,17 @@ class _DeviceRow extends StatelessWidget {
     final lastSeen = device.lastActivityAt == null
         ? 'Last seen unavailable'
         : 'Last seen ${formatRelativeDateTime(device.lastActivityAt!)}';
-    final detail = [
-      owner,
-      if (client.isNotEmpty) client,
-      lastSeen,
-    ].join(dotSeparator);
+    // Who and with what under the name; when, at the end. The app is said
+    // once, with its version.
+    final detail = [owner, if (client.isNotEmpty) client].join(dotSeparator);
     return ServiceRecordRow(
       icon: Icons.devices_other_rounded,
       tone: StatusTone.neutral,
       title: name,
       detail: detail,
-      trailing: client.isEmpty ? '—' : device.appName,
+      trailing: device.lastActivityAt == null
+          ? '—'
+          : formatRelativeDateTime(device.lastActivityAt!),
       semanticLabel:
           '$name, $owner, ${client.isEmpty ? 'client unavailable' : client}, $lastSeen',
     );
@@ -428,7 +453,7 @@ class _TaskRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final presentation = _taskPresentation(task);
     final started = task.lastStartedAt == null
-        ? 'Last run unavailable'
+        ? 'Not run yet'
         : 'Started ${formatRelativeDateTime(task.lastStartedAt!)}';
     final duration = _taskDuration(task);
     final detail = [

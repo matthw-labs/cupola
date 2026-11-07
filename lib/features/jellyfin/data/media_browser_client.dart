@@ -401,81 +401,30 @@ class MediaBrowserClient implements StreamServerClient {
   @override
   Future<StreamLibraryPage> getLibraryPage({
     required String libraryId,
-    required StreamLibraryLens lens,
+    StreamLibrarySort sort = StreamLibrarySort.name,
+    bool unplayedOnly = false,
     String? viewerId,
     int startIndex = 0,
     int limit = 50,
     CancelToken? cancelToken,
   }) async {
     final userId = _resolveViewerId(viewerId);
-    // The genuinely per-viewer lenses are user-scoped end to end, and the
-    // endpoints behind them 404 without a userId rather than falling back to the
-    // token's own identity, and the API key has none. Saying so is the point:
-    // returning a bare empty list here is what made the browse claim the library
-    // was empty when the user had simply not picked a household member yet.
-    //
-    // `all` is deliberately not in that set. See [StreamLibraryLens.isPerViewer].
-    if (userId == null && lens.isPerViewer) {
+    // Unplayed is a watch state, user-scoped end to end, and the API key has
+    // no user of its own. Saying so is the point: an empty page here is what
+    // made the browse claim a library was empty when nobody had been picked.
+    // The whole shelf is the same for everyone and needs no viewer.
+    if (userId == null && unplayedOnly) {
       return const StreamLibraryPage.viewerRequired();
     }
 
     try {
-      // Only the `/Items` lenses take `includeItemTypes`, so only they need the
-      // library's kind.
-      if (lens == StreamLibraryLens.recentlyAdded ||
-          lens == StreamLibraryLens.unplayed ||
-          lens == StreamLibraryLens.all) {
-        await _ensureLibraryKind(libraryId);
-      }
-
-      final _JellyfinItemsPage page;
-      switch (lens) {
-        case StreamLibraryLens.continueWatching:
-          final request = _dialect.resume(
-            userId: userId!,
-            parentId: libraryId,
-            startIndex: startIndex,
-            limit: limit,
-            fields: _browseFields,
-          );
-          page = await _fetchItemsPage(
-            request.path,
-            request.query,
-            cancelToken: cancelToken,
-          );
-        case StreamLibraryLens.nextUp:
-          final request = _dialect.nextUp(
-            userId: userId!,
-            parentId: libraryId,
-            startIndex: startIndex,
-            limit: limit,
-            fields: _browseFields,
-          );
-          page = await _fetchItemsPage(
-            request.path,
-            request.query,
-            cancelToken: cancelToken,
-          );
-        case StreamLibraryLens.recentlyAdded:
-          page = await _fetchItemsPage('/Items', {
-            ..._itemsBaseQuery(libraryId, userId, startIndex, limit),
-            'sortBy': 'DateCreated',
-            'sortOrder': 'Descending',
-          }, cancelToken: cancelToken);
-        case StreamLibraryLens.unplayed:
-          page = await _fetchItemsPage('/Items', {
-            ..._itemsBaseQuery(libraryId, userId, startIndex, limit),
-            'isPlayed': false,
-            'sortBy': 'SortName',
-            'sortOrder': 'Ascending',
-          }, cancelToken: cancelToken);
-        case StreamLibraryLens.all:
-          page = await _fetchItemsPage('/Items', {
-            ..._itemsBaseQuery(libraryId, userId, startIndex, limit),
-            'sortBy': 'SortName',
-            'sortOrder': 'Ascending',
-          }, cancelToken: cancelToken);
-      }
+      // `/Items` takes `includeItemTypes`, so the library's kind is needed.
+      await _ensureLibraryKind(libraryId);
+      final page = await _fetchItemsPage('/Items', {
+        ..._itemsBaseQuery(libraryId, userId, startIndex, limit),
+        if (unplayedOnly) 'isPlayed': false,
+        ..._sortQuery(sort),
+      }, cancelToken: cancelToken);
       return page.toLibraryPage(startIndex);
     } catch (_) {
       return StreamLibraryPage.failed(startIndex: startIndex);
@@ -555,6 +504,68 @@ class MediaBrowserClient implements StreamServerClient {
       request.query,
       cancelToken: cancelToken,
     );
+    return page.items;
+  }
+
+  /// [sort] as Jellyfin's and Emby's `/Items` take it, the name breaking ties.
+  /// Measured on both servers (an Emby that does not know a `SortBy` answers
+  /// 500): `DateCreated` and `ProductionYear` descending, each with
+  /// `SortName` ascending after it.
+  static Map<String, String> _sortQuery(StreamLibrarySort sort) =>
+      switch (sort) {
+        StreamLibrarySort.name => {
+          'sortBy': 'SortName',
+          'sortOrder': 'Ascending',
+        },
+        StreamLibrarySort.dateAdded => {
+          'sortBy': 'DateCreated,SortName',
+          'sortOrder': 'Descending,Ascending',
+        },
+        StreamLibrarySort.year => {
+          'sortBy': 'ProductionYear,SortName',
+          'sortOrder': 'Descending,Ascending',
+        },
+      };
+
+  @override
+  Future<List<StreamItem>> getNextUp({
+    required int count,
+    CancelToken? cancelToken,
+  }) async {
+    final userId = _resolveViewerId(null);
+    if (userId == null) throw const JellyfinViewerRequired();
+    final request = _dialect.nextUp(
+      userId: userId,
+      limit: count,
+      fields: _browseFields,
+    );
+    final page = await _fetchItemsPage(
+      request.path,
+      request.query,
+      cancelToken: cancelToken,
+    );
+    return page.items;
+  }
+
+  /// Movies and series, across the libraries, by `DateLastContentAdded`: a
+  /// series stands at the date of its newest episode, so a new episode of an
+  /// old show is news. Measured on Jellyfin and Emby. No viewer: what was
+  /// added is the same for everyone.
+  @override
+  Future<List<StreamItem>> getRecentlyAdded({
+    required int count,
+    CancelToken? cancelToken,
+  }) async {
+    final page = await _fetchItemsPage('/Items', {
+      'recursive': true,
+      'includeItemTypes': 'Movie,Series',
+      'sortBy': 'DateLastContentAdded,SortName',
+      'sortOrder': 'Descending,Ascending',
+      'startIndex': 0,
+      'limit': count,
+      'fields': _browseFields,
+      'enableImages': true,
+    }, cancelToken: cancelToken);
     return page.items;
   }
 

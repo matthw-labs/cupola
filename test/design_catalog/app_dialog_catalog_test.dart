@@ -87,7 +87,7 @@ Future<AppConfirmResult> _stop(BuildContext context) => showAppConfirmDialog(
 /// a quiet line under the sentence, and nothing of it when Tracearr is silent.
 Future<AppConfirmResult> _removeWatched(
   BuildContext context, {
-  String? note = 'Watched by 3\u00A0· last 12 days ago',
+  String? note = 'Watched by 3 people\u00A0· last 12 days ago',
 }) => showAppConfirmDialog(
   context: context,
   useRootNavigator: false,

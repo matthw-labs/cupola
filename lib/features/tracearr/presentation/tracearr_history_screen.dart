@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/core/providers/async_value_kept.dart';
+
 import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/snack_bar_helper.dart';
@@ -56,7 +58,7 @@ class TracearrHistoryScreen extends ConsumerWidget {
       service: _service,
       topPadding: topPadding,
       header: const _Filters(),
-      value: history.whenData(
+      value: history.whenDataKept(
         (data) => _itemsOf(tracearrDaysOf(data.items, now: now)),
       ),
       serviceName: 'Tracearr history',

@@ -105,7 +105,8 @@ final class MediaLeadNone extends MediaLead {
 /// The lead of a page with [rows], for [audience].
 ///
 /// In order: a verified copy on a media server plays (rule 7: an unverified
-/// one never does); the requester asks for anything else; the operator adds a
+/// one never does), on the server partway in, [focus] first, then on [focus],
+/// then on the first that holds it; the requester asks for anything else; the operator adds a
 /// title nobody holds, or asks for it through Seerr, as [addsVia] chooses, or
 /// follows the movie copy that needs something, [focus] first (the
 /// connection the page was opened from), or opens the title through Seerr's
@@ -145,7 +146,14 @@ MediaLead resolveMediaLead(
         ),
   ];
   if (found.isNotEmpty) {
-    return found.where((play) => play.resume).firstOrNull ?? found.first;
+    // The server the page was opened from plays when it holds the title: a
+    // title opened from Emby's library is Emby's to play. A playback partway
+    // in still wins over a fresh start, on the same server first.
+    bool here(MediaLeadPlay play) => play.server.id == focus;
+    return found.where((play) => play.resume && here(play)).firstOrNull ??
+        found.where((play) => play.resume).firstOrNull ??
+        found.where(here).firstOrNull ??
+        found.first;
   }
 
   final seerrs = rows.whereType<MediaConnectionRow<MediaSeerrRecord>>();

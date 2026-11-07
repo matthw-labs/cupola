@@ -53,20 +53,13 @@
 ///    service.
 library;
 
-import 'package:dio/dio.dart' show CancelToken;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show IconData, Icons;
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:cupola/core/providers/provider_retry.dart';
 import 'package:cupola/core/status/media_status.dart';
 import 'package:cupola/core/utils/arr_activity_display.dart';
 import 'package:cupola/core/utils/date_format.dart' show formatRelativeDateTime;
-import 'package:cupola/core/utils/percent_format.dart';
-import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/services/domain/services_semantics.dart';
-import 'package:cupola/features/settings/data/settings_provider.dart';
-import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
 import 'package:cupola/features/stream/domain/models/stream_library.dart';
 import 'package:cupola/features/stream/domain/stream_semantics.dart';
@@ -303,73 +296,3 @@ List<StreamItem> streamOnDeckPreview(
   }
   return List.unmodifiable(kept);
 }
-
-/// The caption under an On deck poster.
-///
-/// The series (or year) it belongs to, then how far in the viewer is. A
-/// **percentage, not a position**: the board's `01:12` is a clock reading, and
-/// `StreamItem.resumeOffsetMs` is only half of one: a runtime the server did
-/// not send makes the position meaningless, while the percentage simply does not
-/// appear. A finished item says so, because one can sit on this hub having been
-/// watched to the end and not yet cleared.
-String streamOnDeckCaption(StreamItem item) {
-  final progress = item.resumeProgress;
-  return joinDisplayParts([
-    item.subtitle ?? (item.year == null ? null : '${item.year}'),
-    if (progress != null)
-      '${formatPercent(progress * 100)} in'
-    else if (item.isPlayed)
-      'watched',
-  ]);
-}
-
-/// In-progress playback across every Plex library.
-///
-/// **Plex only, and the name says so rather than pretending to be the shared
-/// shape.** `/hubs/continueWatching` has no Jellyfin counterpart in this client
-/// (see the library comment), so a `family` keyed by `ServiceKey` would have to
-/// answer Jellyfin with an empty list, and an empty list on this rail reads as
-/// "nothing in progress", which is a claim nobody made.
-///
-/// `getContinueWatching` throws when the hub cannot be read. It used to answer
-/// `[]`, and the rail then said "Nothing part-watched" about a Plex that never
-/// answered; the failure now lands in the region's own slot, with a Retry,
-/// and the regions around it still draw. `autoDispose` with a cancel token
-/// because this is a list fetch, and the project's convention is that those
-/// are cancellable. `retry: noProviderRetry` for the reason
-/// `jellyfinLibrariesProvider` gives: a dark server is an unreachable slot with
-/// a Retry on it, not a spinner held through ten backing-off attempts.
-final plexOnDeckProvider = FutureProvider.autoDispose<List<StreamItem>>((
-  ref,
-) async {
-  final client = ref.watch(plexClientProvider);
-  final cancelToken = CancelToken();
-  ref.onDispose(cancelToken.cancel);
-  final items = await client.getContinueWatching(
-    count: streamOnDeckPreviewLimit,
-    cancelToken: cancelToken,
-  );
-  return streamOnDeckPreview(items);
-}, retry: noProviderRetry);
-
-/// [plexOnDeckProvider] for one named Plex connection; empty is the lens.
-///
-/// The lens's own id collapses onto the plain provider, so an override of
-/// either still reaches both. Another connection asks its own client, with the
-/// same cap and the same cancellation, and carries `retry: noProviderRetry`
-/// for the reason the plain one does.
-final plexOnDeckForProvider = FutureProvider.autoDispose
-    .family<List<StreamItem>, String>((ref, instanceId) async {
-      final lens = ref.watch(activeInstanceProvider(ServiceKey.plex))?.id ?? '';
-      if (instanceId.isEmpty || instanceId == lens) {
-        return ref.watch(plexOnDeckProvider.future);
-      }
-      final client = ref.watch(plexClientForProvider(instanceId));
-      final cancelToken = CancelToken();
-      ref.onDispose(cancelToken.cancel);
-      final items = await client.getContinueWatching(
-        count: streamOnDeckPreviewLimit,
-        cancelToken: cancelToken,
-      );
-      return streamOnDeckPreview(items);
-    }, retry: noProviderRetry);

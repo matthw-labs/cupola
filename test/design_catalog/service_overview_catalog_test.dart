@@ -668,7 +668,7 @@ void main() {
         height: 700,
       ),
       CatalogScene(
-        'TracearrOverviewScreen · the readouts (Streams now, Today with its '
+        'TracearrOverviewScreen · the readouts (Streams, Today with its '
         'plays and time, Unseen as a floor, Servers 2 of 3), Monitored '
         'servers with one refused Tracearr\'s token (amber, Fix it in '
         'Tracearr), Playing now, the latest violations and Most watched this '

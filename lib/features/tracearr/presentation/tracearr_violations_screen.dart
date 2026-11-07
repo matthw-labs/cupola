@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:cupola/core/providers/async_value_kept.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:cupola/core/utils/arr_activity_display.dart';
@@ -154,7 +156,7 @@ class _TracearrViolationsScreenState
             ),
         ],
       ),
-      value: violations.whenData((data) => data.items),
+      value: violations.whenDataKept((data) => data.items),
       serviceName: 'Tracearr violations',
       emptyIcon: Icons.flag_outlined,
       emptyTitle: narrowed
@@ -165,7 +167,7 @@ class _TracearrViolationsScreenState
       emptyMessage: narrowed
           ? 'Nothing Tracearr recorded fits these filters.'
           : unseen
-          ? 'Every violation Tracearr recorded has been acknowledged.'
+          ? 'No violation is waiting for a look.'
           : 'Tracearr has not recorded a rule being broken.',
       onRetry: () => ref.invalidate(tracearrViolationsListProvider(_user)),
       footer: rows == null

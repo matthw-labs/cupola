@@ -3,6 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cupola/features/jellyfin/data/media_browser_client.dart';
+import 'package:cupola/features/stream/domain/models/stream_item.dart';
+import 'package:cupola/features/stream/presentation/stream_watching.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/utils/date_format.dart' show weekdayName;
 import 'package:cupola/core/widgets/widgets.dart';
@@ -206,11 +209,63 @@ void main() {
       screen: const JellyfinActivityScreen(),
       overrides: [
         jellyfinSessionsProvider.overrideWith((ref) async => const []),
+        streamWatchingProvider.overrideWith((ref, key) async => const []),
       ],
     );
 
     expect(find.text('Now playing'), findsOneWidget);
     expect(find.text('Nobody is watching right now'), findsOneWidget);
+  });
+
+  testWidgets('activity draws what is in progress, up next and added under '
+      'Now playing, and asks whose watch state when nobody is chosen', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      screen: const JellyfinActivityScreen(),
+      overrides: [
+        jellyfinSessionsProvider.overrideWith((ref) async => const []),
+        streamWatchingProvider.overrideWith(
+          (ref, key) async => switch (key.shelf) {
+            StreamWatchingShelf.recentlyAdded => const [
+              StreamItem(
+                id: 'jf-1',
+                title: 'Sintel',
+                subtitle: null,
+                kind: StreamItemKind.movie,
+                posterPath: null,
+                year: 2010,
+                runtimeMs: 888000,
+                isPlayed: false,
+                resumeOffsetMs: null,
+                unplayedChildCount: null,
+              ),
+            ],
+            _ => throw const JellyfinViewerRequired(),
+          },
+        ),
+      ],
+    );
+
+    expect(find.text('Continue watching'), findsOneWidget);
+    expect(find.text('Next up'), findsOneWidget);
+    // A watch state with nobody to read it for is a question, not a fault.
+    expect(find.text('Choose whose watch state to show'), findsNWidgets(2));
+    expect(find.byType(InlineErrorRetry), findsNothing);
+    // The page's own list, not the grid inside it.
+    final page = find.byType(Scrollable).first;
+    await tester.scrollUntilVisible(
+      find.text('Recently added'),
+      200,
+      scrollable: page,
+    );
+    await tester.scrollUntilVisible(
+      find.bySemanticsLabel('Sintel'),
+      200,
+      scrollable: page,
+    );
+    expect(find.bySemanticsLabel('Sintel'), findsOneWidget);
   });
 
   testWidgets('a provider failure exposes retryable error state', (
@@ -297,6 +352,7 @@ void main() {
         overrides: [
           member,
           jellyfinSessionsProvider.overrideWith((ref) async => const []),
+          streamWatchingProvider.overrideWith((ref, key) async => const []),
         ],
       );
       expect(

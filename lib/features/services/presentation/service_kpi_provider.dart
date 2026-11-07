@@ -1832,7 +1832,7 @@ List<ServiceKpi> _npmKpisFrom(
 /// times. The unseen figure is a **floor** (`25+`) when more follow the first
 /// page, since the API gives no total.
 ///
-/// **Streams now counts the rows Live draws** (`tracearrLiveProvider`, the
+/// **Streams counts the rows Live draws** (`tracearrLiveProvider`, the
 /// list the Overview's Playing section also reads), so the rail and the section
 /// cannot disagree after an event moves the list. Only the count is selected:
 /// a progress tick, which moves no row, must not rebuild the rail.
@@ -1890,7 +1890,7 @@ Future<List<ServiceKpi>> _tracearrKpisFrom(
 
   return [
     _figure(
-      label: 'Streams now',
+      label: 'Streams',
       value: playing == null ? null : '$playing',
       icon: Icons.play_circle_outline_rounded,
       tone: playing == null ? null : _activityIf(playing > 0),

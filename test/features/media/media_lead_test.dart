@@ -107,6 +107,37 @@ void main() {
       expect((lead as MediaLeadPlay).resume, isTrue);
     });
 
+    test('a title on three servers plays on the one the page was opened '
+        'from, and a playback partway in still wins', () {
+      final plex = _connection('plex', ServiceKey.plex);
+      final emby = _connection('emby', ServiceKey.emby);
+      MediaRow on(ServiceInstance server, {int? resumeOffsetMs}) =>
+          MediaConnectionRow<MediaStreamCopy>(
+            server,
+            _answered(
+              MediaStreamCopy.found(_item(resumeOffsetMs: resumeOffsetMs)),
+            ),
+          );
+      MediaLeadPlay lead(List<MediaRow> rows, {String? focus}) =>
+          resolveMediaLead(rows, audience: Audience.operator, focus: focus)
+              as MediaLeadPlay;
+
+      final fresh = [on(plex), on(emby), on(_jellyfin)];
+      expect(lead(fresh, focus: 'emby').server.id, 'emby');
+      expect(lead(fresh).server.id, 'plex', reason: 'no focus: the first');
+      expect(lead(fresh, focus: 'radarr').server.id, 'plex');
+
+      final partway = [on(plex), on(emby), on(_jellyfin, resumeOffsetMs: 9000)];
+      expect(lead(partway, focus: 'emby').server.id, 'jellyfin');
+      expect(lead(partway, focus: 'emby').resume, isTrue);
+
+      final bothPartway = [
+        on(plex, resumeOffsetMs: 9000),
+        on(emby, resumeOffsetMs: 9000),
+      ];
+      expect(lead(bothPartway, focus: 'emby').server.id, 'emby');
+    });
+
     test('while Jellyfin has not answered, nothing leads yet: no Trailer '
         'that turns into Play', () {
       final lead = resolveMediaLead([

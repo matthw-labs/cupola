@@ -247,35 +247,6 @@ void main() {
       expect(items, hasLength(streamOnDeckPreviewLimit));
     });
   });
-
-  group('streamOnDeckCaption', () {
-    test('names what it belongs to, then how far in', () {
-      expect(
-        streamOnDeckCaption(
-          _item(subtitle: 'S02E05', runtimeMs: 3000, resumeMs: 900),
-        ),
-        'S02E05\u00A0· 30% in',
-      );
-    });
-
-    test('falls back to the year when there is no parent', () {
-      expect(streamOnDeckCaption(_item(year: 2024)), '2024');
-    });
-
-    test('a runtime the server withheld costs the figure, not the row', () {
-      // No percentage rather than a made-up one: `resumeOffsetMs` alone is half
-      // of a position, and a film with no runtime cannot be a fraction of
-      // anything.
-      expect(
-        streamOnDeckCaption(_item(subtitle: 'S02E05', resumeMs: 900)),
-        'S02E05',
-      );
-    });
-
-    test('an item watched to the end says so', () {
-      expect(streamOnDeckCaption(_item(played: true)), 'watched');
-    });
-  });
 }
 
 StreamLibrary _library({

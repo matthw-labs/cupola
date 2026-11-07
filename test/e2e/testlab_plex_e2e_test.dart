@@ -110,7 +110,7 @@ void main() {
 
     final movies = await client().getLibraryPage(
       libraryId: ids['Films']!,
-      lens: StreamLibraryLens.all,
+      sort: StreamLibrarySort.name,
     );
     final movie = movies.items.firstWhere(
       (item) => item.title == (media['items'] as Map)['movie']['title'],
@@ -121,7 +121,7 @@ void main() {
 
     final series = await client().getLibraryPage(
       libraryId: ids['Series']!,
-      lens: StreamLibraryLens.all,
+      sort: StreamLibrarySort.name,
     );
     final show = series.items.firstWhere(
       (item) => item.title == 'Breaking Bad',
@@ -143,7 +143,7 @@ void main() {
 
     final music = await client().getLibraryPage(
       libraryId: ids['Music']!,
-      lens: StreamLibraryLens.all,
+      sort: StreamLibrarySort.name,
     );
     final artist = music.items.firstWhere(
       (item) => item.title == 'Daft Punk',
@@ -167,9 +167,9 @@ void main() {
   });
 
   test(
-    'S-06: on deck carries the next episode, recently watched the movie',
+    'S-06: next up carries the next episode, recently watched the movie',
     () async {
-      final onDeck = await container.read(plexOnDeckTabProvider.future);
+      final onDeck = await client().getNextUp(count: 12);
       expect(onDeck, isNotEmpty, reason: 'the scenario missed s01e01');
       final next = onDeck.first;
       expect(next.kind, StreamItemKind.episode);
@@ -182,7 +182,7 @@ void main() {
       expect(
         next.resumeOffsetMs,
         isNull,
-        reason: 'next up has no resume point, which is what the lens keeps',
+        reason: 'next up has no resume point, which is what next up keeps',
       );
 
       // The catalog says a movie on deck is not made here: Plex would need a real

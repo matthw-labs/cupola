@@ -183,6 +183,8 @@ void main() {
     await harness.settle(tester);
     await tester.tap(find.text('Stop playback'));
     await harness.settle(tester);
+    // The page reads the player again to see that it stopped.
+    await tester.pump(const Duration(seconds: 7));
 
     bool stops(NetworkRequest r) =>
         r.method == 'POST' && r.uri.path.endsWith('/Playing/Stop');

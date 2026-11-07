@@ -127,17 +127,3 @@ String streamStopSessionPrompt({
   required String userName,
   required String title,
 }) => 'Ask $userName’s player to stop $title?';
-
-/// What the lens chips announce on a library browse.
-///
-/// The visible label is a short chip ("Continue", "A–Z"); spoken, it needs the
-/// noun back: "Continue" alone on a row of five chips does not say what it
-/// continues, and "A–Z" is read character by character by both screen readers.
-String streamLensLabel(String lensLabel) => switch (lensLabel) {
-  'Continue' => 'Continue watching',
-  'Next up' => 'Next up',
-  'Recent' => 'Recently added',
-  'Unplayed' => 'Not yet played',
-  'A–Z' => 'All, alphabetical',
-  _ => lensLabel,
-};

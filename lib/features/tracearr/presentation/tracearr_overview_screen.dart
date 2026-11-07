@@ -29,7 +29,7 @@ import 'package:cupola/features/tracearr/presentation/tracearr_session_sheet.dar
 
 /// The first tab of Tracearr's room: what the guardian sees at a glance.
 ///
-/// The readouts above (streams now, today, unseen, servers) are
+/// The readouts above (streams, today, unseen, servers) are
 /// `serviceKpiProvider`'s. Under them four regions, each loading and failing
 /// on its own, so a Tracearr that answers its servers and not its violations
 /// still draws three and says so in the fourth:

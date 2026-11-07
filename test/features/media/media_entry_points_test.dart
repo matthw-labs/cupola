@@ -66,13 +66,6 @@ Future<void> _close(
   await harness.unmount(tester);
 }
 
-/// A library's whole shelf, A to Z: the lens needs no viewer.
-Future<void> _wholeLibrary(WidgetTester tester) async {
-  await tester.ensureVisible(find.text('A–Z'));
-  await tester.tap(find.text('A–Z'));
-  await _answer(tester);
-}
-
 /// The title page the user sees.
 Iterable<MediaPage> _shown(WidgetTester tester) =>
     tester.widgetList<MediaPage>(find.byType(MediaPage).hitTestable());
@@ -107,7 +100,6 @@ void main() {
     final (harness, router, container) = await _app(tester, Profiles.p1);
     router.go(ServiceRoutes.jellyfinLibrary('films'));
     await _answer(tester);
-    await _wholeLibrary(tester);
 
     final movie = find.bySemanticsLabel(RegExp('^Tears of Steel'));
     await tester.ensureVisible(movie.first);
@@ -124,7 +116,6 @@ void main() {
 
     router.go(ServiceRoutes.jellyfinLibrary('films'));
     await _answer(tester);
-    await _wholeLibrary(tester);
     final series = find.bySemanticsLabel(
       RegExp('^${WorldTitles.cosmosLaundromat.title}'),
     );

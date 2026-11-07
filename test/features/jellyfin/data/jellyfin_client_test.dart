@@ -239,6 +239,48 @@ void main() {
       );
     });
 
+    test('what a player takes from the server, as it announced it', () async {
+      // Recorded: Infuse announces media control but no `DisplayMessage`, so
+      // Pause and Stop are drawn and Message is not; a client that announced
+      // nothing (a third-party TV app, a browser tab) takes none of them.
+      final adapter = CapturingHttpAdapter(
+        response: jsonFixtureList('jellyfin/sessions_active.json'),
+      );
+      final sessions = await _client(adapter).getSessions();
+      final infuse = sessions.firstWhere(
+        (s) => s.id == '7c1e4b9d3a6f42508d2b7e1c5a9f3d60',
+      );
+      expect(infuse.takesCommands, isTrue);
+      expect(infuse.takesMessages, isFalse);
+
+      final silent = CapturingHttpAdapter(
+        response: [
+          {
+            ...jsonFixtureList('jellyfin/sessions_active.json').first as Map,
+            'SupportsRemoteControl': false,
+            'SupportsMediaControl': false,
+            'Capabilities': {'SupportedCommands': <String>[]},
+          },
+        ],
+      );
+      final quiet = (await _client(silent).getSessions()).single;
+      expect(quiet.takesCommands, isFalse);
+      expect(quiet.takesMessages, isFalse);
+
+      final talker = CapturingHttpAdapter(
+        response: [
+          {
+            ...jsonFixtureList('jellyfin/sessions_active.json').first as Map,
+            'SupportedCommands': ['DisplayMessage'],
+            'SupportsMediaControl': true,
+          },
+        ],
+      );
+      final told = (await _client(talker).getSessions()).single;
+      expect(told.takesCommands, isTrue);
+      expect(told.takesMessages, isTrue);
+    });
+
     test('a transcode explains itself and reports the encoder target', () async {
       final adapter = CapturingHttpAdapter(
         response: jsonFixtureList('jellyfin/sessions_active.json'),
@@ -627,31 +669,62 @@ void main() {
           },
         );
 
-    test('recentlyAdded sorts by DateCreated inside the library', () async {
+    test('the whole library opens in Name order, with no viewer', () async {
       final adapter = browseAdapter();
-      final items = await _client(adapter).getLibraryItems(
-        libraryId: _moviesLibraryId,
-        lens: StreamLibraryLens.recentlyAdded,
-      );
+      final items = await _client(
+        adapter,
+        userId: '',
+      ).getLibraryItems(libraryId: _moviesLibraryId);
 
       final query = adapter.matching('/Items').last.queryParameters;
       expect(query['parentId'], _moviesLibraryId);
-      expect(query['sortBy'], 'DateCreated');
-      expect(query['sortOrder'], 'Descending');
+      expect(query['sortBy'], 'SortName');
+      expect(query['sortOrder'], 'Ascending');
       // Without `recursive` the endpoint returns the library's folders rather
       // than what is in them.
       expect(query['recursive'], 'true');
       expect(query['includeItemTypes'], 'Movie');
       expect(query['startIndex'], '0');
       expect(query['limit'], '50');
+      expect(query.containsKey('isPlayed'), isFalse);
+      // The whole shelf is the same wall for everyone: no watch state asked.
+      expect(query.containsKey('userId'), isFalse);
+      expect(query.containsKey('enableUserData'), isFalse);
       expect(items, hasLength(3));
     });
 
+    for (final (sort, sortBy, sortOrder) in [
+      (StreamLibrarySort.name, 'SortName', 'Ascending'),
+      (
+        StreamLibrarySort.dateAdded,
+        'DateCreated,SortName',
+        'Descending,Ascending',
+      ),
+      (
+        StreamLibrarySort.year,
+        'ProductionYear,SortName',
+        'Descending,Ascending',
+      ),
+    ]) {
+      test('${sort.name} sorts by $sortBy with the name as tie-break', () async {
+        final adapter = browseAdapter();
+        await _client(
+          adapter,
+        ).getLibraryItems(libraryId: _moviesLibraryId, sort: sort);
+
+        final query = adapter.matching('/Items').last.queryParameters;
+        expect(query['sortBy'], sortBy);
+        expect(query['sortOrder'], sortOrder);
+        // Every sort is the same `/Items` read: no other endpoint is consulted.
+        expect(adapter.matching('/UserItems/Resume'), isEmpty);
+        expect(adapter.matching('/Shows/NextUp'), isEmpty);
+      });
+    }
+
     test('maps a page: runtime in ms, resume point, watched state', () async {
-      final items = await _client(browseAdapter()).getLibraryItems(
-        libraryId: _moviesLibraryId,
-        lens: StreamLibraryLens.all,
-      );
+      final items = await _client(
+        browseAdapter(),
+      ).getLibraryItems(libraryId: _moviesLibraryId);
 
       final partWatched = items.first;
       expect(partWatched.id, _movieId);
@@ -677,18 +750,17 @@ void main() {
       expect(finished.resumeProgress, isNull);
 
       final unprobed = items[2];
-      // `RunTimeTicks: 0` must not render as a zero-length film.
+      // `RunTimeTicks: 0` must not render as a zero-length movie.
       expect(unprobed.runtimeMs, isNull);
       expect(unprobed.posterPath, isNull);
       expect(unprobed.isPlayed, isFalse);
     });
 
-    test('unplayed filters server-side and names the viewer', () async {
+    test('unplayedOnly filters server-side and names the viewer', () async {
       final adapter = browseAdapter();
-      await _client(adapter).getLibraryItems(
-        libraryId: _moviesLibraryId,
-        lens: StreamLibraryLens.unplayed,
-      );
+      await _client(
+        adapter,
+      ).getLibraryItems(libraryId: _moviesLibraryId, unplayedOnly: true);
 
       final query = adapter.matching('/Items').last.queryParameters;
       expect(query['isPlayed'], 'false');
@@ -699,118 +771,53 @@ void main() {
       expect(query['enableUserData'], 'true');
     });
 
-    test('continueWatching uses the non-deprecated resume endpoint', () async {
+    test('unplayedOnly composes with a sort', () async {
       final adapter = browseAdapter();
-      final items = await _client(adapter).getLibraryItems(
-        libraryId: _showsLibraryId,
-        lens: StreamLibraryLens.continueWatching,
+      await _client(adapter).getLibraryItems(
+        libraryId: _moviesLibraryId,
+        sort: StreamLibrarySort.year,
+        unplayedOnly: true,
       );
 
-      final request = adapter.matching('/UserItems/Resume').single;
-      expect(request.queryParameters['userId'], _viewerId);
-      expect(request.queryParameters['parentId'], _showsLibraryId);
-      // What somebody is watching right now belongs on the session board, not
-      // duplicated into their own continue-watching row.
-      expect(request.queryParameters['excludeActiveSessions'], 'true');
-      // No `sortBy`: this endpoint is always DatePlayed desc.
-      expect(request.queryParameters.containsKey('sortBy'), isFalse);
-      // The `/Items` lenses were not consulted, so no library lookup happened.
-      expect(adapter.matching('Library/VirtualFolders'), isEmpty);
-
-      final episode = items.first;
-      expect(episode.kind, StreamItemKind.episode);
-      expect(episode.title, "Woe's Hollow");
-      expect(episode.subtitle, 'Severance\u00A0· S2 E4');
-      // This item reports `PlayedPercentage: 40.0` and no position ticks: a
-      // 0-100 double, so 40% of 2 700 000 ms.
-      expect(episode.runtimeMs, 2700000);
-      expect(episode.resumeOffsetMs, 1080000);
-      expect(episode.resumeProgress, closeTo(0.4, 0.0001));
+      final query = adapter.matching('/Items').last.queryParameters;
+      expect(query['isPlayed'], 'false');
+      expect(query['sortBy'], 'ProductionYear,SortName');
     });
 
-    test('nextUp asks the Shows endpoint for the viewer', () async {
+    test('unplayedOnly with no viewer asks nothing at all', () async {
       final adapter = browseAdapter();
-      final items = await _client(adapter).getLibraryItems(
-        libraryId: _showsLibraryId,
-        lens: StreamLibraryLens.nextUp,
-      );
-
-      final request = adapter.matching('/Shows/NextUp').single;
-      // 404s outright without a userId.
-      expect(request.queryParameters['userId'], _viewerId);
-      expect(request.queryParameters['parentId'], _showsLibraryId);
-      expect(request.queryParameters['enableRewatching'], 'false');
-      expect(items.single.title, 'Sweet Vitriol');
-      // Thumb-only episode: asking for a Primary image that does not exist would
-      // 404, so the tag that is actually there is used, and the item's own art
-      // beats the `SeriesPrimaryImageTag` this fixture also carries, so an
-      // episode list does not mix stills with series posters row by row.
-      expect(
-        items.single.posterPath,
-        '/Items/e2b6d0a4c8f13957b1d5f9a3c7e1b502/Images/Thumb'
-        '?tag=3c5e7a9b1d3f5709a1c3e5b7d9f10204',
-      );
-    });
-
-    test('a per-viewer lens with no viewer asks nothing at all', () async {
-      final adapter = browseAdapter();
-      // No `jellyfinUserId` configured and no override: the endpoint would 404,
-      // so the lens degrades to empty without spending a round trip.
-      final items = await _client(adapter, userId: '').getLibraryItems(
-        libraryId: _showsLibraryId,
-        lens: StreamLibraryLens.nextUp,
-      );
+      // No `jellyfinUserId` configured and no override: the watch state has no
+      // owner, so the page says so without spending a round trip.
+      final items = await _client(
+        adapter,
+        userId: '',
+      ).getLibraryItems(libraryId: _moviesLibraryId, unplayedOnly: true);
 
       expect(items, isEmpty);
       expect(adapter.callCount, 0);
     });
 
-    test(
-      'a per-viewer lens with no viewer says so rather than "empty"',
-      () async {
-        // The envelope is the whole point: `[]` and "we never asked" are the same
-        // list, and a browse that could not tell them apart told the user their
-        // library was empty when they had simply not chosen a household member.
-        final page = await _client(browseAdapter(), userId: '').getLibraryPage(
-          libraryId: _showsLibraryId,
-          lens: StreamLibraryLens.nextUp,
-        );
+    test('unplayedOnly with no viewer says so rather than "empty"', () async {
+      // The envelope is the whole point: `[]` and "we never asked" are the same
+      // list, and a browse that could not tell them apart told the user their
+      // library was empty when they had simply not chosen a household member.
+      final page = await _client(
+        browseAdapter(),
+        userId: '',
+      ).getLibraryPage(libraryId: _showsLibraryId, unplayedOnly: true);
 
-        expect(page.outcome, StreamPageOutcome.viewerRequired);
-        expect(page.needsViewer, isTrue);
-        expect(page.failed, isFalse);
-      },
-    );
-
-    test(
-      'A–Z is answered without a viewer, being the same wall for everyone',
-      () async {
-        // `/Items?parentId=…&sortBy=SortName` takes `userId` as strictly optional
-        // and only loses `UserData` without it. Scoping A–Z to a viewer made the
-        // client refuse a request that works, and told a connected-but-unpicked
-        // user their library was empty.
-        final adapter = browseAdapter();
-        final items = await _client(adapter, userId: '').getLibraryItems(
-          libraryId: _moviesLibraryId,
-          lens: StreamLibraryLens.all,
-        );
-
-        expect(items, isNotEmpty);
-        final query = adapter.matching('/Items').last.queryParameters;
-        expect(query['sortBy'], 'SortName');
-        expect(query.containsKey('userId'), isFalse);
-        expect(query.containsKey('enableUserData'), isFalse);
-      },
-    );
+      expect(page.outcome, StreamPageOutcome.viewerRequired);
+      expect(page.needsViewer, isTrue);
+      expect(page.failed, isFalse);
+    });
 
     test('a page carries the server’s own offset and total', () async {
       // A pager may not advance by the page size it asked for, nor stop because
       // the rows it received were empty: both are inferences, and
       // `TotalRecordCount` is the fact.
-      final page = await _client(browseAdapter()).getLibraryPage(
-        libraryId: _moviesLibraryId,
-        lens: StreamLibraryLens.all,
-      );
+      final page = await _client(
+        browseAdapter(),
+      ).getLibraryPage(libraryId: _moviesLibraryId);
 
       expect(page.outcome, StreamPageOutcome.ok);
       expect(page.items, hasLength(3));
@@ -827,7 +834,6 @@ void main() {
 
       final page = await client.getLibraryPage(
         libraryId: _moviesLibraryId,
-        lens: StreamLibraryLens.all,
         startIndex: 100,
       );
 
@@ -836,39 +842,25 @@ void main() {
       // Echoed back so a retry resumes where it stopped.
       expect(page.nextStartIndex, 100);
       expect(
-        await client.getLibraryItems(
-          libraryId: _moviesLibraryId,
-          lens: StreamLibraryLens.all,
-        ),
+        await client.getLibraryItems(libraryId: _moviesLibraryId),
         isEmpty,
       );
     });
 
-    test('recentlyAdded still works with no viewer configured', () async {
-      final adapter = browseAdapter();
-      final items = await _client(adapter, userId: '').getLibraryItems(
-        libraryId: _moviesLibraryId,
-        lens: StreamLibraryLens.recentlyAdded,
-      );
-
-      expect(items, isNotEmpty);
-      final query = adapter.matching('/Items').last.queryParameters;
-      expect(query.containsKey('userId'), isFalse);
-      expect(query.containsKey('enableUserData'), isFalse);
-    });
-
-    test('an explicit viewerId overrides the configured one', () async {
-      final adapter = browseAdapter();
-      await _client(adapter).getLibraryItems(
-        libraryId: _showsLibraryId,
-        lens: StreamLibraryLens.nextUp,
-        viewerId: 'OTHER-VIEWER',
-      );
-      expect(
-        adapter.matching('/Shows/NextUp').single.queryParameters['userId'],
-        'OTHER-VIEWER',
-      );
-    });
+    test(
+      'an explicit viewerId scopes the unplayed shelf to that member',
+      () async {
+        final adapter = browseAdapter();
+        await _client(adapter, userId: '').getLibraryItems(
+          libraryId: _showsLibraryId,
+          unplayedOnly: true,
+          viewerId: 'OTHER-VIEWER',
+        );
+        final query = adapter.matching('/Items').last.queryParameters;
+        expect(query['userId'], 'OTHER-VIEWER');
+        expect(query['isPlayed'], 'false');
+      },
+    );
 
     test('a deep link looks the library kind up once, then caches it', () async {
       // `/services/jellyfin/library/<id>` can be opened cold, with no library
@@ -876,15 +868,8 @@ void main() {
       final adapter = browseAdapter();
       final client = _client(adapter);
 
-      await client.getLibraryItems(
-        libraryId: _showsLibraryId,
-        lens: StreamLibraryLens.all,
-      );
-      await client.getLibraryItems(
-        libraryId: _showsLibraryId,
-        lens: StreamLibraryLens.all,
-        startIndex: 50,
-      );
+      await client.getLibraryItems(libraryId: _showsLibraryId);
+      await client.getLibraryItems(libraryId: _showsLibraryId, startIndex: 50);
 
       expect(adapter.matching('Library/VirtualFolders'), hasLength(1));
       final requests = adapter.matching('/Items').toList();
@@ -903,20 +888,11 @@ void main() {
       final adapter = browseAdapter(statusCode: 500);
       final client = _client(adapter);
 
-      expect(
-        await client.getLibraryItems(
-          libraryId: _showsLibraryId,
-          lens: StreamLibraryLens.all,
-        ),
-        isEmpty,
-      );
+      expect(await client.getLibraryItems(libraryId: _showsLibraryId), isEmpty);
       expect(adapter.matching('Library/VirtualFolders'), hasLength(1));
 
       adapter.statusCode = 200;
-      final items = await client.getLibraryItems(
-        libraryId: _showsLibraryId,
-        lens: StreamLibraryLens.all,
-      );
+      final items = await client.getLibraryItems(libraryId: _showsLibraryId);
 
       // Asked again, and this time the filter is recovered.
       expect(adapter.matching('Library/VirtualFolders'), hasLength(2));
@@ -931,7 +907,6 @@ void main() {
       final adapter = browseAdapter();
       await _client(adapter).getLibraryItems(
         libraryId: _moviesLibraryId,
-        lens: StreamLibraryLens.all,
         startIndex: 100,
         limit: 25,
       );
@@ -945,23 +920,89 @@ void main() {
       // rather than the inline one, and proves the mapper is sendable.
       final page = jsonFixtureMap('jellyfin/items_movies_page.json');
       final template = (page['Items'] as List).first;
-      final items =
-          await _client(
-            browseAdapter(
-              items: {
-                'Items': List.generate(400, (_) => template),
-                'TotalRecordCount': 400,
-                'StartIndex': 0,
-              },
-            ),
-          ).getLibraryItems(
-            libraryId: _moviesLibraryId,
-            lens: StreamLibraryLens.all,
-            limit: 400,
-          );
+      final items = await _client(
+        browseAdapter(
+          items: {
+            'Items': List.generate(400, (_) => template),
+            'TotalRecordCount': 400,
+            'StartIndex': 0,
+          },
+        ),
+      ).getLibraryItems(libraryId: _moviesLibraryId, limit: 400);
 
       expect(items, hasLength(400));
       expect(items.last.runtimeMs, 7200000);
+    });
+  });
+
+  group('getNextUp', () {
+    _ConversationAdapter nextUpAdapter() => _ConversationAdapter(
+      byPath: {'Shows/NextUp': jsonFixtureMap('jellyfin/next_up.json')},
+    );
+
+    test('asks the Shows endpoint across the server for the viewer', () async {
+      final adapter = nextUpAdapter();
+      final items = await _client(adapter).getNextUp(count: 8);
+
+      final request = adapter.matching('/Shows/NextUp').single;
+      // 404s outright without a userId.
+      expect(request.queryParameters['userId'], _viewerId);
+      // The whole server: no library narrows it.
+      expect(request.queryParameters.containsKey('parentId'), isFalse);
+      expect(request.queryParameters['limit'], '8');
+      expect(request.queryParameters['enableRewatching'], 'false');
+      expect(items.single.title, 'Sweet Vitriol');
+      // Thumb-only episode: asking for a Primary image that does not exist would
+      // 404, so the tag that is actually there is used, and the item's own art
+      // beats the `SeriesPrimaryImageTag` this fixture also carries, so an
+      // episode list does not mix stills with series posters row by row.
+      expect(
+        items.single.posterPath,
+        '/Items/e2b6d0a4c8f13957b1d5f9a3c7e1b502/Images/Thumb'
+        '?tag=3c5e7a9b1d3f5709a1c3e5b7d9f10204',
+      );
+    });
+
+    test('with nobody chosen it says so, and asks nothing', () async {
+      final adapter = nextUpAdapter();
+      await expectLater(
+        _client(adapter, userId: '').getNextUp(count: 8),
+        throwsA(isA<JellyfinViewerRequired>()),
+      );
+      expect(adapter.uris, isEmpty);
+    });
+  });
+
+  group('getRecentlyAdded', () {
+    test('lists movies and series across the server by the newest content, '
+        'with no viewer', () async {
+      final adapter = _ConversationAdapter(
+        byPath: {'Items': jsonFixtureMap('jellyfin/items_movies_page.json')},
+      );
+      final items = await _client(
+        adapter,
+        userId: '',
+      ).getRecentlyAdded(count: 12);
+
+      final query = adapter.matching('/Items').single.queryParameters;
+      expect(query['recursive'], 'true');
+      expect(query['includeItemTypes'], 'Movie,Series');
+      expect(query['sortBy'], 'DateLastContentAdded,SortName');
+      expect(query['sortOrder'], 'Descending,Ascending');
+      expect(query['limit'], '12');
+      expect(query.containsKey('parentId'), isFalse);
+      // What was added is the same for everyone.
+      expect(query.containsKey('userId'), isFalse);
+      expect(items, hasLength(3));
+    });
+
+    test('a server that does not answer is a failure, never an empty '
+        'list', () async {
+      final adapter = _ConversationAdapter(response: 'down', statusCode: 503);
+      await expectLater(
+        _client(adapter).getRecentlyAdded(count: 12),
+        throwsA(anything),
+      );
     });
   });
 
@@ -1438,16 +1479,13 @@ void main() {
       // No surface reads this list; the browse reads `getLibraryPage`, which
       // says a page failed.
       expect(
-        await client.getLibraryItems(
-          libraryId: _moviesLibraryId,
-          lens: StreamLibraryLens.all,
-        ),
+        await client.getLibraryItems(libraryId: _moviesLibraryId),
         isEmpty,
       );
       expect(
         await client.getLibraryItems(
           libraryId: _showsLibraryId,
-          lens: StreamLibraryLens.continueWatching,
+          unplayedOnly: true,
         ),
         isEmpty,
       );
@@ -1522,20 +1560,22 @@ void main() {
   });
 }
 
-/// The rows of one page, for the tests about the request a lens sends and
+/// The rows of one page, for the tests about the request a sort sends and
 /// the rows it maps; what an empty or failed page says is
 /// [StreamLibraryPage]'s, tested on [JellyfinClient.getLibraryPage].
 extension on JellyfinClient {
   Future<List<StreamItem>> getLibraryItems({
     required String libraryId,
-    required StreamLibraryLens lens,
+    StreamLibrarySort sort = StreamLibrarySort.name,
+    bool unplayedOnly = false,
     String? viewerId,
     int startIndex = 0,
     int limit = 50,
     CancelToken? cancelToken,
   }) async => (await getLibraryPage(
     libraryId: libraryId,
-    lens: lens,
+    sort: sort,
+    unplayedOnly: unplayedOnly,
     viewerId: viewerId,
     startIndex: startIndex,
     limit: limit,

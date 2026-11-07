@@ -1433,7 +1433,7 @@ _streamPaths(ServiceKey service) => switch (service) {
 /// Stream surface is written against `StreamServerClient` and takes the service
 /// as a parameter, so there is nothing per-service to fork here. The bars
 /// are genuinely different: Jellyfin and Emby have Users, Devices, Tasks and
-/// Activity; Plex has On deck, Activities, Devices and Playlists, and that difference
+/// Activity; Plex has Activities, Devices and Playlists, and that difference
 /// lives in `tabsFor`, which this reads. Forking the routes to express it would
 /// put the same list in two places and let them drift.
 ///
@@ -1479,6 +1479,11 @@ RouteBase _streamRoutes(ServiceKey service) {
         (s) => '${paths.libraries}/${s.pathParameters['id']}',
       ),
       _tail('item/:id', (s) => '${paths.itemBase}/${s.pathParameters['id']}'),
+      // Plex's On deck was a tab of its own; it lives in Activities now
+      // (decision `P-stream-library-browse`), and the spelling it shipped
+      // under still lands there.
+      if (service == ServiceKey.plex)
+        _tail('on-deck', (_) => ServiceRoutes.plexActivities),
     ],
     roots: {
       for (final tab in tabsFor(service)!) tab: _streamRoot(service, tab),
@@ -1557,7 +1562,6 @@ _TabScreen _streamRoot(ServiceKey service, ServiceTab tab) => switch (tab) {
   ServiceTab.devices ||
   ServiceTab.tasks ||
   ServiceTab.activity ||
-  ServiceTab.onDeck ||
   ServiceTab.activities ||
   ServiceTab.playlists => _streamCapabilityRoot(service, tab),
   _ => throw UnsupportedError(
@@ -1626,10 +1630,6 @@ Widget _streamCapabilityScreen(
       topPadding: _serviceTabTopPadding,
       instanceId: instanceId,
       service: ServiceKey.emby,
-    ),
-    (ServiceKey.plex, ServiceTab.onDeck) => PlexOnDeckScreen(
-      topPadding: _serviceTabTopPadding,
-      instanceId: instanceId,
     ),
     (ServiceKey.plex, ServiceTab.activities) => PlexActivitiesScreen(
       topPadding: _serviceTabTopPadding,

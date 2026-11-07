@@ -120,7 +120,7 @@ String tracearrDayWords(DateTime day, {required DateTime now}) {
   return 'on ${formatShortDay(day.toLocal(), now: now)}';
 }
 
-/// What follows `Watched by` when somebody has: `3 · last 12 days ago`. The
+/// What follows `Watched by` when somebody has: `3 people · last 12 days ago`. The
 /// section's heading carries it at its end, and [tracearrWatchedLine] after the
 /// words. Empty for nobody.
 String tracearrWatchedTally(
@@ -134,13 +134,13 @@ String tracearrWatchedTally(
     if (day != null && (last == null || day.isAfter(last))) last = day;
   }
   return joinDisplayParts([
-    '${people.length}',
+    people.length == 1 ? '1 person' : '${people.length} people',
     if (last != null) 'last ${tracearrDayWords(last, now: now)}',
   ]);
 }
 
 /// What a title's Watched by says in one line, and the delete sheet with it:
-/// `Watched by 3 · last 12 days ago`, or `Nobody has watched it`.
+/// `Watched by 3 people · last 12 days ago`, or `Nobody has watched it`.
 ///
 /// Said only of an answer. Tracearr not knowing the title is not "nobody"
 /// (the caller passes no watchers, and no line is drawn).

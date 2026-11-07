@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:cupola/core/providers/async_value_kept.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:cupola/core/app_animation.dart';
@@ -297,7 +299,7 @@ class _CalendarPageState extends ConsumerState<CalendarPage> {
               // What is on the calendar already is not coming out for you.
               items: ref
                   .watch(comingOutProvider)
-                  .whenData(
+                  .whenDataKept(
                     (items) => [
                       for (final item in items)
                         if (!all.any(

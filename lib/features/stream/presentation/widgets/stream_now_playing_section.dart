@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:cupola/features/stream/domain/stream_server_client.dart';
 import 'package:cupola/core/app_spacing.dart';
 import 'package:cupola/core/capability/connection_capability.dart';
 import 'package:cupola/core/room_art.dart';
@@ -371,6 +372,9 @@ class StreamNowPlayingSection extends ConsumerWidget {
     StreamSession session,
   ) {
     if (session.id.isEmpty) return null;
+    // A player that takes no remote commands would ignore the stop the
+    // server relays: no control rather than one that does nothing.
+    if (service.speaksMediaBrowser && !session.takesCommands) return null;
 
     if (service == ServiceKey.plex &&
         !ref.watch(plexStopOfferedProvider(instanceId))) {
@@ -395,6 +399,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
     StreamSession session,
   ) {
     if (!service.speaksMediaBrowser || session.id.isEmpty) return null;
+    if (!session.takesCommands) return null;
     return () => _togglePause(context, ref, session);
   }
 
@@ -406,6 +411,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
     StreamSession session,
   ) {
     if (!service.speaksMediaBrowser || session.id.isEmpty) return null;
+    if (!session.takesMessages) return null;
     return () => _sendMessage(context, ref, session);
   }
 
@@ -439,8 +445,26 @@ class StreamNowPlayingSection extends ConsumerWidget {
         await client.pauseSession(session.id);
       }
       // Re-read rather than flipping `isPaused` here: the 204 means the command
-      // was dispatched to the client, not that the client acted on it.
+      // was dispatched to the client, not that the client acted on it. A
+      // player that announced media control and still ignores it is told
+      // apart by reading again, and said, never left as a button that did
+      // nothing.
+      if (!context.mounted) return;
+      final obeyed = await _playerObeyed(
+        context,
+        client,
+        session,
+        (now) => now != null && now.isPaused != session.isPaused,
+      );
       refreshStreamSessions(ref, service, instanceId);
+      if (!obeyed && context.mounted) {
+        SnackBarHelper.error(
+          context,
+          session.isPaused
+              ? 'The player did not resume. ${_ignoredCommands(session)}'
+              : 'The player did not pause. ${_ignoredCommands(session)}',
+        );
+      }
     } catch (error) {
       if (!context.mounted) return;
       final failed = session.isPaused
@@ -453,6 +477,24 @@ class StreamNowPlayingSection extends ConsumerWidget {
       );
     }
   }
+
+  /// Whether [session]'s player did what it was told: [streamPlayerObeyed],
+  /// for as long as the page is there to say so.
+  Future<bool> _playerObeyed(
+    BuildContext context,
+    StreamServerClient client,
+    StreamSession session,
+    bool Function(StreamSession? now) done,
+  ) => streamPlayerObeyed(
+    read: client.getSessions,
+    sessionId: session.id,
+    done: done,
+    stillShown: () => context.mounted,
+  );
+
+  /// Why a command did nothing, in the words the player gives.
+  static String _ignoredCommands(StreamSession session) =>
+      streamIgnoredCommandsReason(session);
 
   Future<void> _sendMessage(
     BuildContext context,
@@ -511,8 +553,22 @@ class StreamNowPlayingSection extends ConsumerWidget {
       await client.stopSession(session.id);
       // Both servers only *dispatch* a stop: Jellyfin's 204 means "sent to the
       // client", which may ignore it. So the board re-reads rather than removing
-      // the row optimistically and claiming something it cannot know.
+      // the row optimistically and claiming something it cannot know, and
+      // says so when the playback is still there.
+      if (!context.mounted) return;
+      final obeyed = await _playerObeyed(
+        context,
+        client,
+        session,
+        (now) => now == null,
+      );
       refreshStreamSessions(ref, service, instanceId);
+      if (!obeyed && context.mounted) {
+        SnackBarHelper.error(
+          context,
+          'The player did not stop. ${_ignoredCommands(session)}',
+        );
+      }
     } catch (error) {
       if (!context.mounted) return;
       SnackBarHelper.error(
@@ -615,4 +671,39 @@ class _DashedRulePainter extends CustomPainter {
   @override
   bool shouldRepaint(_DashedRulePainter oldDelegate) =>
       oldDelegate.color != color;
+}
+
+/// Whether the player of session [sessionId] did what it was told: [done]
+/// read on its playback, asked again three times [interval] apart (a player
+/// reports its state on its own beat, so one read straight after the 204 says
+/// nothing). A read that fails is not a refusal: it counts as done, and the
+/// page's own read says what it found. Done too once [stillShown] says nobody
+/// is left to tell.
+Future<bool> streamPlayerObeyed({
+  required Future<List<StreamSession>> Function() read,
+  required String sessionId,
+  required bool Function(StreamSession? now) done,
+  bool Function()? stillShown,
+  Duration interval = const Duration(seconds: 2),
+}) async {
+  for (var attempt = 0; attempt < 3; attempt++) {
+    await Future<void>.delayed(interval);
+    if (stillShown != null && !stillShown()) return true;
+    try {
+      final sessions = await read();
+      final now = sessions.where((s) => s.id == sessionId).firstOrNull;
+      if (done(now)) return true;
+    } catch (_) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Why a command did nothing: `Neptune may not take commands from the
+/// server.`, named by the player app (the first half of its device label).
+String streamIgnoredCommandsReason(StreamSession session) {
+  final app = session.deviceLabel.split('\u00A0· ').first.trim();
+  return '${app.isEmpty ? 'The player' : app} may not take commands from '
+      'the server.';
 }

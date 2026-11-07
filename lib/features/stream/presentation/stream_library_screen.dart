@@ -12,31 +12,29 @@ import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/connection_presentation.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
-import 'package:cupola/features/stream/domain/stream_semantics.dart';
 import 'package:cupola/features/stream/domain/stream_server_client.dart';
 import 'package:cupola/features/stream/domain/models/stream_library.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart';
 import 'package:cupola/features/stream/presentation/widgets/stream_poster_tile.dart';
 
-/// One library on a media server, browsed by watch state.
+/// One library on a media server, whole.
 ///
-/// **The landing lens is never A–Z, and that is the whole design.** Radarr already
-/// holds an alphabetical wall of the same films; a Stream library that opened on one
-/// would be Radarr rendered twice under a different accent. What only a media server
-/// knows is *subject and time*: who watched, where they stopped, what is next, what
-/// nobody has played, so those lenses lead and `StreamLibraryLens.all` is an
-/// explicit sort you have to ask for.
+/// **The library is the library** (decision `P-stream-library-browse`): it
+/// opens on every title it holds, A to Z, and reads in the order the person
+/// picks (`Sort · Name`, `Date added`, `Year`), all of it or only what is
+/// `Unplayed`. What someone is partway through, is up to next or was just
+/// added lives where watching is the subject: the server's Activity, and its
+/// Overview for the glance. The page once opened on those as lenses so it
+/// would not read as the arrs' list twice; a person who opens a library wants
+/// to browse it.
 ///
-/// The falsifiable form of that rule lives on `StreamLibraryLens`: **if this screen
-/// would look identical after nobody watched anything for a month, it is the wrong
-/// screen.** Landing on Continue satisfies it by construction.
+/// The bar is the arrs' own (`MediaBrowseFilterChip`, `MediaBrowseSortControl`),
+/// so a library on Radarr and one on Jellyfin read alike.
 ///
-/// **The viewer chip is absent on Plex rather than showing one entry.** A Jellyfin
-/// API key authenticates as an administrator with no user attached, so it can read
-/// any household member's state once told which; a Plex token *is* its user and
-/// `/library/*` accepts no impersonation parameter. That asymmetry is a property of
-/// the two APIs, so the control appears where it can do something and disappears
-/// where it cannot.
+/// **Unplayed is a watch state.** A Jellyfin or Emby API key authenticates as
+/// an administrator with no user attached, so it can read any household
+/// member's state once told which; a Plex token *is* its user. Without a
+/// viewer, Unplayed asks for one ([_NeedsViewer]); the whole shelf needs none.
 class StreamLibraryScreen extends ConsumerStatefulWidget {
   const StreamLibraryScreen({
     super.key,
@@ -68,7 +66,10 @@ class _StreamLibraryScreenState extends ConsumerState<StreamLibraryScreen> {
   String get _title => widget.libraryTitle ?? 'Library';
 
   late PagingController<int, StreamItem> _paging;
-  StreamLibraryLens _lens = StreamLibraryLens.continueWatching;
+  StreamLibrarySort _sort = StreamLibrarySort.name;
+
+  /// Only what the viewer has not finished.
+  bool _unplayedOnly = false;
 
   /// Where the next request starts, or null once the server says there is no
   /// more. **The server's number, never `pagesFetched * _pageSize`.**
@@ -135,14 +136,20 @@ class _StreamLibraryScreenState extends ConsumerState<StreamLibraryScreen> {
     previous.dispose();
   }
 
-  /// Changing lens is a new list, not a filter over the old one.
+  /// Another order, or another shelf, is a new list, not a filter over the
+  /// old one.
   ///
-  /// Each lens is a different server query with its own ordering, so the paging
-  /// controller is rebuilt rather than refreshed; reusing it would append page 1
-  /// of "Unplayed" onto page 3 of "Continue" and produce a list that is neither.
-  void _selectLens(StreamLibraryLens lens) {
-    if (lens == _lens) return;
-    setState(() => _lens = lens);
+  /// Each is a different server query with its own ordering, so the paging
+  /// controller is rebuilt rather than refreshed; reusing it would append page
+  /// 1 of one order onto page 3 of another and produce a list that is neither.
+  void _select({StreamLibrarySort? sort, bool? unplayedOnly}) {
+    final nextSort = sort ?? _sort;
+    final nextUnplayed = unplayedOnly ?? _unplayedOnly;
+    if (nextSort == _sort && nextUnplayed == _unplayedOnly) return;
+    setState(() {
+      _sort = nextSort;
+      _unplayedOnly = nextUnplayed;
+    });
     _restart();
   }
 
@@ -159,8 +166,9 @@ class _StreamLibraryScreenState extends ConsumerState<StreamLibraryScreen> {
   /// grid takes over and asks for the rest as the user scrolls.
   Future<List<StreamItem>> _fetchPage(int startIndex) async {
     final generation = _fetchGeneration;
-    // Read once: the loop below awaits, and the lens can change under it.
-    final lens = _lens;
+    // Read once: the loop below awaits, and the order can change under it.
+    final sort = _sort;
+    final unplayedOnly = _unplayedOnly;
     final client = _client;
     final cancelToken = CancelToken();
     _fetchCancel = cancelToken;
@@ -172,7 +180,8 @@ class _StreamLibraryScreenState extends ConsumerState<StreamLibraryScreen> {
     for (var attempt = 0; attempt < _maxPagesPerFetch; attempt++) {
       final page = await client.getLibraryPage(
         libraryId: widget.libraryId,
-        lens: lens,
+        sort: sort,
+        unplayedOnly: unplayedOnly,
         startIndex: offset,
         limit: _pageSize,
         cancelToken: cancelToken,
@@ -315,10 +324,11 @@ class _StreamLibraryScreenState extends ConsumerState<StreamLibraryScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             PageTitle(_title, summary: _countLine(ref, connection)),
-            _LensChips(
-              selected: _lens,
-              accent: accent,
-              onSelected: _selectLens,
+            _ShelfBar(
+              sort: _sort,
+              unplayedOnly: _unplayedOnly,
+              onSort: (sort) => _select(sort: sort),
+              onUnplayed: (unplayed) => _select(unplayedOnly: unplayed),
             ),
             Expanded(
               child: PagingListener<int, StreamItem>(
@@ -326,11 +336,10 @@ class _StreamLibraryScreenState extends ConsumerState<StreamLibraryScreen> {
                 builder: (context, state, fetchNextPage) => _LibraryGrid(
                   service: widget.service,
                   instanceId: connection,
-                  lens: _lens,
+                  unplayedOnly: _unplayedOnly,
                   state: state,
                   fetchNextPage: fetchNextPage,
-                  onBrowseRecent: () =>
-                      _selectLens(StreamLibraryLens.recentlyAdded),
+                  onShowAll: () => _select(unplayedOnly: false),
                   onChooseViewer: () => context.push(
                     connection.isEmpty
                         ? ServiceRoutes.settingsFor(widget.service)
@@ -367,49 +376,55 @@ class StreamLibraryViewerRequired implements Exception {
   String toString() => 'No viewer selected.';
 }
 
-/// The lens row.
-///
-/// `ChoiceChip` rather than a `SegmentedButton`: five options do not fit a phone's
-/// width as segments, and the row has to be able to scroll. Labels stay short for
-/// the eye and are expanded for the ear through [streamLensLabel]: "Continue" on
-/// its own does not say what it continues, and both screen readers spell "A–Z" out
-/// character by character.
-class _LensChips extends StatelessWidget {
-  const _LensChips({
-    required this.selected,
-    required this.accent,
-    required this.onSelected,
+/// The library's bar: the whole shelf or only what is unplayed, and the order
+/// it is read in. The arrs' own controls, so the two kinds of library read
+/// alike; the sort sits at the end of the row, as theirs does.
+class _ShelfBar extends StatelessWidget {
+  const _ShelfBar({
+    required this.sort,
+    required this.unplayedOnly,
+    required this.onSort,
+    required this.onUnplayed,
   });
 
-  final StreamLibraryLens selected;
-  final Color accent;
-  final ValueChanged<StreamLibraryLens> onSelected;
+  final StreamLibrarySort sort;
+  final bool unplayedOnly;
+  final ValueChanged<StreamLibrarySort> onSort;
+  final ValueChanged<bool> onUnplayed;
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.lg,
-        vertical: AppSpacing.sm,
+    final ink = Theme.of(context).colorScheme.primary;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.lg,
+        AppSpacing.sm,
+        AppSpacing.sm,
+        AppSpacing.sm,
       ),
       child: Row(
         children: [
-          for (final lens in StreamLibraryLens.values)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpacing.sm),
-              child: Semantics(
-                label: streamLensLabel(lens.label),
-                selected: lens == selected,
-                button: true,
-                excludeSemantics: true,
-                child: ChoiceChip(
-                  label: Text(lens.label),
-                  selected: lens == selected,
-                  onSelected: (_) => onSelected(lens),
-                ),
-              ),
-            ),
+          MediaBrowseFilterChip(
+            label: 'All',
+            color: ink,
+            selected: !unplayedOnly,
+            onTap: () => onUnplayed(false),
+          ),
+          MediaBrowseFilterChip(
+            label: 'Unplayed',
+            color: ink,
+            selected: unplayedOnly,
+            onTap: () => onUnplayed(true),
+          ),
+          const Spacer(),
+          MediaBrowseSortControl(
+            label: sort.label,
+            options: [
+              for (final value in StreamLibrarySort.values) value.label,
+            ],
+            selected: sort.index,
+            onSelected: (index) => onSort(StreamLibrarySort.values[index]),
+          ),
         ],
       ),
     );
@@ -420,19 +435,19 @@ class _LibraryGrid extends StatelessWidget {
   const _LibraryGrid({
     required this.service,
     required this.instanceId,
-    required this.lens,
+    required this.unplayedOnly,
     required this.state,
     required this.fetchNextPage,
-    required this.onBrowseRecent,
+    required this.onShowAll,
     required this.onChooseViewer,
   });
 
   final ServiceKey service;
   final String instanceId;
-  final StreamLibraryLens lens;
+  final bool unplayedOnly;
   final PagingState<int, StreamItem> state;
   final VoidCallback fetchNextPage;
-  final VoidCallback onBrowseRecent;
+  final VoidCallback onShowAll;
   final VoidCallback onChooseViewer;
 
   @override
@@ -481,7 +496,7 @@ class _LibraryGrid extends StatelessWidget {
           index: index,
         ),
         noItemsFoundIndicatorBuilder: (context) =>
-            _EmptyLens(lens: lens, onBrowseRecent: onBrowseRecent),
+            _EmptyShelf(unplayedOnly: unplayedOnly, onShowAll: onShowAll),
         // Nothing arrived *and* something went wrong. The default here is the
         // package's generic tile; this has to be the state that never says the
         // library is empty, because at this point we do not know that.
@@ -520,14 +535,12 @@ class _LibraryGrid extends StatelessWidget {
   }
 }
 
-/// The per-viewer lenses on a Jellyfin server with no household member chosen.
+/// Unplayed on a Jellyfin or Emby server with no household member chosen.
 ///
 /// **Not an empty state, because the library is not empty**: nothing has been
-/// asked of the server at all. An API key authenticates as an administrator with
-/// no user attached, so "continue watching" has no subject until one is named,
-/// and the control that names it lives in settings. Saying "This library is
-/// empty" here was a false claim with no way out of it: the browse offers no
-/// picker, so the user had nothing to act on.
+/// asked of the server at all. An API key authenticates as an administrator
+/// with no user attached, so "unplayed" has no subject until one is named, and
+/// the control that names it lives in settings.
 class _NeedsViewer extends StatelessWidget {
   const _NeedsViewer({required this.service, required this.onChooseViewer});
 
@@ -541,8 +554,8 @@ class _NeedsViewer extends StatelessWidget {
       accentColor: service.accent,
       title: 'Choose whose watch state to show',
       message:
-          'Continue watching, next up and unplayed are per person, and '
-          '${service.title} needs to be told which one. A–Z works either way.',
+          'What is unplayed is per person, and ${service.title} needs to be '
+          'told which one. All works either way.',
       action: FilledButton(
         onPressed: onChooseViewer,
         child: const Text('Pick a viewer'),
@@ -551,53 +564,28 @@ class _NeedsViewer extends StatelessWidget {
   }
 }
 
-/// A lens with nothing in it.
-///
-/// The per-viewer lenses are legitimately empty on a server nobody has watched
-/// yet, and that is not a failure, so this offers the way out rather than just
-/// reporting the absence. It deliberately does **not** silently fall back to A–Z:
-/// that would quietly undo the reason the landing lens is what it is, and the user
-/// would never learn the other lenses exist.
-class _EmptyLens extends StatelessWidget {
-  const _EmptyLens({required this.lens, required this.onBrowseRecent});
+/// A shelf with nothing on it: a library the server reports empty, or one
+/// where the viewer has played everything, which offers the whole shelf back.
+class _EmptyShelf extends StatelessWidget {
+  const _EmptyShelf({required this.unplayedOnly, required this.onShowAll});
 
-  final StreamLibraryLens lens;
-  final VoidCallback onBrowseRecent;
+  final bool unplayedOnly;
+  final VoidCallback onShowAll;
 
   @override
   Widget build(BuildContext context) {
-    final showRecent = lens != StreamLibraryLens.recentlyAdded;
-
     return AppEmptyState(
-      icon: switch (lens) {
-        StreamLibraryLens.continueWatching => Icons.play_circle_outline_rounded,
-        StreamLibraryLens.nextUp => Icons.skip_next_rounded,
-        StreamLibraryLens.recentlyAdded => Icons.new_releases_outlined,
-        StreamLibraryLens.unplayed => Icons.visibility_off_outlined,
-        StreamLibraryLens.all => Icons.sort_by_alpha_rounded,
-      },
-      title: switch (lens) {
-        StreamLibraryLens.continueWatching => 'Nothing in progress',
-        StreamLibraryLens.nextUp => 'Nothing queued up',
-        StreamLibraryLens.recentlyAdded => 'Nothing added yet',
-        StreamLibraryLens.unplayed => 'Everything has been played',
-        StreamLibraryLens.all => 'This library is empty',
-      },
-      message: switch (lens) {
-        StreamLibraryLens.continueWatching =>
-          'Start something and it will pick up here.',
-        StreamLibraryLens.nextUp =>
-          'Next episodes appear once a series is under way.',
-        StreamLibraryLens.recentlyAdded =>
-          'New files show up here after a library scan.',
-        StreamLibraryLens.unplayed => 'Nothing left unwatched in this library.',
-        StreamLibraryLens.all => 'The server reports no items here.',
-      },
-      action: showRecent
-          ? FilledButton(
-              onPressed: onBrowseRecent,
-              child: const Text('See what’s new'),
-            )
+      icon: unplayedOnly
+          ? Icons.visibility_off_outlined
+          : Icons.video_library_outlined,
+      title: unplayedOnly
+          ? 'Everything has been played'
+          : 'This library is empty',
+      message: unplayedOnly
+          ? 'Nothing left unwatched in this library.'
+          : 'The server reports no items here.',
+      action: unplayedOnly
+          ? FilledButton(onPressed: onShowAll, child: const Text('Show all'))
           : null,
     );
   }
