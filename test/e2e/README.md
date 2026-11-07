@@ -556,11 +556,12 @@ flutter test --tags e2e --run-skipped test/e2e/testlab_tracearr_e2e_test.dart
 The Tracearr journey (it names no catalogue row, since the catalogue has none for
 Tracearr yet), in `media_server_journey_test.dart`, applies the scenario
 through the control API and reads Live ("2 streams", both titles) and Violations
-(the rule, opened to its sentence). It needs no wrapper. What has not run: the
-journeys themselves (they compile, and need the simulator and the lab's control
-API), the full lab's bootstrap with Tracearr in it, and the transport, knock and
-app-configuration tests at the lab's own ports; each was run against disposable
-containers at other ports instead.
+(the rule, opened to what it saw: the count and the limit). It needs no
+wrapper.
+
+A media server journey reads a session as the device's playback, not as its
+row in `/Sessions`: Emby keeps a stopped device listed for a while with no
+`NowPlayingItem`, so a stop is proven by the playback leaving, not the row.
 
 ## TrueNAS, Unraid, NPM and Dockge
 

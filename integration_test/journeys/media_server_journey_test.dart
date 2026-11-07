@@ -269,7 +269,10 @@ void main() {
     await app.go(tester, ServiceRoutes.tracearrViolations);
     await app.surface.see('Too many streams at once');
     await app.tapIn(tester, find.text('Too many streams at once').first);
-    await app.surface.seePart('2 streams at once, the limit is 1');
+    // The page lays the reading out as what it saw: the count, and the limit.
+    await app.surface.see('What it saw');
+    await app.surface.see('2 streams at once');
+    await app.surface.see('The limit is 1');
   }, timeout: const Timeout(Duration(minutes: 10)));
 }
 
@@ -540,6 +543,9 @@ Future<Map?> _sessionOf(LabApp app, _Server server, String device) async {
       .replaceAll(RegExp(r'^-|-$'), '');
   for (final entry in sessions) {
     final session = entry as Map;
+    // A stopped device stays listed for a while, idle: Emby keeps its session
+    // with no `NowPlayingItem`. Only a playback is the session we look for.
+    if (session['NowPlayingItem'] == null) continue;
     // `--device` is the DeviceName the helper presents; the DeviceId is its
     // namespaced slug, so both identify the same session.
     final name = session['DeviceName'] as String?;
