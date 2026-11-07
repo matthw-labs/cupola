@@ -73,6 +73,8 @@ cards live in [`../motion/`](../motion/).
 | Media | [ContentCard](ContentCard/README.md) | `lib/core/widgets/content_card.dart` |
 | Media | [MediaBrowseScaffold](MediaBrowseScaffold/README.md) | `lib/core/widgets/media_browse_scaffold.dart`, `lib/core/widgets/search_bar_header.dart` |
 | Media | [MediaPosterCard](MediaPosterCard/README.md) | `lib/core/widgets/media_poster_card.dart`, `lib/core/widgets/media_grid.dart` |
+| Media | [StreamLibrary](StreamLibrary/README.md) | `lib/features/stream/presentation/stream_library_screen.dart`, `lib/features/stream/presentation/widgets/stream_poster_tile.dart` |
+| Media | [StreamWatching](StreamWatching/README.md) | `lib/features/stream/presentation/stream_watching.dart` |
 | Media detail | [MediaDetailActions](MediaDetailActions/README.md) | `lib/core/widgets/media_detail_actions.dart`, `lib/core/status/media_action.dart` |
 | Media detail | [MediaChildList](MediaChildList/README.md) | `lib/core/widgets/media_child_list.dart` |
 | Media detail | [MediaChipSection](MediaChipSection/README.md) | `lib/core/widgets/media_chip_section.dart`, `lib/core/widgets/tag_chip.dart` |

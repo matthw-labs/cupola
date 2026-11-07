@@ -2079,12 +2079,22 @@ class EmbyFake extends ServiceFake {
         final term = (r.query['searchTerm'] ?? r.query['SearchTerm'] ?? '')
             .toLowerCase();
         final asked = (r.query['ids'] ?? r.query['Ids'] ?? '').split(',');
+        // A library's page asks for its own kind: Movie in a movie library,
+        // Series in a TV one.
+        final types =
+            (r.query['includeItemTypes'] ?? r.query['IncludeItemTypes'] ?? '')
+                .split(',')
+                .where((type) => type.isNotEmpty)
+                .toSet();
+        bool ofType(WorldTitle t) =>
+            types.isEmpty || types.contains(t.isSeries ? 'Series' : 'Movie');
         return NetworkReply.json(
           _page([
             for (final t in JellyfinFake._library())
-              if (asked.first.isNotEmpty
-                  ? asked.contains(_id(t))
-                  : JellyfinFake._wanted(t, ids, term))
+              if ((asked.first.isNotEmpty
+                      ? asked.contains(_id(t))
+                      : JellyfinFake._wanted(t, ids, term)) &&
+                  ofType(t))
                 _item(c, t),
           ]),
         );
@@ -2488,8 +2498,13 @@ class PlexFake extends ServiceFake {
           },
         });
       case '/library/recentlyAdded':
+        // The library again, newest first, as the server's own shelf lists
+        // what its scans brought in.
+        final added = [
+          for (final (i, t) in _library.indexed) _metadata(c, t, 100 + i),
+        ]..sort((a, b) => (b['addedAt'] as int).compareTo(a['addedAt'] as int));
         return NetworkReply.json({
-          'MediaContainer': {'size': 0, 'Metadata': const <Object?>[]},
+          'MediaContainer': {'size': added.length, 'Metadata': added},
         });
       case '/hubs/search':
       case '/library/all':
