@@ -89,7 +89,10 @@ printf '==> Running flutter analyze...\n'
 flutter analyze --fatal-infos
 
 printf '==> Checking dart format...\n'
-dart format --output=none --set-exit-if-changed .
+# The tracked files only, as CI sees them from a clean checkout: a walk of `.`
+# also enters ignored state, and a container's directory there that the user
+# cannot read stops the release before anything is built.
+git ls-files -z -- '*.dart' | xargs -0 dart format --output=none --set-exit-if-changed
 
 printf '==> Running the test suite...\n'
 dart run tool/test_bundles/test_bundles.dart
