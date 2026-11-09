@@ -231,6 +231,28 @@ class StreamItem {
     this.backdropPath,
   });
 
+  /// This item with [video] as its picture, everything else kept: for a
+  /// read that found the item without its picture and asked the item itself.
+  StreamItem withVideo(StreamVideo? video) => StreamItem(
+    id: id,
+    title: title,
+    subtitle: subtitle,
+    kind: kind,
+    posterPath: posterPath,
+    year: year,
+    runtimeMs: runtimeMs,
+    isPlayed: isPlayed,
+    resumeOffsetMs: resumeOffsetMs,
+    unplayedChildCount: unplayedChildCount,
+    externalIds: externalIds,
+    video: video,
+    overview: overview,
+    seasonNumber: seasonNumber,
+    episodeNumber: episodeNumber,
+    seriesId: seriesId,
+    backdropPath: backdropPath,
+  );
+
   /// Fraction watched, 0..1, or null when there is no resume point.
   double? get resumeProgress {
     final offset = resumeOffsetMs;

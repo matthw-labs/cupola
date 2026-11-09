@@ -11,6 +11,7 @@ import 'package:cupola/core/utils/snack_bar_helper.dart';
 import 'package:cupola/core/widgets/widgets.dart';
 import 'package:cupola/features/jellyfin/data/jellyfin_client.dart';
 import 'package:cupola/features/jellyfin/presentation/jellyfin_provider.dart';
+import 'package:cupola/features/media/presentation/open_media.dart';
 import 'package:cupola/features/plex/presentation/plex_capability.dart';
 import 'package:cupola/features/plex/presentation/plex_provider.dart';
 import 'package:cupola/features/services/domain/service_tab.dart';
@@ -157,6 +158,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
                             onTogglePause: _pauseHandler(context, ref, list[i]),
                             onMessage: _messageHandler(context, ref, list[i]),
                             onOpenPerson: _personHandler(context, ref, list[i]),
+                            onOpenTitle: _titleHandler(context, list[i]),
                           ),
                         ),
                       ),
@@ -207,6 +209,7 @@ class StreamNowPlayingSection extends ConsumerWidget {
                       onStop: _stopHandler(context, ref, list.single),
                       onTogglePause: _pauseHandler(context, ref, list.single),
                       onMessage: _messageHandler(context, ref, list.single),
+                      onOpenTitle: _titleHandler(context, list.single),
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -228,12 +231,20 @@ class StreamNowPlayingSection extends ConsumerWidget {
                             onStop: _stopHandler(context, ref, list[i]),
                             onTogglePause: _pauseHandler(context, ref, list[i]),
                             onMessage: _messageHandler(context, ref, list[i]),
+                            onOpenTitle: _titleHandler(context, list[i]),
                           ),
                         ],
                       ],
                     ),
             ),
     );
+  }
+
+  /// Opens [session]'s title, or null for a session that names none.
+  VoidCallback? _titleHandler(BuildContext context, StreamSession session) {
+    if (!canOpenStreamSession(session)) return null;
+    return () =>
+        context.openStreamSession(service, session, instanceId: instanceId);
   }
 
   /// The public poster the arrs hold for [session]'s title, or null.

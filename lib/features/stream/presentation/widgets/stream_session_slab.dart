@@ -33,6 +33,7 @@ class StreamSessionFeature extends StatelessWidget {
     this.onStop,
     this.onTogglePause,
     this.onMessage,
+    this.onOpenTitle,
   });
 
   final StreamSession session;
@@ -40,6 +41,9 @@ class StreamSessionFeature extends StatelessWidget {
   final VoidCallback? onStop;
   final VoidCallback? onTogglePause;
   final VoidCallback? onMessage;
+
+  /// Opens the title being played; see [StreamSessionCard.onOpenTitle].
+  final VoidCallback? onOpenTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +53,7 @@ class StreamSessionFeature extends StatelessWidget {
       children: [
         _Readout(
           session: session,
+          onOpenTitle: onOpenTitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -91,6 +96,7 @@ class StreamSessionLine extends StatelessWidget {
     this.onStop,
     this.onTogglePause,
     this.onMessage,
+    this.onOpenTitle,
   });
 
   final StreamSession session;
@@ -98,6 +104,9 @@ class StreamSessionLine extends StatelessWidget {
   final VoidCallback? onStop;
   final VoidCallback? onTogglePause;
   final VoidCallback? onMessage;
+
+  /// Opens the title being played; see [StreamSessionCard.onOpenTitle].
+  final VoidCallback? onOpenTitle;
 
   /// The thumbnail's width; its height follows the wide ratio.
   static const double thumbWidth = 112;
@@ -110,6 +119,7 @@ class StreamSessionLine extends StatelessWidget {
       children: [
         _Readout(
           session: session,
+          onOpenTitle: onOpenTitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -151,18 +161,23 @@ const double _wide = 16 / 9;
 /// The readout of a playback as one sentence, its parts silenced; the
 /// controls after it stay their own nodes.
 class _Readout extends StatelessWidget {
-  const _Readout({required this.session, required this.child});
+  const _Readout({
+    required this.session,
+    required this.child,
+    this.onOpenTitle,
+  });
 
   final StreamSession session;
   final Widget child;
+  final VoidCallback? onOpenTitle;
 
   @override
   Widget build(BuildContext context) {
     final progress = session.progress;
     final remaining = session.remaining;
-    return Semantics(
-      container: true,
-      label: session.title,
+    return StreamSessionReadout(
+      title: session.title,
+      onOpenTitle: onOpenTitle,
       value: streamSessionValue(
         userName: session.userName,
         title: session.title,
@@ -175,7 +190,6 @@ class _Readout extends StatelessWidget {
         bitrateIsNominal: session.bitrateIsNominal,
         isPaused: session.isPaused,
       ),
-      excludeSemantics: true,
       child: child,
     );
   }
