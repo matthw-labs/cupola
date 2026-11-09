@@ -14,6 +14,8 @@ import 'package:cupola/features/services/presentation/services_provider.dart'
 import 'package:cupola/features/settings/data/settings_provider.dart';
 import 'package:cupola/features/settings/domain/service_key.dart';
 import 'package:cupola/features/stream/domain/models/stream_item.dart';
+import 'package:cupola/features/stream/domain/models/stream_session.dart';
+import 'package:cupola/features/stream/domain/stream_server_client.dart';
 import 'package:cupola/features/stream/presentation/stream_connection_provider.dart'
     show streamClientForProvider;
 
@@ -113,7 +115,7 @@ extension OpenMedia on BuildContext {
   /// through the connection's own client (`StreamServerClient.getSeriesKey`).
   /// While it is out the tap shows what any press shows, and nothing else: no
   /// page in between. A series the server holds no ids for, a read that failed
-  /// or ran out ([_seriesLookupLimit]), and an item that names no series (an
+  /// or ran out ([_keyLookupLimit]), and an item that names no series (an
   /// album, a track, an episode the server filed under none) open the server's
   /// own page as they always did: the tap never ends nowhere, and never says
   /// that a lookup it did for itself failed.
@@ -134,12 +136,18 @@ extension OpenMedia on BuildContext {
             item.kind == StreamItemKind.episode) {
       final asked = '${service.name}/$instanceId/${item.id}';
       // A second tap while the first is out would open the page twice.
-      if (!_askedSeries.add(asked)) return;
+      if (!_askedKeys.add(asked)) return;
       final MediaKey? series;
       try {
-        series = await _seriesKeyOf(container, service, instanceId, seriesId);
+        series = await _serverKeyOf(
+          container,
+          service,
+          instanceId,
+          (client, cancelToken) =>
+              client.getSeriesKey(seriesId, cancelToken: cancelToken),
+        );
       } finally {
-        _askedSeries.remove(asked);
+        _askedKeys.remove(asked);
       }
       // The tile went away while the read was out: nobody is left to open it.
       if (!mounted) return;
@@ -149,6 +157,45 @@ extension OpenMedia on BuildContext {
     }
     await push(
       ServiceRoutes.streamItem(service, item.id, instanceId: instanceId),
+    );
+  }
+
+  /// Opens the title a live playback plays, on the connection [instanceId]
+  /// of [service] (empty: the lens): the page its source already named
+  /// (`StreamSession.titleKey`), else the page the server's ids for the title
+  /// name (`StreamServerClient.getTitleKey`), the movie's or for an episode
+  /// its series', else the server's own page of the title. A session that
+  /// names no title ([canOpenStreamSession] false) opens nothing.
+  Future<void> openStreamSession(
+    ServiceKey service,
+    StreamSession session, {
+    String instanceId = '',
+  }) async {
+    final container = ProviderScope.containerOf(this, listen: false);
+    final focus = instanceId.isNotEmpty
+        ? instanceId
+        : container.read(activeInstanceProvider(service))?.id;
+    if (session.titleKey case final key?) return openMedia(key, focus: focus);
+    final titleId = session.titleId;
+    if (titleId == null || titleId.isEmpty) return;
+    final asked = '${service.name}/$instanceId/title/$titleId';
+    if (!_askedKeys.add(asked)) return;
+    final MediaKey? key;
+    try {
+      key = await _serverKeyOf(
+        container,
+        service,
+        instanceId,
+        (client, cancelToken) =>
+            client.getTitleKey(titleId, cancelToken: cancelToken),
+      );
+    } finally {
+      _askedKeys.remove(asked);
+    }
+    if (!mounted) return;
+    if (key != null) return openMedia(key, focus: focus);
+    await push(
+      ServiceRoutes.streamItem(service, titleId, instanceId: instanceId),
     );
   }
 
@@ -180,39 +227,43 @@ extension OpenMedia on BuildContext {
   }
 }
 
-/// How long a tap waits for the series' ids before it opens the server's own
+/// How long a tap waits for the title's ids before it opens the server's own
 /// page instead: a server that is slow to say is not worth a tap that does
 /// nothing.
-const _seriesLookupLimit = Duration(seconds: 4);
+const _keyLookupLimit = Duration(seconds: 4);
 
-/// The seasons and episodes whose series is being read: a tap on one of them
-/// is not taken twice.
-final _askedSeries = <String>{};
+/// The taps whose page key is being read (a season's or an episode's series,
+/// a playback's title): a tap on one of them is not taken twice.
+final _askedKeys = <String>{};
 
-/// The page key of the series [seriesId] on the connection [instanceId] of
+/// Whether [session] names a title its card can open
+/// (`OpenMedia.openStreamSession`).
+bool canOpenStreamSession(StreamSession session) =>
+    session.titleKey != null || (session.titleId?.isNotEmpty ?? false);
+
+/// The page key [read] answers through the connection [instanceId] of
 /// [service] (empty: the lens), or null for any reason it cannot be had: the
-/// connection is gone, the server did not answer in [_seriesLookupLimit] or
-/// holds no id for the series.
-Future<MediaKey?> _seriesKeyOf(
+/// connection is gone, the server did not answer in [_keyLookupLimit] or
+/// holds no id for the title.
+Future<MediaKey?> _serverKeyOf(
   ProviderContainer container,
   ServiceKey service,
   String instanceId,
-  String seriesId,
+  Future<MediaKey?> Function(StreamServerClient client, CancelToken cancelToken)
+  read,
 ) async {
-  final read = CancelToken();
+  final cancelToken = CancelToken();
   try {
     // Through the connection's own client, so its address, access and pin
     // follow the route it is reached by.
     final client = container.read(
       streamClientForProvider((service: service, instanceId: instanceId)),
     );
-    return await client
-        .getSeriesKey(seriesId, cancelToken: read)
-        .timeout(_seriesLookupLimit);
+    return await read(client, cancelToken).timeout(_keyLookupLimit);
   } catch (_) {
     return null;
   } finally {
     // Whatever ended the wait, a read still out is not wanted.
-    read.cancel();
+    cancelToken.cancel();
   }
 }

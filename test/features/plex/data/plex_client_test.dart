@@ -1938,6 +1938,34 @@ void main() {
       },
     );
 
+    test(
+      'a title found without its Media reads its picture from the item',
+      () async {
+        final adapter = _MatcherAdapter(
+          matches: {'tmdb-603': 'plex://movie/5d776827880197001ec90904'},
+          byPlexGuid: {'plex://movie/5d776827880197001ec90904': _matrixRow()},
+          metadata: {
+            '2': {
+              ..._matrixRow()..remove('Guid'),
+              'Media': [
+                {'width': 3840, 'height': 2160, 'videoResolution': '4k'},
+              ],
+            },
+          },
+        );
+
+        final lookup = await _client(
+          adapter,
+        ).lookupByExternalId(tmdbId: '603', kind: StreamItemKind.movie);
+
+        expect(lookup.outcome, StreamLookupOutcome.found);
+        expect(lookup.item?.video?.resolution, '2160p');
+        // The ids the match was verified by stay: the item read sends none.
+        expect(lookup.item?.externalIds.tmdb, '603');
+        expect(adapter.pathed('/library/metadata/2'), hasLength(1));
+      },
+    );
+
     test('Plex\'s own guid with no rows is not in the library', () async {
       final adapter = _MatcherAdapter(
         matches: {'tmdb-603': 'plex://movie/5d776827880197001ec90904'},
@@ -2145,8 +2173,11 @@ class _MatcherAdapter implements HttpClientAdapter {
     this.byPlexGuid = const {},
     this.matchesStatus = 200,
     this.showSection = true,
+    this.metadata = const {},
   });
 
+  /// `/library/metadata/{ratingKey}` answers, by rating key.
+  final Map<String, Map<String, dynamic>> metadata;
   final Map<String, String> matches;
   final Map<String, Map<String, dynamic>> byPlexGuid;
   final int matchesStatus;
@@ -2201,6 +2232,15 @@ class _MatcherAdapter implements HttpClientAdapter {
             if (guid != null)
               {'guid': guid, 'name': 'The Matrix', 'year': 1999},
           ],
+        },
+      };
+    } else if (path.contains('/library/metadata/') &&
+        !path.endsWith('/matches')) {
+      final row = metadata[path.split('/').last];
+      body = {
+        'MediaContainer': {
+          'size': row == null ? 0 : 1,
+          'Metadata': [?row],
         },
       };
     } else {

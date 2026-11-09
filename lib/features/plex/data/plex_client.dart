@@ -896,7 +896,11 @@ class PlexClient implements StreamServerClient {
         );
         final items = await _itemsFromAsync(container['Metadata']);
         final match = bestStreamExternalMatch(items, query);
-        if (match != null) return StreamExternalLookup.found(match);
+        if (match != null) {
+          return StreamExternalLookup.found(
+            await _withPicture(match, cancelToken),
+          );
+        }
         return items.isEmpty
             ? const StreamExternalLookup.notInLibrary()
             : const StreamExternalLookup.notVerified();
@@ -940,7 +944,11 @@ class PlexClient implements StreamServerClient {
         final score = streamExternalMatchScore(match, query) ?? -1;
         // Confirmed by every id the arr offered: nothing a further round trip
         // could find would be better supported.
-        if (score >= query.idCount) return StreamExternalLookup.found(match);
+        if (score >= query.idCount) {
+          return StreamExternalLookup.found(
+            await _withPicture(match, cancelToken),
+          );
+        }
         if (score > bestScore) {
           best = match;
           bestScore = score;
@@ -952,7 +960,11 @@ class PlexClient implements StreamServerClient {
       }
     }
     final verified = best;
-    if (verified != null) return StreamExternalLookup.found(verified);
+    if (verified != null) {
+      return StreamExternalLookup.found(
+        await _withPicture(verified, cancelToken),
+      );
+    }
     // No round answered: that is the answer, and it is not "not there".
     final failure = lastFailure;
     if (!answered && failure != null) throw failure;
@@ -960,6 +972,20 @@ class PlexClient implements StreamServerClient {
     // an external id with no rows whether or not it holds the title, so this
     // is no claim either way.
     return const StreamExternalLookup.notVerified();
+  }
+
+  /// [item] with its picture: `/library/all?guid=` answers a title without
+  /// its `Media`, so a found title's frame (`2160p`) is read from the item
+  /// itself. The item as found when that read did not answer or carried no
+  /// frame either: the row then says nothing of the picture, as before.
+  Future<StreamItem> _withPicture(
+    StreamItem item,
+    CancelToken? cancelToken,
+  ) async {
+    if (item.video?.resolution != null) return item;
+    final full = await getItem(item.id, cancelToken: cancelToken);
+    final video = full?.video;
+    return video?.resolution == null ? item : item.withVideo(video);
   }
 
   /// How many rows one `?guid=` probe reads: see [lookupByExternalId].

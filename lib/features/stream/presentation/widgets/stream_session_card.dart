@@ -10,6 +10,7 @@ import 'package:cupola/core/utils/unit_space.dart';
 import 'package:cupola/core/widgets/ambient_background.dart';
 import 'package:cupola/core/widgets/app_card.dart';
 import 'package:cupola/core/widgets/content_card.dart';
+import 'package:cupola/core/widgets/pressable_scale.dart';
 import 'package:cupola/core/widgets/status_badge.dart';
 import 'package:cupola/features/stream/domain/models/stream_session.dart';
 import 'package:cupola/features/stream/domain/stream_semantics.dart';
@@ -54,6 +55,7 @@ class StreamSessionCard extends StatelessWidget {
     this.onTogglePause,
     this.onMessage,
     this.onOpenPerson,
+    this.onOpenTitle,
     this.posterUrl,
     this.posterHeaders,
     this.light,
@@ -100,6 +102,11 @@ class StreamSessionCard extends StatelessWidget {
   /// are. A Plex card carries it, since Plex has no Users tab for the door to
   /// sit in; null draws nothing.
   final VoidCallback? onOpenPerson;
+
+  /// Opens the title being played (`OpenMedia.openStreamSession`): the
+  /// poster and the words are then one button. Null for a session that names
+  /// no title, whose readout stays words.
+  final VoidCallback? onOpenTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -151,9 +158,8 @@ class StreamSessionCard extends StatelessWidget {
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Semantics(
-          container: true,
-          label: session.title,
+        StreamSessionReadout(
+          title: session.title,
           value: streamSessionValue(
             userName: session.userName,
             title: session.title,
@@ -167,7 +173,7 @@ class StreamSessionCard extends StatelessWidget {
             isPaused: session.isPaused,
             serverName: serverName,
           ),
-          excludeSemantics: true,
+          onOpenTitle: onOpenTitle,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -238,6 +244,49 @@ class StreamSessionCard extends StatelessWidget {
   static String? _progressLabel(double? progress) {
     if (progress == null) return null;
     return '${formatPercent(progress * 100)} in';
+  }
+}
+
+/// The readout of one live playback as one spoken sentence, its parts
+/// silenced: a button that opens the title when [onOpenTitle] is set, words
+/// otherwise. The controls after it stay their own nodes.
+class StreamSessionReadout extends StatelessWidget {
+  const StreamSessionReadout({
+    super.key,
+    required this.title,
+    required this.value,
+    required this.child,
+    this.onOpenTitle,
+  });
+
+  final String title;
+  final String value;
+  final Widget child;
+  final VoidCallback? onOpenTitle;
+
+  /// What activating an open readout does, said after the sentence.
+  static const String openHint = 'Opens the title';
+
+  @override
+  Widget build(BuildContext context) {
+    final open = onOpenTitle;
+    if (open == null) {
+      return Semantics(
+        container: true,
+        label: title,
+        value: value,
+        excludeSemantics: true,
+        child: child,
+      );
+    }
+    return PressableScale(
+      onTap: open,
+      semanticLabel: title,
+      semanticValue: value,
+      semanticHint: openHint,
+      excludeChildSemantics: true,
+      child: child,
+    );
   }
 }
 
