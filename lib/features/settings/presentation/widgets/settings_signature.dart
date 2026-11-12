@@ -6,7 +6,7 @@ import 'package:cupola/core/theme.dart';
 import 'package:cupola/core/widgets/service_ring.dart';
 
 /// Cupola's signature at the foot of Settings on a phone: the mark, the claim
-/// and the line that says which Cupola this is (`Cupola 1.0.0 · Apache-2.0`).
+/// and the line that says which Cupola this is (`Cupola 1.1.0-beta · Apache-2.0`).
 ///
 /// The one place the claim stands once the app is set up, and the phone's only
 /// readout of the version, for the operator and the requester alike. The wide
@@ -20,7 +20,7 @@ class SettingsSignature extends StatelessWidget {
 
   /// What a screen reader says for it, once: the claim, then which Cupola.
   static const spoken =
-      '${OnePunchline.claim} $kAppName $kAppVersion, $kAppLicence.';
+      '${OnePunchline.claim} $kAppName $kAppRelease, $kAppLicence.';
 
   @override
   Widget build(BuildContext context) {

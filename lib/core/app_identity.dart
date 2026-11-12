@@ -34,7 +34,26 @@ const String kAppName = 'Cupola';
 /// order two uploads of the same release, and a settings footer reading
 /// "Cupola 1.0.0+1" prints an increment that means nothing to the person
 /// reading it.
-const String kAppVersion = '1.0.0';
+const String kAppVersion = '1.1.0';
+
+/// The prerelease this build is, without its dash (`beta`), or empty for a
+/// stable release.
+///
+/// It lives here and not in `pubspec.yaml` because App Store Connect refuses a
+/// version that is not three numbers, so the pubspec cannot carry it. It is the
+/// one source of the suffix: `scripts/release_label.sh` reads it for the
+/// package names, the tag and the CI's desktop builds, so the footer, the
+/// packages and the release page always name the same beta.
+const String kAppPrerelease = 'beta';
+
+/// The release as a person reads it, suffix included: `1.1.0-beta`.
+///
+/// The suffix is a word, never numbered: a version has one beta at most, and
+/// the next beta moves the version itself (`1.1.1-beta`), so the footer of
+/// every build a person can hold names a different release.
+const String kAppRelease = kAppPrerelease == ''
+    ? kAppVersion
+    : '$kAppVersion-$kAppPrerelease';
 
 /// The licence, by SPDX identifier.
 ///
@@ -45,11 +64,11 @@ const String kAppVersion = '1.0.0';
 /// footer is not the place to spell out "Apache License, Version 2.0".
 const String kAppLicence = 'Apache-2.0';
 
-/// The one line a settings footer prints: `Cupola 1.0.0 · Apache-2.0`.
+/// The one line a settings footer prints: `Cupola 1.1.0-beta · Apache-2.0`.
 ///
 /// Assembled here rather than at the call site so the separator, the spacing and
 /// the order are decided once. A middot with hair spaces around it is the app's
 /// separator everywhere else a readout joins two facts, and a second surface
 /// wanting this line must print the same one rather than an em dash version of
 /// it.
-const String kAppIdentityLine = '$kAppName $kAppVersion\u00A0· $kAppLicence';
+const String kAppIdentityLine = '$kAppName $kAppRelease\u00A0· $kAppLicence';

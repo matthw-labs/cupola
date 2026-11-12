@@ -224,16 +224,11 @@ Two columns say how far each integration goes:
 | --- | --- | --- | --- | :-: |
 | **Jellyfin** | Who is watching right now, transcode reasons, resume points, libraries, users, devices and tasks; pause, stop or message a session | API key + viewer | Read + sessions | ✅ |
 | **Plex** | The same session-first board, driven by Plex's own semantics: libraries, on deck, devices, playlists; stop a session | Token | Read + stop | ◐ |
-| **Emby** | The same session-first board as Jellyfin, from Emby's own API: who is watching right now, resume points, libraries, users, devices and tasks; pause, stop or message a session | API key + viewer | Read + sessions | ○ ² |
+| **Emby** | The same session-first board as Jellyfin, from Emby's own API: who is watching right now, resume points, libraries, users, devices and tasks; pause, stop or message a session | API key + viewer | Read + sessions | ✅ |
 
-| **Tracearr** | Watches the media servers for you: every stream playing now across Plex, Jellyfin and Emby with how it reaches the viewer, who watched what and when, the people it knows, and the rules that were broken, by severity | API key | Read | ○ ³ |
+| **Tracearr** | Watches the media servers for you: every stream playing now across Plex, Jellyfin and Emby with how it reaches the viewer, who watched what and when, the people it knows, and the rules that were broken, by severity | API key | Read | ✅ ² |
 
-² Emby is new: its client is written against answers recorded from a real Emby 4.10
-server and has run against one in our test lab, but the app's screens have not yet.
-
-³ Tracearr is new: its client is written against answers recorded from a real Tracearr
-3.1.4 and has run against one in our test lab, but the app's screens have not yet. It
-needs Tracearr 2.7.0 or newer.
+² Tracearr needs version 2.7.0 or newer.
 
 ### Infrastructure
 
@@ -494,12 +489,14 @@ The third line is the whole `flutter test` suite, run as one bundle per folder:
 `flutter test` compiles each test file on its own, and with this many files the
 compiling takes longer than the tests. `flutter test <file>` still runs one file.
 
-`release.sh` writes the packages to `dist/<version>`. A beta keeps `pubspec.yaml` at
-three numbers and takes its suffix from `CUPOLA_PRERELEASE=beta.1`, which names the
-packages `cupola-<version>-beta.1.*`. Pushing the matching tag (`v<version>-beta.1`)
-builds Windows and Linux on CI into a draft prerelease;
-`scripts/release_attach.sh v<version>-beta.1` then adds the packages built here and
-rewrites `SHA256SUMS` over every file of the draft. The macOS package needs the
+`release.sh` writes the packages to `dist/<release>`. A release is named by
+`scripts/release_label.sh`: `pubspec.yaml`'s three numbers (App Store Connect takes
+nothing else) and, for a beta, the suffix in `kAppPrerelease`
+(`lib/core/app_identity.dart`), which also reaches the Settings footer: `1.1.0-beta`
+packages `cupola-1.1.0-beta.*`. Pushing the matching tag (`v1.1.0-beta`) builds
+Windows and Linux on CI into a draft prerelease; `scripts/release_attach.sh
+v1.1.0-beta` then adds the packages built here and rewrites `SHA256SUMS` over every
+file of the draft. The macOS package needs the
 team's Developer ID certificate in the keychain and `CUPOLA_NOTARY_PROFILE` naming
 credentials saved with `xcrun notarytool store-credentials`.
 `scripts/release.sh testflight` uploads an iOS build to App Store Connect instead.
@@ -568,8 +565,8 @@ page is in the app today. The badge at the top points at the
 latest published release, which trails `main` between tags. 1.0.0 is the first release
 of the Cupola line, and everything before it was published as Seekarr.
 
-- **19 services integrated.** **11 we have verified against real instances**, 5
-  partially, and Unraid, Emby and Tracearr against recorded answers only. The
+- **19 services integrated.** **13 we have verified against real instances**, 5
+  partially, and Unraid against recorded answers only. The
   [tables above](#supported-services) say which is which, per service.
 - **Nearly 1,000 test files** covering models, services, providers and widgets, offline
   by default, with an opt-in Docker-backed end-to-end tier against real services

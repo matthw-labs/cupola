@@ -86,7 +86,7 @@ List<Widget> settingsAboutRows(
       onTap: () => showLicensePage(
         context: context,
         applicationName: kAppName,
-        applicationVersion: kAppVersion,
+        applicationVersion: kAppRelease,
         applicationIcon: const Padding(
           padding: EdgeInsets.all(AppSpacing.sm),
           child: CupolaMark.sized(56),

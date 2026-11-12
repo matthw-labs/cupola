@@ -238,7 +238,7 @@ void main() {
 
       expect(find.byType(LicensePage), findsOneWidget);
       expect(find.text(kAppName), findsOneWidget);
-      expect(find.text(kAppVersion), findsOneWidget);
+      expect(find.text(kAppRelease), findsOneWidget);
       expect(find.byType(CupolaMark), findsOneWidget);
       // Unraid's policy prescribes this sentence for every app using the name.
       expect(
