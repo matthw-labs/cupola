@@ -255,6 +255,9 @@ MediaEpisode _fromSonarr(
   if (episode.isUnairedAt(now)) {
     return word(StateWord.notAired.label, StatusTone.neutral);
   }
+  if (!episode.hasAiredAt(now)) {
+    return word(StateWord.noAirDate.label, StatusTone.neutral);
+  }
   if (requester) return word('Not on the server yet', StatusTone.neutral);
   // `Missing` only over a queue read whole: with it unread, an aired episode
   // with no file may be on its way.

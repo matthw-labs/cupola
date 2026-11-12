@@ -138,7 +138,7 @@ MediaSeasonFiles _seasonFiles(
   final total = episodes.isEmpty ? (statsTotal ?? 0) : episodes.length;
   final aired = episodes.isEmpty
       ? total
-      : episodes.where((e) => !e.isUnairedAt(now)).length;
+      : episodes.where((e) => e.hasAiredAt(now)).length;
   final onDisk = episodes.isEmpty
       ? (statsOnDisk ?? 0)
       : episodes.where((e) => e.hasFile).length;

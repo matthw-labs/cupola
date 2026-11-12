@@ -57,6 +57,12 @@ enum StateWord {
   /// The backlog: an episode not aired yet.
   notAired('Not aired', StatusTone.neutral),
 
+  /// An episode Sonarr holds no air date for and no file of: announced
+  /// without a date (Sonarr's own `TBA`), or an old catalogue that never had
+  /// one. Neither aired nor coming, so neither `Missing` nor [notAired]:
+  /// Sonarr's Wanted leaves it out too.
+  noAirDate('No air date', StatusTone.neutral),
+
   /// The backlog: a film not out yet.
   notOutYet('Not out yet', StatusTone.neutral),
 

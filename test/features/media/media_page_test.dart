@@ -1324,7 +1324,7 @@ void main() {
       );
       expect(find.text('Standard'), findsOneWidget);
       expect(find.text('10 of 10 on disk\u00A0· 720p WEB'), findsOneWidget);
-      expect(find.text('8 episodes\u00A0· not aired'), findsOneWidget);
+      expect(find.text('10 episodes\u00A0· not aired'), findsOneWidget);
       expect(find.text('Import a file'), findsOneWidget);
 
       // A season stops being looked for, and its episodes with it.

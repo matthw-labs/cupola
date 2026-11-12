@@ -87,9 +87,10 @@ void main() {
         expect(episode.isUnairedAt(DateTime.utc(2026, 1, 1)), isTrue);
       });
 
-      test('no air date at all counts as aired', () {
-        // Sonarr leaves the field empty for older catalogues; reporting
-        // "Not released" for something from 1994 would be worse than silence.
+      test('no air date at all is neither unaired nor aired', () {
+        // Sonarr's `TBA` (issue #13), and older catalogues too: "Not aired"
+        // would be false for something from 1994, and "Missing" is false for
+        // an episode Sonarr's own Wanted leaves out.
         const episode = SonarrEpisode(
           id: 1,
           seasonNumber: 1,
@@ -101,6 +102,44 @@ void main() {
 
         expect(episode.airsAt, isNull);
         expect(episode.isUnairedAt(DateTime.utc(2026, 1, 1)), isFalse);
+        expect(episode.hasAiredAt(DateTime.utc(2026, 1, 1)), isFalse);
+      });
+
+      test('no air date with a file counts as aired, as Sonarr counts it', () {
+        const episode = SonarrEpisode(
+          id: 1,
+          seasonNumber: 0,
+          episodeNumber: 3,
+          title: 'Special',
+          hasFile: true,
+          monitored: true,
+        );
+
+        expect(episode.hasAiredAt(DateTime.utc(2026, 1, 1)), isTrue);
+      });
+
+      test('a passed date has aired and a future one has not', () {
+        const past = SonarrEpisode(
+          id: 1,
+          seasonNumber: 1,
+          episodeNumber: 1,
+          title: 'Episode',
+          hasFile: false,
+          monitored: true,
+          airDateUtc: '2020-01-01T00:00:00Z',
+        );
+        const future = SonarrEpisode(
+          id: 2,
+          seasonNumber: 1,
+          episodeNumber: 2,
+          title: 'Episode',
+          hasFile: true,
+          monitored: true,
+          airDateUtc: '2999-01-01T00:00:00Z',
+        );
+
+        expect(past.hasAiredAt(DateTime.utc(2026, 1, 1)), isTrue);
+        expect(future.hasAiredAt(DateTime.utc(2026, 1, 1)), isFalse);
       });
 
       test('an unparseable air date does not throw', () {

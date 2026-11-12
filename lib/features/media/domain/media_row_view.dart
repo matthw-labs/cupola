@@ -330,7 +330,7 @@ List<MediaRowView> _sonarrFacts(
   final queue = copy.episodeQueue;
   final aired = _bySeason([
     for (final episode in copy.episodes)
-      if (!episode.isUnairedAt(now)) episode,
+      if (episode.hasAiredAt(now)) episode,
   ]);
   final downloading = <SonarrEpisode>[];
   final blocked = <SonarrEpisode>[];
@@ -355,7 +355,7 @@ List<MediaRowView> _sonarrFacts(
     } else if (!episode.hasFile &&
         episode.monitored &&
         episode.seasonNumber > 0 &&
-        !episode.isUnairedAt(now) &&
+        episode.hasAiredAt(now) &&
         queue.isWhole) {
       missing.add(episode);
     }
@@ -504,7 +504,7 @@ Map<int, int> _airedBySeason(List<MediaRow> rows, DateTime now) {
         return {
           for (final MapEntry(:key, :value) in _bySeason([
             for (final episode in episodes)
-              if (!episode.isUnairedAt(now)) episode,
+              if (episode.hasAiredAt(now)) episode,
           ]).entries)
             key: value.length,
         };

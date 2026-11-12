@@ -86,7 +86,14 @@ void main() {
       expect(second[3].tone, StatusTone.info);
       expect(second[3].downloading, isTrue);
       expect(seasons[1].missing.map((e) => e.number), [6, 7, 8, 9, 10]);
-      expect(seasons[2].episodes.map((e) => e.state).toSet(), {'Not aired'});
+      // Eight announced with a date, then two without one (Sonarr's `TBA`,
+      // issue #13): neither aired nor missing.
+      expect(seasons[2].episodes.map((e) => e.state), [
+        for (var e = 1; e <= 8; e++) 'Not aired',
+        'No air date',
+        'No air date',
+      ]);
+      expect(seasons[2].missing, isEmpty);
       expect(
         second[2].spoken,
         'Episode 3, The Second Cycle. 5\u00A0min\u00A0left',
@@ -203,7 +210,7 @@ void main() {
       expect(seasons.map((s) => (s.label, s.detail, s.aired)), [
         ('Season 1', '10 of 10 on disk\u00A0· 720p WEB', true),
         ('Season 2', '3 of 10 on disk\u00A0· 720p WEB, 1080p WEB', true),
-        ('Season 3', '8 episodes\u00A0· not aired', false),
+        ('Season 3', '10 episodes\u00A0· not aired', false),
       ]);
     });
 
