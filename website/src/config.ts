@@ -5,7 +5,7 @@ const repo = 'https://github.com/matthw-labs/cupola';
 // The GitHub release the site offers, by version. Its assets are named
 // `cupola-<version>` plus a suffix per platform; move it to the next version
 // once that release is published.
-const release = '1.0.0-beta.1';
+const release = '1.1.0-beta';
 const asset = (suffix: string) => `${repo}/releases/download/v${release}/cupola-${release}${suffix}`;
 
 export const site = {
