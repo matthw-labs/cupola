@@ -31,7 +31,7 @@ import 'package:cupola/features/settings/presentation/widgets/donation_sheet.dar
 /// on the rail; the pane shows them as cards in its own grammar, and both
 /// layouts build the same rows from here so they cannot drift.
 
-final Uri _githubUri = Uri.parse('https://github.com/matthw-labs/seekarr');
+final Uri _githubUri = Uri.parse('https://github.com/matthw-labs/cupola');
 final Uri _feedbackUri = Uri(scheme: 'mailto', path: 'matthw.labs@gmail.com');
 
 /// GitHub, Send feedback, Support development, Licenses & trademarks: the

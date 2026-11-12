@@ -1,8 +1,8 @@
 name: cupola
 description: One native client for a self-hosted media stack and the box it runs on.
-homepage: https://github.com/matthw-labs/seekarr
-repository: https://github.com/matthw-labs/seekarr
-issue_tracker: https://github.com/matthw-labs/seekarr/issues
+homepage: https://github.com/matthw-labs/cupola
+repository: https://github.com/matthw-labs/cupola
+issue_tracker: https://github.com/matthw-labs/cupola/issues
 
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
