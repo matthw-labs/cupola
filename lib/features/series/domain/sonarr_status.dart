@@ -76,7 +76,9 @@ MediaAvailability sonarrEpisodeAvailability(
   // Not yet broadcast: nothing is wrong and nothing is expected, so this is
   // "Not released" rather than the red "Missing" every future episode of a
   // continuing series used to draw.
-  if (episode.isUnairedAt(now ?? DateTime.now())) {
+  // With no date at all (Sonarr's `TBA`) it is not on the way to Wanted
+  // either: Sonarr leaves it out, and so does this.
+  if (!episode.hasAiredAt(now ?? DateTime.now())) {
     return MediaAvailability.unavailable;
   }
 

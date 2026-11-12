@@ -915,7 +915,8 @@ class SonarrFake extends ArrFake {
   ];
 
   /// Cosmos Laundromat's episodes: S1 on disk, S2 E1–E3 on disk, E4–E10
-  /// aired and missing (E4, E5 downloading), S3 announced.
+  /// aired and missing (E4, E5 downloading), S3 E1–E8 announced with dates
+  /// and E9–E10 announced without one (Sonarr's `TBA`, no `airDateUtc`).
   List<JsonMap> _episodes(ServerContext c, int seriesId) {
     if (_anime(c) || seriesId != 1) return const [];
     final live = _live(c, seriesId);
@@ -926,6 +927,7 @@ class SonarrFake extends ArrFake {
       required bool file,
       Duration? airedAgo,
       Duration? airsIn,
+      bool dated = true,
     }) => {
       'id': ++id,
       'seriesId': 1,
@@ -941,9 +943,10 @@ class SonarrFake extends ArrFake {
       if (file || (live?.arrivedEpisodes.contains((season, number)) ?? false))
         'episodeFileId': id + 5000,
       'monitored': live?.episodesMonitored[id] ?? true,
-      'airDateUtc': airsIn != null
-          ? c.ahead(airsIn)
-          : c.ago(airedAgo ?? const Duration(days: 400)),
+      if (dated)
+        'airDateUtc': airsIn != null
+            ? c.ahead(airsIn)
+            : c.ago(airedAgo ?? const Duration(days: 400)),
     };
     return [
       for (var e = 1; e <= 10; e++) episode(1, e, file: true),
@@ -962,6 +965,7 @@ class SonarrFake extends ArrFake {
           file: false,
           airsIn: Duration(days: 3 + (e - 1) * 7, minutes: 7),
         ),
+      for (var e = 9; e <= 10; e++) episode(3, e, file: false, dated: false),
     ];
   }
 

@@ -77,15 +77,27 @@ class SonarrEpisode {
     return parsed;
   }
 
-  /// True when the broadcast is in the future.
+  /// True when the broadcast has a date and the date is in the future.
   ///
-  /// An episode with no air date at all is treated as aired: Sonarr leaves the
-  /// field empty for older catalogues, and reporting "Not released" for
-  /// something from 1994 would be worse than saying nothing.
+  /// An episode with no air date is not unaired: Sonarr leaves the field
+  /// empty for older catalogues too, and reporting "Not aired" for something
+  /// from 1994 would be false. It is not aired either: see [hasAiredAt].
   bool isUnairedAt(DateTime now) {
     final airsAt = this.airsAt;
     if (airsAt == null) return false;
     return airsAt.isAfter(now);
+  }
+
+  /// True when the episode counts as broadcast, as Sonarr counts it: a date
+  /// that has passed, or, with no date at all, a file on disk.
+  ///
+  /// An episode with no date and no file (Sonarr's `TBA`) has not aired:
+  /// Sonarr's Wanted leaves it out and its statistics do not count it, so it
+  /// is never `Missing` and never one of a season's aired episodes.
+  bool hasAiredAt(DateTime now) {
+    final airsAt = this.airsAt;
+    if (airsAt == null) return hasFile;
+    return !airsAt.isAfter(now);
   }
 
   factory SonarrEpisode.fromJson(Map<String, dynamic> json) {

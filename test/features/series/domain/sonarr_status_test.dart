@@ -188,6 +188,18 @@ void main() {
       expect(status.tone, StatusTone.neutral);
     });
 
+    // Issue #13: Sonarr's `TBA` sends no date, and its Wanted leaves the
+    // episode out. Reading "no date" as "aired" made every one `Missing`.
+    test('an episode with no air date and no file is never Missing', () {
+      final status = sonarrEpisodeStatus(
+        _episode(hasFile: false),
+        now: DateTime.utc(2026, 1, 1),
+      );
+
+      expect(status.availability, isNot(MediaAvailability.missing));
+      expect(status.label, isNot('Missing'));
+    });
+
     test('a queue entry wins over the availability axis', () {
       final status = sonarrEpisodeStatus(
         _episode(hasFile: false),

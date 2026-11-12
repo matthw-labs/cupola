@@ -674,7 +674,7 @@ List<MediaRow> _series() {
   final now = catalogNow;
   var id = 1000;
   final episodes = [
-    for (final (season, count) in [(1, 10), (2, 10), (3, 8)])
+    for (final (season, count) in [(1, 10), (2, 10), (3, 10)])
       for (var number = 1; number <= count; number++)
         SonarrEpisode(
           id: ++id,
@@ -690,14 +690,18 @@ List<MediaRow> _series() {
               ? id + 5000
               : null,
           monitored: true,
-          airDateUtc:
-              (season == 3
-                      ? now.add(Duration(days: 3 + (number - 1) * 7, hours: 1))
-                      : now.subtract(
-                          Duration(days: 400 - season * 60 + number),
-                        ))
-                  .toUtc()
-                  .toIso8601String(),
+          // S3 E9 and E10 are announced without a date: Sonarr's `TBA`.
+          airDateUtc: season == 3 && number > 8
+              ? null
+              : (season == 3
+                        ? now.add(
+                            Duration(days: 3 + (number - 1) * 7, hours: 1),
+                          )
+                        : now.subtract(
+                            Duration(days: 400 - season * 60 + number),
+                          ))
+                    .toUtc()
+                    .toIso8601String(),
         ),
   ];
   Map<String, Object?> record(
@@ -1028,6 +1032,15 @@ void main() {
         height: 2200,
         key: const MediaKey.tv(358332),
         season: 1,
+      ),
+      _scene(
+        'Series on its announced season · eight episodes with a date read '
+        'Not aired, the two Sonarr holds no date for read No air date, '
+        'never Missing',
+        _series(),
+        height: 2200,
+        key: const MediaKey.tv(358332),
+        season: 3,
       ),
       _scene(
         'Series · Manage, Automatic search open: every season, then each '
