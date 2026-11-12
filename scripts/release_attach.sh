@@ -6,8 +6,8 @@
 # downloaded back from GitHub, so they describe what a reader gets, not what
 # sits in dist/. The release stays a draft: publishing it is a person's call.
 #
-#   scripts/release.sh all                       # with CUPOLA_PRERELEASE if the tag has a suffix
-#   scripts/release_attach.sh v1.0.0-beta.1
+#   scripts/release.sh all
+#   scripts/release_attach.sh v$(scripts/release_label.sh)
 
 set -euo pipefail
 
@@ -21,9 +21,9 @@ if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+(\.[0-9A-Za-z]+)*)?$ ]];
 fi
 
 RELEASE="${TAG#v}"
-VERSION=$(grep '^version:' "$ROOT_DIR/pubspec.yaml" | sed 's/version: *//;s/+.*//')
-if [[ "${RELEASE%%-*}" != "$VERSION" ]]; then
-  printf 'Tag %s does not match pubspec.yaml version %s\n' "$TAG" "$VERSION" >&2
+EXPECTED=$("$ROOT_DIR/scripts/release_label.sh")
+if [[ "$RELEASE" != "$EXPECTED" ]]; then
+  printf 'Tag %s does not name this tree, which is %s (pubspec.yaml and kAppPrerelease)\n' "$TAG" "$EXPECTED" >&2
   exit 1
 fi
 

@@ -16,32 +16,19 @@ case "$TARGET" in
     ;;
 esac
 
-VERSION=$(grep '^version:' "$ROOT_DIR/pubspec.yaml" | sed 's/version: *//;s/+.*//')
+# The release this tree is (`1.1.0` or `1.1.0-beta`): pubspec.yaml's three
+# numbers, which App Store Connect requires, and kAppPrerelease from
+# lib/core/app_identity.dart, the one place a beta suffix is written. The label
+# script refuses anything but digits, dots and words, so neither the AppleScript
+# heredoc nor `rm -rf "$DIST_DIR"` below ever sees quotes or `..`.
+VERSION=$("$ROOT_DIR/scripts/release_label.sh" --version)
+RELEASE=$("$ROOT_DIR/scripts/release_label.sh")
 
-if [[ -z "$VERSION" ]]; then
-  printf 'Failed to read version from pubspec.yaml\n' >&2
+# The suffix used to come from CUPOLA_PRERELEASE. A shell still carrying one
+# that disagrees with the source would package one beta under another's name.
+if [[ -n "${CUPOLA_PRERELEASE:-}" && "$RELEASE" != "${VERSION}-${CUPOLA_PRERELEASE}" ]]; then
+  printf 'CUPOLA_PRERELEASE=%s disagrees with kAppPrerelease (%s): unset it\n' "$CUPOLA_PRERELEASE" "$RELEASE" >&2
   exit 1
-fi
-
-# The version reaches an AppleScript heredoc and `rm -rf "$DIST_DIR"`. A branch
-# whose `version:` was edited to carry quotes or `..` must fail here, before
-# either interpreter sees it.
-if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([+-][0-9A-Za-z.-]+)?$ ]] ||
-  [[ "$VERSION" == *..* ]]; then
-  printf 'Refusing a version that is not a release version: %s\n' "$VERSION" >&2
-  exit 1
-fi
-
-# A prerelease keeps pubspec.yaml's three numbers (App Store Connect refuses
-# anything else) and carries its suffix in the package names and the tag only:
-# CUPOLA_PRERELEASE=beta.1 packages `cupola-1.0.0-beta.1.*` for `v1.0.0-beta.1`.
-RELEASE="$VERSION"
-if [[ -n "${CUPOLA_PRERELEASE:-}" ]]; then
-  if [[ ! "$CUPOLA_PRERELEASE" =~ ^[0-9A-Za-z]+(\.[0-9A-Za-z]+)*$ ]]; then
-    printf 'Refusing a prerelease suffix that is not dot-separated words: %s\n' "$CUPOLA_PRERELEASE" >&2
-    exit 1
-  fi
-  RELEASE="${VERSION}-${CUPOLA_PRERELEASE}"
 fi
 
 cd "$ROOT_DIR"

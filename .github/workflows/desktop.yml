@@ -3,9 +3,9 @@ name: Desktop builds
 # Windows and Linux build only on their own host, so they are built here.
 # Run it by hand from the Actions tab, or push a version tag: a tag also
 # attaches both archives to a draft release of the same name. A tag with a
-# suffix (`v1.0.0-beta.1`) makes that draft a prerelease. The suffix lives only
-# in the tag and the file names: pubspec.yaml keeps `1.0.0`, because App Store
-# Connect refuses a version that is not three numbers.
+# suffix (`v1.1.0-beta`) makes that draft a prerelease. The suffix is
+# kAppPrerelease in lib/core/app_identity.dart: pubspec.yaml keeps `1.1.0`,
+# because App Store Connect refuses a version that is not three numbers.
 
 on:
   workflow_dispatch:
@@ -30,27 +30,19 @@ jobs:
         with:
           persist-credentials: false
 
-      # A tag names the release; a manual run is named after pubspec.yaml. A
-      # tag whose version is not the one in pubspec.yaml fails here, before
-      # two hosts build an app that calls itself something else.
+      # scripts/release_label.sh names the release (pubspec.yaml plus
+      # kAppPrerelease). A tag that names another one fails here, before two
+      # hosts build an app that calls itself something else.
       - name: Release label
         id: label
         env:
           REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
         run: |
-          version=$(grep '^version:' pubspec.yaml | sed 's/version: *//;s/+.*//')
-          release="$version"
-          if [[ "$REF_TYPE" == "tag" ]]; then
-            release="${REF_NAME#v}"
-            if [[ ! "$release" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]]; then
-              echo "::error::Tag $REF_NAME is not vX.Y.Z or vX.Y.Z-suffix"
-              exit 1
-            fi
-            if [[ "${release%%-*}" != "$version" ]]; then
-              echo "::error::Tag $REF_NAME does not match pubspec.yaml version $version"
-              exit 1
-            fi
+          release=$(scripts/release_label.sh)
+          if [[ "$REF_TYPE" == "tag" && "${REF_NAME#v}" != "$release" ]]; then
+            echo "::error::Tag $REF_NAME does not name this tree, which is $release (pubspec.yaml and kAppPrerelease)"
+            exit 1
           fi
           echo "release=$release" >> "$GITHUB_OUTPUT"
 

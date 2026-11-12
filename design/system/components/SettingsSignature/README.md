@@ -13,7 +13,7 @@ Rendered from `lib/features/settings/presentation/widgets/settings_signature.dar
 - `AppSpacing.md` below, the claim, `OnePunchline.claim` (*A Cupola over your server.*), in `textTheme.titleLarge` (the
   display face, at a section heading's size, as the Welcome sets it at a screen's) and `onSurface`, centred; it wraps
   rather than shrinks at a large reading size.
-- `AppSpacing.xs` below, `kAppIdentityLine` (*Cupola 1.0.0 · Apache-2.0*) in `textTheme.labelSmall` and `dimText`.
+- `AppSpacing.xs` below, `kAppIdentityLine` (*Cupola 1.1.0-beta · Apache-2.0*: `kAppRelease`, the beta suffix included) in `textTheme.labelSmall` and `dimText`.
 - `AppSpacing.md` under it, then the list's own clearance for the floating bar.
 
 ## The consumer provides
@@ -23,7 +23,7 @@ does not draw it: its rail ends with `kAppIdentityLine` alone, where a mark and 
 
 ## Semantics
 
-One sentence, its parts silenced: *A Cupola over your server. Cupola 1.0.0, Apache-2.0.* (`SettingsSignature.spoken`).
+One sentence, its parts silenced: *A Cupola over your server. Cupola 1.1.0-beta, Apache-2.0.* (`SettingsSignature.spoken`).
 The mark is decorative.
 
 ## States in the catalog

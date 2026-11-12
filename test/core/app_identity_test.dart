@@ -49,7 +49,7 @@ void main() {
     // The footer's exact sentence, assembled once so a second surface wanting
     // this line prints the same one rather than an em-dash version of it.
     test('the footer line is name, version, licence', () {
-      expect(kAppIdentityLine, 'Cupola 1.0.0\u00A0· Apache-2.0');
+      expect(kAppIdentityLine, 'Cupola 1.1.0-beta\u00A0· Apache-2.0');
       expect(kAppIdentityLine, startsWith(kAppName));
       expect(kAppIdentityLine, endsWith(kAppLicence));
     });

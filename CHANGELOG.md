@@ -1,6 +1,10 @@
 # Changelog
 
-## Unreleased
+## 1.1.0-beta
+
+Two new services in the Stream group, Emby and Tracearr, both tried on servers we use
+every day, and what those servers taught us about Jellyfin and Plex too. It updates
+1.0.0-beta.1 in place: your connections stay.
 
 ### Added
 
@@ -24,17 +28,39 @@
   service and the form names the one that answered, and offers to set that one up
   with the same address.
 
+- **Posters are named.** A media server's library, a title's contents and *Recently
+  added* put the title and the year under each poster, so one without artwork is not
+  a blank.
+
+### Fixed
+
+- **An episode Sonarr has no date for is no longer Missing** (#13). Sonarr sends no
+  date for an episode announced without one (its *TBA*) and leaves it out of Wanted;
+  we read the missing date as a past one. It now reads *No air date*, and counts
+  neither as aired nor as missing.
+- **A session control is shown only where the player takes it.** Jellyfin and Emby
+  accept Pause, Stop and Message for any player and answer the same either way, so a
+  TV app that never listens took a Pause and played on. Those controls now appear
+  only for players that announce them, and after Pause or Stop the page says when the
+  player did not obey.
+- **A playback opens its title.** A stream in *Now playing* opens the title it plays,
+  and Play leads on the server the title was opened from.
+- **Plex names a 4K copy.** A title found on Plex says its copy's picture again
+  (`2160p`), which Plex's search answer leaves out.
+- **Media server rooms no longer flash** a placeholder for a frame on every refresh.
+- **TrueNAS says a pool's state in words** (`Healthy`, `Degraded`, `Has errors`)
+  instead of ZFS's raw `ONLINE`.
+- **A title Seerr reads as Processing** no longer says Radarr already tracks it while
+  Radarr's own row says it does not.
+- **An episode code never splits** across two lines (`S2 E5`).
+- **Dockge is recognised by its own page**, so a Tracearr at the address being
+  checked is no longer taken for it.
+- **The GitHub link in Settings** opens the repository under its current name.
+
 ### Known limits
 
-- **Emby** is new: we wrote its client from answers recorded from a real Emby 4.10
-  and run it against one in our test lab, and we have not yet run it against a server
-  we use every day.
-- **Tracearr** is new: we wrote its client from answers recorded from a real Tracearr
-  3.1.4 and run it against one in our test lab, watching the lab's Jellyfin and
-  Emby, with two streams at once that break its limit. Signing in as the owner with
-  Plex, and the owner's Acknowledge and Dismiss, have not yet been tried on a server
-  we use every day. *Today* counts from midnight UTC, not from midnight where you
-  are.
+- **Tracearr** needs version 2.7.0 or newer. History has no filter by library,
+  because Tracearr's history does not offer one, and Live has no filters yet.
 
 ## 1.0.0-beta.1
 
