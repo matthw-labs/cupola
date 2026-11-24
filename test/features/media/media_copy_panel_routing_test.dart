@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:cupola/core/api/base_arr_service.dart';
 import 'package:cupola/core/status/media_status.dart';
 import 'package:cupola/core/theme.dart';
 import 'package:cupola/features/activity/domain/service_type.dart';
@@ -27,6 +28,8 @@ const _second = ServiceInstance(
 /// The queue record the copy is downloading, under the same id on both servers.
 final _record = <String, dynamic>{
   'id': 9,
+  'movieId': 5,
+  'downloadId': 'fake-download',
   'title': 'Big.Buck.Bunny.2008.1080p.BluRay',
   'downloadClient': 'qBittorrent',
   'size': 2400000000,
@@ -43,6 +46,18 @@ const _stalled = MediaStatusInfo(
 /// Records the queue writes that reach one Radarr.
 class _RecordingRadarr extends FakeRadarrService {
   final List<int> removed = [];
+  final List<int> searched = [];
+  final List<bool> deleteFromClient = [];
+
+  @override
+  Future<ArrRecordPage> getQueuePage({
+    Map<String, dynamic>? queryParameters,
+  }) async => ArrRecordPage(records: [_record], total: 1);
+
+  @override
+  Future<void> searchMovie(int id) async {
+    searched.add(id);
+  }
 
   @override
   Future<List<Map<String, dynamic>>> getMovieQueue(int movieId) async => [
@@ -57,8 +72,10 @@ class _RecordingRadarr extends FakeRadarrService {
     int id, {
     bool removeFromClient = true,
     bool blocklist = false,
+    bool? skipRedownload,
   }) async {
     removed.add(id);
+    deleteFromClient.add(removeFromClient);
   }
 }
 
@@ -124,7 +141,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(other.removed, [9]);
+    expect(other.deleteFromClient, [false]);
+    expect(other.searched, [5]);
     expect(lens.removed, isEmpty);
+    expect(lens.searched, isEmpty);
   });
 
   testWidgets('Remove download goes to the copy\'s own Radarr', (tester) async {

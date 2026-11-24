@@ -109,6 +109,7 @@ class _RecordingSonarrService extends FakeSonarrService {
     int id, {
     bool removeFromClient = true,
     bool blocklist = false,
+    bool? skipRedownload,
   }) async {
     removed.add(id);
   }

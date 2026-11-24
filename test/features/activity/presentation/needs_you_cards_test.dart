@@ -79,7 +79,10 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('Try another download'), findsOneWidget);
-    expect(find.textContaining('drops this one'), findsOneWidget);
+    expect(
+      find.textContaining('The 1.1\u00A0GB so far stays.'),
+      findsOneWidget,
+    );
     expect(find.text('Remove'), findsOneWidget);
     expect(find.text('Keep waiting'), findsOneWidget);
     // The time is in the explanation, the route alone under the release.
@@ -101,8 +104,8 @@ void main() {
     await harness.unmount(tester);
   });
 
-  testWidgets('Try another download drops it through its arr, blocklisted, '
-      'and the card says so', (tester) async {
+  testWidgets('Try another download keeps the files, blocklists the release, '
+      'and requests a search', (tester) async {
     final harness = await _pump(tester);
 
     await tester.tap(find.text('Try another download'));
@@ -111,11 +114,10 @@ void main() {
     final deletes = harness.network.requests.where(_queueDelete).toList();
     expect(deletes, hasLength(1));
     expect(deletes.single.uri.queryParameters['blocklist'], 'true');
-    expect(deletes.single.uri.queryParameters['removeFromClient'], 'true');
+    expect(deletes.single.uri.queryParameters['removeFromClient'], 'false');
+    expect(deletes.single.uri.queryParameters['skipRedownload'], 'true');
     expect(
-      find.textContaining(
-        RegExp(r'^Dropped\u00A0· Radarr.* is looking for another'),
-      ),
+      find.text('Retry requested\u00A0· Downloaded files kept'),
       findsOneWidget,
     );
     expect(find.text('Try another download'), findsNothing);

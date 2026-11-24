@@ -57,7 +57,7 @@ ProviderContainer _container(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(HomeDownloadsModule)));
 
 void main() {
-  testWidgets('P1: Try another download drops it through its arr, '
+  testWidgets('P1: Try another download keeps the existing files, '
       'blocklisted, and the row says so until the Home is read again', (
     tester,
   ) async {
@@ -71,10 +71,9 @@ void main() {
     final deletes = harness.network.requests.where(_queueDelete).toList();
     expect(deletes, hasLength(1));
     expect(deletes.single.uri.queryParameters['blocklist'], 'true');
-    expect(deletes.single.uri.queryParameters['removeFromClient'], 'true');
-    final note = find.textContaining(
-      RegExp(r'^Dropped\u00A0· Radarr.* is looking for another'),
-    );
+    expect(deletes.single.uri.queryParameters['removeFromClient'], 'false');
+    expect(deletes.single.uri.queryParameters['skipRedownload'], 'true');
+    final note = find.text('Retry requested\u00A0· Downloaded files kept');
     expect(note, findsOneWidget);
     expect(find.text('Try another download'), findsNothing);
 

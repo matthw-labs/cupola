@@ -102,6 +102,7 @@ class MediaCopyPanelCard extends ConsumerWidget {
           instanceId: connection.id,
           recordId: recordId,
           title: release,
+          downloadId: stringOrNull(record?['downloadId']),
         );
         onChanged();
       case MediaCopyAction.removeDownload when recordId != null:

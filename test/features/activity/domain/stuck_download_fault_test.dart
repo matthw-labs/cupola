@@ -240,8 +240,7 @@ void main() {
           StuckAction.tryAnotherDownload,
           _stuck(doneBytes: (1.1 * _gb).round()),
         ),
-        "Radarr drops this one (1.1\u00A0GB so far), won't pick it again, and "
-        'looks for another.',
+        'Radarr is asked to find another release. The 1.1\u00A0GB so far stays.',
       );
     });
 
@@ -251,7 +250,7 @@ void main() {
           StuckAction.tryAnotherDownload,
           _stuck(connectionName: '4K'),
         ),
-        "Radarr 4K drops this one, won't pick it again, and looks for another.",
+        'Radarr 4K is asked to find another release. Downloaded files stay.',
       );
     });
 
@@ -315,7 +314,7 @@ void main() {
       final item = _stuck();
       expect(
         stuckActionNote(StuckAction.tryAnotherDownload, item),
-        'Dropped\u00A0· Radarr is looking for another download',
+        'Retry requested\u00A0· Downloaded files kept',
       );
       expect(
         stuckActionNote(StuckAction.lookForPeers, item),

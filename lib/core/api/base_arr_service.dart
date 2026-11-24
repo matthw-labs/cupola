@@ -1009,12 +1009,14 @@ mixin ArrActivityMixin {
     int id, {
     bool removeFromClient = true,
     bool blocklist = false,
+    bool? skipRedownload,
   }) async {
     await client.delete(
       '/api/${config.apiVersion}/queue/$id',
       queryParameters: {
         'removeFromClient': removeFromClient,
         'blocklist': blocklist,
+        'skipRedownload': ?skipRedownload,
       },
     );
   }

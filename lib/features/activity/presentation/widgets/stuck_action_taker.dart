@@ -12,6 +12,7 @@ import 'package:cupola/core/utils/service_routes.dart';
 import 'package:cupola/core/utils/snack_bar_helper.dart';
 import 'package:cupola/core/widgets/app_dialog.dart';
 import 'package:cupola/features/activity/data/acted_faults.dart';
+import 'package:cupola/features/activity/data/queue_retry.dart';
 import 'package:cupola/features/activity/domain/download_page.dart'
     show downloadClientOf;
 import 'package:cupola/features/activity/domain/service_type.dart';
@@ -90,10 +91,10 @@ mixin StuckActionTaker<T extends ConsumerStatefulWidget> on ConsumerState<T> {
           item,
           service: item.service,
           failure: 'Could not try another download',
-          call: () => _arr(item).removeFromQueue(
+          call: () => retryQueueDownload(
+            _arr(item),
             int.parse(item.id),
-            removeFromClient: true,
-            blocklist: true,
+            expectedDownloadId: item.downloadId,
           ),
         );
       case StuckAction.lookForPeers:
@@ -137,10 +138,15 @@ mixin StuckActionTaker<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     } catch (error) {
       if (mounted) {
         setState(() => takingAction = null);
+        if (error is QueueRetrySearchFailed) {
+          _acted(item, action, 'Blocklisted\u00A0· Search could not start');
+        }
         SnackBarHelper.error(
           context,
-          '$failure. ${writeFailureReason(service, error)}',
-          cause: error,
+          error is QueueRetryException
+              ? error.message
+              : '$failure. ${writeFailureReason(service, error)}',
+          cause: error is QueueRetrySearchFailed ? error.cause : error,
         );
       }
       return;

@@ -187,17 +187,17 @@ String stuckActionLabel(StuckAction action, ServiceQueueItem item) =>
       StuckAction.openClient => 'Open in ${clientName(item)}',
     };
 
-/// What the amber fill does, under it: `Radarr drops this one (1.1 GB so
-/// far), won't pick it again, and looks for another.`, `qBittorrent asks the
-/// trackers again. The 1.1 GB so far stays.` Null for the client's page,
-/// whose button says where it goes.
+/// What the amber fill does and what happens to the files already downloaded.
 String? stuckActionSubtitle(StuckAction action, ServiceQueueItem item) {
   final arrived = arrivedBytes(item);
   return switch (action) {
     StuckAction.tryAnotherDownload =>
-      '${arrName(item)} drops this one'
-          '${arrived == null ? '' : ' ($arrived so far)'}'
-          ", won't pick it again, and looks for another.",
+      _retryKeepsFiles(item)
+          ? '${arrName(item)} is asked to find another release.'
+                '${arrived == null ? ' Downloaded files stay.' : ' The $arrived so far stays.'}'
+          : '${arrName(item)} drops this one'
+                '${arrived == null ? '' : ' ($arrived so far)'}'
+                ", won't pick it again, and looks for another.",
     StuckAction.lookForPeers =>
       '${clientName(item)} asks the trackers again.'
           '${arrived == null ? '' : ' The $arrived so far stays.'}',
@@ -224,13 +224,16 @@ RemoveConfirmation removeConfirmation(ServiceQueueItem item) {
   );
 }
 
-/// What the card says once a way out was taken: `Dropped · Radarr is looking
-/// for another download`, `Asked again · qBittorrent is looking for peers`,
-/// `Removed · Big Buck Bunny stays in your wanted list`.
+bool _retryKeepsFiles(ServiceQueueItem item) =>
+    item.service == ServiceKey.sonarr || item.service == ServiceKey.radarr;
+
+/// What the card says once a way out was taken.
 String stuckActionNote(StuckAction action, ServiceQueueItem item) =>
     switch (action) {
       StuckAction.tryAnotherDownload =>
-        'Dropped\u00A0· ${arrName(item)} is looking for another download',
+        _retryKeepsFiles(item)
+            ? 'Retry requested\u00A0· Downloaded files kept'
+            : 'Dropped\u00A0· ${arrName(item)} is looking for another download',
       StuckAction.lookForPeers =>
         'Asked again\u00A0· ${clientName(item)} is looking for peers',
       StuckAction.remove =>

@@ -55,8 +55,7 @@ void main() {
       panel.consequence,
       matches(
         RegExp(
-          r"^Radarr drops this one \(1\.1.GB so far\), won't pick it again, "
-          r'and looks for another\.$',
+          r'^Radarr is asked to find another release\. The 1\.1.GB so far stays\.$',
         ),
       ),
     );
@@ -77,7 +76,7 @@ void main() {
     // Nothing arrived that it can count: no figure in the consequence.
     expect(
       panel.consequence,
-      "Radarr drops this one, won't pick it again, and looks for another.",
+      'Radarr is asked to find another release. Downloaded files stay.',
     );
     expect(panel.source, 'Radarr');
   });

@@ -285,7 +285,9 @@ no longer want.
 imports waiting for a decision, a disk reporting errors, an indexer that stopped
 watching for new releases. Each one says what happened, keeps the service's raw
 message one tap away, and offers the fix first: try another download, look for peers
-again, review the import, scrub the pool.
+again, review the import, scrub the pool. With Sonarr and Radarr, **Try another
+download** keeps any partial files and asks for a new search for the affected episodes
+or movie, even when automatic retries are off.
 
 Downloads from all four clients sit in one list, moving first and stuck next. Open
 one to stop or resume it; on the desktop the table does it from the row. Requests and

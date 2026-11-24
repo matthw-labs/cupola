@@ -795,7 +795,7 @@ void main() {
       findsOneWidget,
     );
     expect(
-      find.textContaining(RegExp(r"^Radarr 1 drops this one \(.+ so far\), ")),
+      find.textContaining('Radarr 1 is asked to find another release.'),
       findsOneWidget,
     );
 

@@ -117,9 +117,9 @@ MediaCopyPanel mediaCopyPanel({
     _ => said,
   };
   final says = quoted == null ? '' : ' $name says: $quoted';
-  final drops =
-      '$name drops this one${arrived == null ? '' : ' ($arrived so far)'}, '
-      "won't pick it again, and looks for another.";
+  final retry =
+      '$name is asked to find another release.'
+      '${arrived == null ? ' Downloaded files stay.' : ' The $arrived so far stays.'}';
 
   switch (status.pipeline) {
     case MediaPipeline.stalled:
@@ -135,7 +135,7 @@ MediaCopyPanel mediaCopyPanel({
           MediaCopyAction.tryAnother,
           MediaCopyAction.removeDownload,
         ],
-        consequence: drops,
+        consequence: retry,
       );
     case MediaPipeline.failed:
       return MediaCopyPanel(
@@ -148,7 +148,7 @@ MediaCopyPanel mediaCopyPanel({
           MediaCopyAction.tryAnother,
           MediaCopyAction.removeDownload,
         ],
-        consequence: drops,
+        consequence: retry,
       );
     case MediaPipeline.importBlocked:
       return MediaCopyPanel(

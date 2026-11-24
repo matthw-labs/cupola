@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:cupola/core/capability/role_gate_provider.dart';
 import 'package:cupola/core/utils/snack_bar_helper.dart';
 import 'package:cupola/core/widgets/app_dialog.dart';
+import 'package:cupola/features/activity/data/queue_retry.dart';
 import 'package:cupola/features/activity/domain/service_type.dart';
 import 'package:cupola/features/activity/presentation/activity_provider.dart';
 import 'package:cupola/features/discover/data/seerr_service.dart';
@@ -117,10 +118,7 @@ class ActivityActions {
     );
   }
 
-  /// Blocklists the current release and immediately searches for another.
-  ///
-  /// This is what a user means by "retry": the \*arr API has no retry endpoint,
-  /// so the equivalent is to reject what is there and go looking again.
+  /// Blocklists the release, keeping any files, and requests another search.
   static Future<void> blocklistAndRetry(
     BuildContext context,
     WidgetRef ref, {
@@ -128,13 +126,14 @@ class ActivityActions {
     required String instanceId,
     required int recordId,
     required String title,
+    String? downloadId,
   }) async {
     final result = await showAppConfirmDialog(
       context: context,
       title: 'Try another download?',
       message:
-          '$title will be removed and never picked again, then a new search '
-          'looks for a different release.',
+          '$title will be blocklisted, and a new search will be requested. '
+          'Any files already downloaded stay in your download client.',
       icon: Icons.refresh_rounded,
       confirmLabel: 'Try another download',
       enterConfirms: true,
@@ -147,10 +146,12 @@ class ActivityActions {
       context,
       ref,
       service: serviceType.service,
-      action: () => ref
-          .read(connectionArrServiceProvider((serviceType, instanceId)))
-          .removeFromQueue(recordId, removeFromClient: true, blocklist: true),
-      successMessage: 'Looking for another download',
+      action: () => retryQueueDownload(
+        ref.read(connectionArrServiceProvider((serviceType, instanceId))),
+        recordId,
+        expectedDownloadId: downloadId,
+      ),
+      successMessage: 'Retry requested. Downloaded files kept.',
       failureMessage: 'Could not try another download',
     );
   }
@@ -449,9 +450,14 @@ class ActivityActions {
       if (context.mounted) {
         SnackBarHelper.error(
           context,
-          '$failureMessage. ${writeFailureReason(service, error)}',
-          cause: error,
+          error is QueueRetryException
+              ? error.message
+              : '$failureMessage. ${writeFailureReason(service, error)}',
+          cause: error is QueueRetrySearchFailed ? error.cause : error,
         );
+        if (error is QueueRetrySearchFailed) {
+          _refresh(ref, invalidateRequests: invalidateRequests);
+        }
       }
       return false;
     }
